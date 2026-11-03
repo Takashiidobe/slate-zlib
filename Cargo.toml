@@ -1,0 +1,36 @@
+[package]
+name = "slate_zlib"
+version = "0.0.0"
+edition = "2024"
+autobins = false
+
+
+[lib]
+path = "src/lib.rs"
+doctest = false
+crate-type = ["rlib"]
+
+[workspace]
+
+[dependencies]
+slate-support = { path = "slate-support" }
+aligned = { path = "aligned" }
+bitint = { path = "bitint" }
+num-complex = { path = "num-complex", default-features = false }
+bitfields = { path = "/home/takashi/Projects/slate/crates/slate/vendor/bitfields" }
+
+[profile.dev]
+overflow-checks = false
+debug-assertions = false
+codegen-units = 256
+
+[features]
+fastest = []
+inflate-allow-invalid = []
+inflate-strict = []
+lit-mem = []
+no-gzcompress = []
+no-gzip = []
+no-vsnprintf = []
+pkzip-bug = []
+zlib-debug = []
