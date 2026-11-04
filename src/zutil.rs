@@ -13,16 +13,23 @@ macro_rules! ERR_MSG__2 {
     };
 }
 
+#[cfg(any(
+    target_os = "macos",
+    target_os = "android",
+    all(target_arch = "arm", windows)
+))]
 unsafe extern "C" {
     fn malloc(arg0: size_t) -> *mut ();
     fn calloc(arg0: size_t, arg1: size_t) -> *mut ();
     fn free(arg0: *mut ());
 }
 
-#[cfg(feature = "zlib-debug")]
+#[cfg(all(
+    any(target_os = "macos", all(target_arch = "arm", windows)),
+    feature = "zlib-debug"
+))]
 unsafe extern "C" {
     fn exit(arg0: i32);
-    fn fflush(_0: *mut slate_support::FILE) -> i32;
 }
 
 use core::ffi::c_char;
@@ -37,6 +44,11 @@ use core::ffi::c_long;
 use core::ffi::c_ulong;
 #[cfg(unix)]
 use slate_support::off_t;
+#[cfg(any(
+    target_os = "macos",
+    target_os = "android",
+    all(target_arch = "arm", windows)
+))]
 use slate_support::size_t;
 
 #[cfg(target_arch = "x86_64")]
@@ -46,6 +58,11 @@ struct __SlateAlignLargeArray<T>(T);
 #[cfg(not(target_arch = "x86_64"))]
 #[repr(C)]
 struct __SlateAlignLargeArray<T>(T);
+
+#[cfg(feature = "zlib-debug")]
+unsafe extern "C" {
+    fn fflush(_0: *mut slate_support::FILE) -> i32;
+}
 
 #[unsafe(no_mangle)]
 static mut z_errmsg: __SlateAlignLargeArray<[*mut c_char; 10]> = __SlateAlignLargeArray([
@@ -60,6 +77,30 @@ static mut z_errmsg: __SlateAlignLargeArray<[*mut c_char; 10]> = __SlateAlignLar
     b"incompatible version\0".as_ptr() as *mut c_char,
     b"\0".as_ptr() as *mut c_char,
 ]);
+
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    all(not(target_arch = "arm"), windows)
+))]
+use slate_support::calloc;
+#[cfg(all(
+    not(any(target_os = "macos", all(target_arch = "arm", windows))),
+    feature = "zlib-debug"
+))]
+use slate_support::exit;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    all(not(target_arch = "arm"), windows)
+))]
+use slate_support::free;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    all(not(target_arch = "arm"), windows)
+))]
+use slate_support::malloc;
 
 // @(#) $Id$
 // Z_NEED_DICT       2
@@ -192,7 +233,14 @@ extern "C-unwind" fn z_error(m: *mut c_char) {
         unsafe { slate_support::fprintf(slate_support::stderr(), c"%s\n".as_ptr(), m) };
     }
     unsafe { fflush(std::ptr::null_mut()) };
-    unsafe { std::process::exit(1i32) };
+    #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
+    {
+        unsafe { std::process::exit(1i32 as i32) };
+    }
+    #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
+    {
+        unsafe { std::process::exit(1i32) };
+    }
 }
 
 /// exported to allow conversion of error code to string for compress() and
@@ -208,23 +256,38 @@ extern "C-unwind" fn zError(err: i32) -> *const c_char {
     unsafe(link_section = ".text.slate_distinct.zutil.zcalloc")
 )]
 extern "C-unwind" fn zcalloc(opaque: *mut (), items: u32, size: u32) -> *mut () {
-    #[cfg(all(target_pointer_width = "64", unix))]
+    #[cfg(any(
+        all(target_os = "linux", target_pointer_width = "64"),
+        target_os = "freebsd"
+    ))]
+    let __v0: *mut () = if (std::mem::size_of::<u32>() as c_ulong) > 2 {
+        unsafe { malloc((items.wrapping_mul(size) as c_ulong) as usize) as *mut () }
+    } else {
+        unsafe { calloc((items as c_ulong) as usize, (size as c_ulong) as usize) as *mut () }
+    };
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+    let __v0: *mut () = if (std::mem::size_of::<u32>() as u32) > 2 {
+        unsafe { malloc(items.wrapping_mul(size) as usize) as *mut () }
+    } else {
+        unsafe { calloc(items as usize, size as usize) as *mut () }
+    };
+    #[cfg(any(target_os = "macos", target_os = "android"))]
     let __v0: *mut () = if (std::mem::size_of::<u32>() as c_ulong) > 2 {
         unsafe { malloc(items.wrapping_mul(size) as c_ulong) }
     } else {
         unsafe { calloc(items as c_ulong, size as c_ulong) }
     };
-    #[cfg(target_pointer_width = "32")]
+    #[cfg(all(target_pointer_width = "64", windows))]
+    let __v0: *mut () = if (std::mem::size_of::<u32>() as u64) > 2 {
+        unsafe { malloc((items.wrapping_mul(size) as u64) as usize) as *mut () }
+    } else {
+        unsafe { calloc((items as u64) as usize, (size as u64) as usize) as *mut () }
+    };
+    #[cfg(all(target_arch = "arm", windows))]
     let __v0: *mut () = if (std::mem::size_of::<u32>() as u32) > 2 {
         unsafe { malloc(items.wrapping_mul(size)) }
     } else {
         unsafe { calloc(items, size) }
-    };
-    #[cfg(all(target_pointer_width = "64", windows))]
-    let __v0: *mut () = if (std::mem::size_of::<u32>() as u64) > 2 {
-        unsafe { malloc(items.wrapping_mul(size) as u64) }
-    } else {
-        unsafe { calloc(items as u64, size as u64) }
     };
     __v0
 }
@@ -235,5 +298,20 @@ extern "C-unwind" fn zcalloc(opaque: *mut (), items: u32, size: u32) -> *mut () 
     unsafe(link_section = ".text.slate_distinct.zutil.zcfree")
 )]
 extern "C-unwind" fn zcfree(opaque: *mut (), ptr: *mut ()) {
-    unsafe { free(ptr) };
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "freebsd",
+        all(not(target_arch = "arm"), windows)
+    ))]
+    {
+        unsafe { free(ptr as *mut core::ffi::c_void) };
+    }
+    #[cfg(any(
+        target_os = "macos",
+        target_os = "android",
+        all(target_arch = "arm", windows)
+    ))]
+    {
+        unsafe { free(ptr) };
+    }
 }

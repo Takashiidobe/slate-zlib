@@ -1,6 +1,11 @@
 //! infback.c -- inflate using a call-back interface
 //! Copyright (C) 1995-2026 Mark Adler
 //! For conditions of distribution and use, see copyright notice in zlib.h
+#[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
+unsafe extern "C" {
+    fn memcpy(arg0: *mut (), arg1: *const (), arg2: size_t) -> *mut ();
+}
+
 #[cfg(feature = "zlib-debug")]
 unsafe extern "C" {
     static mut z_verbose: i32;
@@ -8,7 +13,6 @@ unsafe extern "C" {
 }
 
 unsafe extern "C" {
-    fn memcpy(arg0: *mut (), arg1: *const (), arg2: size_t) -> *mut ();
     fn zcalloc(arg0: *mut (), arg1: u32, arg2: u32) -> *mut ();
     fn zcfree(arg0: *mut (), arg1: *mut ());
     fn inflate_table(
@@ -25,6 +29,7 @@ unsafe extern "C" {
 
 use core::ffi::c_char;
 use core::ffi::c_ulong;
+#[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
 use slate_support::size_t;
 
 #[repr(C)]
@@ -251,6 +256,9 @@ extern "C-unwind" fn inflateBackInit_(
     }
     0
 }
+
+#[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
+use slate_support::memcpy;
 
 // Macros for inflateBack():
 // Load returned state from inflate_fast()
@@ -540,17 +548,25 @@ copy = have;
 if copy > left {
 copy = left;
 }
-#[cfg(all(target_pointer_width = "64", unix))]
+#[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+{
+std::ptr::copy_nonoverlapping(((next as *const ()) as *const core::ffi::c_void) as *const u8, ((put as *mut ()) as *mut core::ffi::c_void) as *mut u8, ((copy as c_ulong) as usize) as usize);
+}
+#[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+{
+std::ptr::copy_nonoverlapping(((next as *const ()) as *const core::ffi::c_void) as *const u8, ((put as *mut ()) as *mut core::ffi::c_void) as *mut u8, (copy as usize) as usize);
+}
+#[cfg(target_os = "macos")]
 {
 std::ptr::copy_nonoverlapping(next as *const u8, put as *mut u8, (copy as c_ulong) as usize);
 }
-#[cfg(target_pointer_width = "32")]
-{
-std::ptr::copy_nonoverlapping(next as *const u8, put as *mut u8, copy as usize);
-}
 #[cfg(all(target_pointer_width = "64", windows))]
 {
-std::ptr::copy_nonoverlapping(next as *const u8, put as *mut u8, (copy as u64) as usize);
+std::ptr::copy_nonoverlapping(((next as *const ()) as *const core::ffi::c_void) as *const u8, ((put as *mut ()) as *mut core::ffi::c_void) as *mut u8, ((copy as u64) as usize) as usize);
+}
+#[cfg(all(target_arch = "arm", windows))]
+{
+std::ptr::copy_nonoverlapping(next as *const u8, put as *mut u8, copy as usize);
 }
 have = have.wrapping_sub(copy);
 let __v219: *mut u8 = next;

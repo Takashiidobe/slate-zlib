@@ -22,18 +22,8 @@ macro_rules! GT_OFF {
     }};
 }
 
-#[cfg(all(target_pointer_width = "32", unix))]
-macro_rules! GT_OFF__2 {
-    ($x:expr) => {{
-        let __v: bool = (std::mem::size_of::<i32>() as u32)
-            == (std::mem::size_of::<off_t>() as u32)
-            && ($x) > unsafe { gz_intmax() };
-        __v
-    }};
-}
-
 #[cfg(all(target_pointer_width = "64", unix))]
-macro_rules! GT_OFF__3 {
+macro_rules! GT_OFF__2 {
     ($x:expr) => {{
         let __v: bool = (std::mem::size_of::<i32>() as c_ulong)
             == (std::mem::size_of::<off_t>() as c_ulong)
@@ -43,9 +33,19 @@ macro_rules! GT_OFF__3 {
 }
 
 #[cfg(all(target_pointer_width = "64", windows))]
-macro_rules! GT_OFF__4 {
+macro_rules! GT_OFF__3 {
     ($x:expr) => {{
         let __v: bool = (std::mem::size_of::<i32>() as u64) == (std::mem::size_of::<i64>() as u64)
+            && ($x) > unsafe { gz_intmax() };
+        __v
+    }};
+}
+
+#[cfg(all(target_pointer_width = "32", unix))]
+macro_rules! GT_OFF__4 {
+    ($x:expr) => {{
+        let __v: bool = (std::mem::size_of::<i32>() as u32)
+            == (std::mem::size_of::<off_t>() as u32)
             && ($x) > unsafe { gz_intmax() };
         __v
     }};
@@ -263,13 +263,35 @@ macro_rules! put_byte {
     };
 }
 
+#[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
 macro_rules! zmemzero {
+    ($dest:expr, $len:expr) => {
+        unsafe {
+            std::ptr::write_bytes(
+                ((($dest) as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (0i32 as i32) as u8,
+                (($len) as usize) as usize,
+            )
+        };
+    };
+}
+
+#[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
+macro_rules! zmemzero__2 {
     ($dest:expr, $len:expr) => {
         unsafe { std::ptr::write_bytes((($dest) as *mut ()) as *mut u8, 0u8, ($len) as usize) };
     };
 }
 
+#[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
 macro_rules! zstrerror {
+    () => {
+        unsafe { strerror(*slate_support::errno_location() as i32) as *mut c_char }
+    };
+}
+
+#[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
+macro_rules! zstrerror__2 {
     () => {
         unsafe { strerror(*slate_support::errno_location()) }
     };

@@ -1,8 +1,32 @@
 //! deflate.c -- compress data using the deflation algorithm
 //! Copyright (C) 1995-2026 Jean-loup Gailly and Mark Adler
 //! For conditions of distribution and use, see copyright notice in zlib.h
+#[cfg(all(target_arch = "arm", windows))]
+macro_rules! CLEAR_HASH {
+    ($s:expr) => {
+        loop {
+            unsafe {
+                *unsafe { (*$s).head }
+                    .offset(unsafe { (*$s).hash_size }.wrapping_sub(1) as isize) = 0;
+            }
+            zmemzero__2!(
+                unsafe { (*$s).head },
+                unsafe { (*$s).hash_size }
+                    .wrapping_sub(1)
+                    .wrapping_mul(std::mem::size_of::<u16>() as u32)
+            );
+            unsafe {
+                (*$s).slid = 0;
+            }
+            if true {
+                break;
+            }
+        }
+    };
+}
+
 #[cfg(all(target_pointer_width = "64", windows))]
-macro_rules! CLEAR_HASH__2 {
+macro_rules! CLEAR_HASH__4 {
     ($s:expr) => {
         loop {
             unsafe {
@@ -24,8 +48,31 @@ macro_rules! CLEAR_HASH__2 {
     };
 }
 
-#[cfg(target_pointer_width = "32")]
-macro_rules! CLEAR_HASH__3 {
+#[cfg(target_os = "macos")]
+macro_rules! CLEAR_HASH__5 {
+    ($s:expr) => {
+        loop {
+            unsafe {
+                *unsafe { (*$s).head }
+                    .offset(unsafe { (*$s).hash_size }.wrapping_sub(1) as isize) = 0;
+            }
+            zmemzero__2!(
+                unsafe { (*$s).head },
+                (unsafe { (*$s).hash_size }.wrapping_sub(1) as c_ulong)
+                    .wrapping_mul(std::mem::size_of::<u16>() as c_ulong)
+            );
+            unsafe {
+                (*$s).slid = 0;
+            }
+            if true {
+                break;
+            }
+        }
+    };
+}
+
+#[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+macro_rules! CLEAR_HASH__2 {
     ($s:expr) => {
         loop {
             unsafe {
@@ -48,8 +95,8 @@ macro_rules! CLEAR_HASH__3 {
     };
 }
 
-#[cfg(all(target_pointer_width = "64", unix))]
-macro_rules! CLEAR_HASH {
+#[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+macro_rules! CLEAR_HASH__3 {
     ($s:expr) => {
         loop {
             unsafe {
@@ -116,7 +163,7 @@ macro_rules! FLUSH_BLOCK_ONLY__4 {
 }
 
 #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
-macro_rules! FLUSH_BLOCK__2 {
+macro_rules! FLUSH_BLOCK__4 {
     ($s:expr, $last:expr) => {{
         FLUSH_BLOCK_ONLY__4!($s, $last);
         if (unsafe { (*(*$s).strm).avail_out }) == 0 {
@@ -126,7 +173,7 @@ macro_rules! FLUSH_BLOCK__2 {
 }
 
 #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
-macro_rules! FLUSH_BLOCK_ONLY {
+macro_rules! FLUSH_BLOCK_ONLY__2 {
     ($s:expr, $last:expr) => {
         unsafe {
             _tr_flush_block(
@@ -148,9 +195,9 @@ macro_rules! FLUSH_BLOCK_ONLY {
 }
 
 #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
-macro_rules! FLUSH_BLOCK__3 {
+macro_rules! FLUSH_BLOCK__2 {
     ($s:expr, $last:expr) => {{
-        FLUSH_BLOCK_ONLY!($s, $last);
+        FLUSH_BLOCK_ONLY__2!($s, $last);
         if (unsafe { (*(*$s).strm).avail_out }) == 0 {
             return (if ($last) != 0 { 2i32 } else { 0i32 }) as u32;
         }
@@ -158,7 +205,7 @@ macro_rules! FLUSH_BLOCK__3 {
 }
 
 #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
-macro_rules! FLUSH_BLOCK_ONLY__2 {
+macro_rules! FLUSH_BLOCK_ONLY__3 {
     ($s:expr, $last:expr) => {
         unsafe {
             _tr_flush_block(
@@ -182,9 +229,9 @@ macro_rules! FLUSH_BLOCK_ONLY__2 {
 }
 
 #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
-macro_rules! FLUSH_BLOCK {
+macro_rules! FLUSH_BLOCK__3 {
     ($s:expr, $last:expr) => {{
-        FLUSH_BLOCK_ONLY__2!($s, $last);
+        FLUSH_BLOCK_ONLY__3!($s, $last);
         if (unsafe { (*(*$s).strm).avail_out }) == 0 {
             return (if ($last) != 0 { 2i32 } else { 0i32 }) as u32;
         }
@@ -192,7 +239,7 @@ macro_rules! FLUSH_BLOCK {
 }
 
 #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
-macro_rules! FLUSH_BLOCK_ONLY__3 {
+macro_rules! FLUSH_BLOCK_ONLY {
     ($s:expr, $last:expr) => {
         unsafe {
             _tr_flush_block(
@@ -215,9 +262,9 @@ macro_rules! FLUSH_BLOCK_ONLY__3 {
 }
 
 #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
-macro_rules! FLUSH_BLOCK__4 {
+macro_rules! FLUSH_BLOCK {
     ($s:expr, $last:expr) => {{
-        FLUSH_BLOCK_ONLY__3!($s, $last);
+        FLUSH_BLOCK_ONLY!($s, $last);
         if (unsafe { (*(*$s).strm).avail_out }) == 0 {
             return (if ($last) != 0 { 2i32 } else { 0i32 }) as u32;
         }
@@ -322,74 +369,6 @@ macro_rules! TRY_FREE__2 {
     };
 }
 
-#[cfg(all(not(target_os = "freebsd"), unix, feature = "zlib-debug"))]
-macro_rules! Tracev {
-    ($x__0:expr, $x__1:expr) => {
-        if (unsafe { z_verbose }) > 0 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char) };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
-#[cfg(all(target_os = "freebsd", feature = "zlib-debug"))]
-macro_rules! Tracev {
-    ($x__0:expr, $x__1:expr) => {
-        if (unsafe { z_verbose }) > 0 {
-            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char) };
-        }
-    };
-}
-
-#[cfg(all(windows, feature = "zlib-debug"))]
-macro_rules! Tracev {
-    ($x__0:expr, $x__1:expr) => {
-        if (unsafe { z_verbose }) > 0 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char) };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
-#[cfg(all(not(target_os = "freebsd"), unix, feature = "zlib-debug"))]
-macro_rules! Tracevv__2 {
-    ($x__0:expr, $x__1:expr, $x__2:expr) => {
-        if (unsafe { z_verbose }) > 1 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe {
-                slate_support::fprintf($x__0, ($x__1) as *const c_char, (($x__2) as u32) as i32)
-            };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
-#[cfg(all(target_os = "freebsd", feature = "zlib-debug"))]
-macro_rules! Tracevv__2 {
-    ($x__0:expr, $x__1:expr, $x__2:expr) => {
-        if (unsafe { z_verbose }) > 1 {
-            unsafe {
-                slate_support::fprintf($x__0, ($x__1) as *const c_char, (($x__2) as u32) as i32)
-            };
-        }
-    };
-}
-
-#[cfg(all(windows, feature = "zlib-debug"))]
-macro_rules! Tracevv__2 {
-    ($x__0:expr, $x__1:expr, $x__2:expr) => {
-        if (unsafe { z_verbose }) > 1 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe {
-                slate_support::fprintf($x__0, ($x__1) as *const c_char, (($x__2) as u32) as i32)
-            };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
 macro_rules! UPDATE_HASH {
     ($s:expr, $h:expr, $c:expr) => {
         unsafe {
@@ -476,7 +455,7 @@ macro_rules! _tr_tally_dist__2 {
 }
 
 #[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
-macro_rules! _tr_tally_lit__3 {
+macro_rules! _tr_tally_lit {
     ($s:expr, $c:expr, $flush:expr) => {
         let cc: u8 = $c;
         unsafe {
@@ -553,7 +532,7 @@ macro_rules! _tr_tally_dist {
 }
 
 #[cfg(all(not(feature = "lit-mem"), not(feature = "zlib-debug")))]
-macro_rules! _tr_tally_lit {
+macro_rules! _tr_tally_lit__3 {
     ($s:expr, $c:expr, $flush:expr) => {
         let cc: u8 = $c;
         let __v: *mut internal_state = $s;
@@ -608,19 +587,19 @@ macro_rules! d_code__2 {
 }
 
 #[cfg(all(target_pointer_width = "64", windows))]
-macro_rules! zmemzero__2 {
+macro_rules! zmemzero__4 {
     ($dest:expr, $len:expr) => {
         unsafe {
             std::ptr::write_bytes(
-                (($dest) as *mut ()) as *mut u8,
-                0u8,
-                (($len) as u64) as usize,
+                ((($dest) as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (0i32 as i32) as u8,
+                ((($len) as u64) as usize) as usize,
             )
         };
     };
 }
 
-#[cfg(all(target_pointer_width = "64", unix))]
+#[cfg(target_os = "macos")]
 macro_rules! zmemzero__3 {
     ($dest:expr, $len:expr) => {
         unsafe {
@@ -633,11 +612,22 @@ macro_rules! zmemzero__3 {
     };
 }
 
+#[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+macro_rules! zmemzero__5 {
+    ($dest:expr, $len:expr) => {
+        unsafe {
+            std::ptr::write_bytes(
+                ((($dest) as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (0i32 as i32) as u8,
+                ((($len) as c_ulong) as usize) as usize,
+            )
+        };
+    };
+}
+
 unsafe extern "C" {
     static mut z_errmsg: [*mut c_char; 10];
     fn adler32(arg0: c_ulong, arg1: *const u8, arg2: u32) -> c_ulong;
-    fn memcpy(arg0: *mut (), arg1: *const (), arg2: size_t) -> *mut ();
-    fn memset(arg0: *mut (), arg1: i32, arg2: size_t) -> *mut ();
     fn zcalloc(arg0: *mut (), arg1: u32, arg2: u32) -> *mut ();
     fn zcfree(arg0: *mut (), arg1: *mut ());
     fn _tr_init(arg0: *mut internal_state);
@@ -655,9 +645,9 @@ unsafe extern "C" {
 #[cfg(feature = "zlib-debug")]
 unsafe extern "C" {
     static mut z_verbose: i32;
-    fn memcmp(arg0: *const (), arg1: *const (), arg2: size_t) -> i32;
     fn z_error(arg0: *mut c_char);
     fn _tr_tally(arg0: *mut internal_state, arg1: u32, arg2: u32) -> i32;
+    fn fflush(_0: *mut slate_support::FILE) -> i32;
 }
 
 #[cfg(not(feature = "zlib-debug"))]
@@ -672,9 +662,18 @@ unsafe extern "C" {
     fn crc32_z(arg0: c_ulong, arg1: *const u8, arg2: size_t) -> c_ulong;
 }
 
-#[cfg(all(not(target_os = "freebsd"), feature = "zlib-debug"))]
+#[cfg(all(
+    any(target_os = "macos", all(target_arch = "arm", windows)),
+    feature = "zlib-debug"
+))]
 unsafe extern "C" {
-    fn fflush(_0: *mut slate_support::FILE) -> i32;
+    fn memcmp(arg0: *const (), arg1: *const (), arg2: size_t) -> i32;
+}
+
+#[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
+unsafe extern "C" {
+    fn memcpy(arg0: *mut (), arg1: *const (), arg2: size_t) -> *mut ();
+    fn memset(arg0: *mut (), arg1: i32, arg2: size_t) -> *mut ();
 }
 
 use core::ffi::c_char;
@@ -1120,6 +1119,16 @@ fn slide_hash(s: *mut internal_state) {
     }
 }
 
+#[cfg(all(
+    not(any(target_os = "macos", all(target_arch = "arm", windows))),
+    feature = "zlib-debug"
+))]
+use slate_support::memcmp;
+#[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
+use slate_support::memcpy;
+#[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
+use slate_support::memset;
+
 /// Read a new buffer from the current input stream, update the adler32
 /// and total number of bytes read.  All deflate() input goes through
 /// this function so some applications may wish to modify it to avoid
@@ -1137,7 +1146,27 @@ fn read_buf(strm: *mut z_stream_s, buf: *mut u8, size: u32) -> u32 {
     unsafe {
         (*strm).avail_in = __v1.wrapping_sub(len);
     }
-    #[cfg(all(target_pointer_width = "64", unix))]
+    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*strm).next_in as *const ()) as *const core::ffi::c_void) as *const u8,
+                ((buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((len as c_ulong) as usize) as usize,
+            )
+        };
+    }
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*strm).next_in as *const ()) as *const core::ffi::c_void) as *const u8,
+                ((buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (len as usize) as usize,
+            )
+        };
+    }
+    #[cfg(target_os = "macos")]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
@@ -1147,23 +1176,23 @@ fn read_buf(strm: *mut z_stream_s, buf: *mut u8, size: u32) -> u32 {
             )
         };
     }
-    #[cfg(target_pointer_width = "32")]
+    #[cfg(all(target_pointer_width = "64", windows))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*strm).next_in as *const ()) as *const core::ffi::c_void) as *const u8,
+                ((buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((len as u64) as usize) as usize,
+            )
+        };
+    }
+    #[cfg(all(target_arch = "arm", windows))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 ((*strm).next_in as *const ()) as *const u8,
                 buf as *mut u8,
                 len as usize,
-            )
-        };
-    }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                ((*strm).next_in as *const ()) as *const u8,
-                buf as *mut u8,
-                (len as u64) as usize,
             )
         };
     }
@@ -1264,7 +1293,29 @@ fn fill_window(s: *mut internal_state) {
         // If the window is almost full and there is insufficient lookahead,
         // move the upper half to the lower one to make room in the upper half.
         if (unsafe { (*s).strstart }) >= wsize.wrapping_add(MAX_DIST!(s)) {
-            #[cfg(all(target_pointer_width = "64", unix))]
+            #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+            {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        ((unsafe { (*s).window }.add(wsize as usize) as *const ())
+                            as *const core::ffi::c_void) as *const u8,
+                        (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                        ((wsize.wrapping_sub(more) as c_ulong) as usize) as usize,
+                    )
+                };
+            }
+            #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+            {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        ((unsafe { (*s).window }.add(wsize as usize) as *const ())
+                            as *const core::ffi::c_void) as *const u8,
+                        (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                        (wsize.wrapping_sub(more) as usize) as usize,
+                    )
+                };
+            }
+            #[cfg(target_os = "macos")]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
@@ -1274,23 +1325,24 @@ fn fill_window(s: *mut internal_state) {
                     )
                 };
             }
-            #[cfg(target_pointer_width = "32")]
+            #[cfg(all(target_pointer_width = "64", windows))]
+            {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        ((unsafe { (*s).window }.add(wsize as usize) as *const ())
+                            as *const core::ffi::c_void) as *const u8,
+                        (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                        ((wsize.wrapping_sub(more) as u64) as usize) as usize,
+                    )
+                };
+            }
+            #[cfg(all(target_arch = "arm", windows))]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
                         (unsafe { (*s).window }.add(wsize as usize) as *const ()) as *const u8,
                         ((*s).window as *mut ()) as *mut u8,
                         wsize.wrapping_sub(more) as usize,
-                    )
-                };
-            }
-            #[cfg(all(target_pointer_width = "64", windows))]
-            {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        (unsafe { (*s).window }.add(wsize as usize) as *const ()) as *const u8,
-                        ((*s).window as *mut ()) as *mut u8,
-                        (wsize.wrapping_sub(more) as u64) as usize,
                     )
                 };
             }
@@ -1400,21 +1452,35 @@ fn fill_window(s: *mut internal_state) {
             if init > 258 {
                 init = 258;
             }
-            #[cfg(all(target_pointer_width = "64", unix))]
+            #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
             {
-                zmemzero__3!(
+                zmemzero__5!(
                     unsafe { unsafe { (*s).window }.add(curr as usize) },
                     init as u32
                 );
             }
-            #[cfg(target_pointer_width = "32")]
+            #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
             {
                 zmemzero!(
                     unsafe { unsafe { (*s).window }.add(curr as usize) },
                     init as u32
                 );
             }
+            #[cfg(target_os = "macos")]
+            {
+                zmemzero__3!(
+                    unsafe { unsafe { (*s).window }.add(curr as usize) },
+                    init as u32
+                );
+            }
             #[cfg(all(target_pointer_width = "64", windows))]
+            {
+                zmemzero__4!(
+                    unsafe { unsafe { (*s).window }.add(curr as usize) },
+                    init as u32
+                );
+            }
+            #[cfg(all(target_arch = "arm", windows))]
             {
                 zmemzero__2!(
                     unsafe { unsafe { (*s).window }.add(curr as usize) },
@@ -1435,21 +1501,35 @@ fn fill_window(s: *mut internal_state) {
                 if init > unsafe { (*s).window_size }.wrapping_sub(unsafe { (*s).high_water }) {
                     init = unsafe { (*s).window_size }.wrapping_sub(unsafe { (*s).high_water });
                 }
-                #[cfg(all(target_pointer_width = "64", unix))]
+                #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
                 {
-                    zmemzero__3!(
+                    zmemzero__5!(
                         unsafe { unsafe { (*s).window }.offset((*s).high_water as isize) },
                         init as u32
                     );
                 }
-                #[cfg(target_pointer_width = "32")]
+                #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
                 {
                     zmemzero!(
                         unsafe { unsafe { (*s).window }.offset((*s).high_water as isize) },
                         init as u32
                     );
                 }
+                #[cfg(target_os = "macos")]
+                {
+                    zmemzero__3!(
+                        unsafe { unsafe { (*s).window }.offset((*s).high_water as isize) },
+                        init as u32
+                    );
+                }
                 #[cfg(all(target_pointer_width = "64", windows))]
+                {
+                    zmemzero__4!(
+                        unsafe { unsafe { (*s).window }.offset((*s).high_water as isize) },
+                        init as u32
+                    );
+                }
+                #[cfg(all(target_arch = "arm", windows))]
                 {
                     zmemzero__2!(
                         unsafe { unsafe { (*s).window }.offset((*s).high_water as isize) },
@@ -1630,17 +1710,25 @@ extern "C-unwind" fn deflateInit2_(
     if s.is_null() {
         return -4;
     }
-    #[cfg(all(target_pointer_width = "64", unix))]
+    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
     {
         zmemzero!(s, std::mem::size_of::<internal_state>() as c_ulong);
     }
-    #[cfg(target_pointer_width = "32")]
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
     {
         zmemzero!(s, std::mem::size_of::<internal_state>() as u32);
+    }
+    #[cfg(target_os = "macos")]
+    {
+        zmemzero__2!(s, std::mem::size_of::<internal_state>() as c_ulong);
     }
     #[cfg(all(target_pointer_width = "64", windows))]
     {
         zmemzero!(s, std::mem::size_of::<internal_state>() as u64);
+    }
+    #[cfg(all(target_arch = "arm", windows))]
+    {
+        zmemzero__2!(s, std::mem::size_of::<internal_state>() as u32);
     }
     unsafe {
         (*strm).state = s;
@@ -1965,17 +2053,25 @@ extern "C-unwind" fn deflateSetDictionary(
     if dictLength >= unsafe { (*s).w_size } {
         if wrap == 0 {
             // already empty otherwise
-            #[cfg(all(target_pointer_width = "64", unix))]
-            {
-                CLEAR_HASH!(s);
-            }
-            #[cfg(target_pointer_width = "32")]
+            #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
             {
                 CLEAR_HASH__3!(s);
             }
-            #[cfg(all(target_pointer_width = "64", windows))]
+            #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
             {
                 CLEAR_HASH__2!(s);
+            }
+            #[cfg(target_os = "macos")]
+            {
+                CLEAR_HASH__5!(s);
+            }
+            #[cfg(all(target_pointer_width = "64", windows))]
+            {
+                CLEAR_HASH__4!(s);
+            }
+            #[cfg(all(target_arch = "arm", windows))]
+            {
+                CLEAR_HASH!(s);
             }
             unsafe {
                 (*s).strstart = 0;
@@ -2084,7 +2180,35 @@ extern "C-unwind" fn deflateGetDictionary(
         len = unsafe { (*s).w_size };
     }
     if !dictionary.is_null() && len != 0 {
-        #[cfg(all(target_pointer_width = "64", unix))]
+        #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((unsafe { (*s).window }
+                        .offset((*s).strstart as isize)
+                        .offset((*s).lookahead as isize)
+                        .sub(len as usize) as *const ())
+                        as *const core::ffi::c_void) as *const u8,
+                    ((dictionary as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                    ((len as c_ulong) as usize) as usize,
+                )
+            };
+        }
+        #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((unsafe { (*s).window }
+                        .offset((*s).strstart as isize)
+                        .offset((*s).lookahead as isize)
+                        .sub(len as usize) as *const ())
+                        as *const core::ffi::c_void) as *const u8,
+                    ((dictionary as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                    (len as usize) as usize,
+                )
+            };
+        }
+        #[cfg(target_os = "macos")]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
@@ -2097,7 +2221,21 @@ extern "C-unwind" fn deflateGetDictionary(
                 )
             };
         }
-        #[cfg(target_pointer_width = "32")]
+        #[cfg(all(target_pointer_width = "64", windows))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((unsafe { (*s).window }
+                        .offset((*s).strstart as isize)
+                        .offset((*s).lookahead as isize)
+                        .sub(len as usize) as *const ())
+                        as *const core::ffi::c_void) as *const u8,
+                    ((dictionary as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                    ((len as u64) as usize) as usize,
+                )
+            };
+        }
+        #[cfg(all(target_arch = "arm", windows))]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
@@ -2107,19 +2245,6 @@ extern "C-unwind" fn deflateGetDictionary(
                         .sub(len as usize) as *const ()) as *const u8,
                     dictionary as *mut u8,
                     len as usize,
-                )
-            };
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    (unsafe { (*s).window }
-                        .offset((*s).strstart as isize)
-                        .offset((*s).lookahead as isize)
-                        .sub(len as usize) as *const ()) as *const u8,
-                    dictionary as *mut u8,
-                    (len as u64) as usize,
                 )
             };
         }
@@ -2207,17 +2332,25 @@ fn lm_init(s: *mut internal_state) {
     unsafe {
         (*s).window_size = (2 as c_ulong).wrapping_mul((*s).w_size as c_ulong);
     }
-    #[cfg(all(target_pointer_width = "64", unix))]
-    {
-        CLEAR_HASH!(s);
-    }
-    #[cfg(target_pointer_width = "32")]
+    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
     {
         CLEAR_HASH__3!(s);
     }
-    #[cfg(all(target_pointer_width = "64", windows))]
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
     {
         CLEAR_HASH__2!(s);
+    }
+    #[cfg(target_os = "macos")]
+    {
+        CLEAR_HASH__5!(s);
+    }
+    #[cfg(all(target_pointer_width = "64", windows))]
+    {
+        CLEAR_HASH__4!(s);
+    }
+    #[cfg(all(target_arch = "arm", windows))]
+    {
+        CLEAR_HASH!(s);
     }
     // Set the default configuration parameters:
     unsafe {
@@ -2429,17 +2562,25 @@ extern "C-unwind" fn deflateParams(strm: *mut z_stream_s, mut level: i32, strate
             if (unsafe { (*s).matches }) == 1 {
                 slide_hash(s);
             } else {
-                #[cfg(all(target_pointer_width = "64", unix))]
-                {
-                    CLEAR_HASH!(s);
-                }
-                #[cfg(target_pointer_width = "32")]
+                #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
                 {
                     CLEAR_HASH__3!(s);
                 }
-                #[cfg(all(target_pointer_width = "64", windows))]
+                #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
                 {
                     CLEAR_HASH__2!(s);
+                }
+                #[cfg(target_os = "macos")]
+                {
+                    CLEAR_HASH__5!(s);
+                }
+                #[cfg(all(target_pointer_width = "64", windows))]
+                {
+                    CLEAR_HASH__4!(s);
+                }
+                #[cfg(all(target_arch = "arm", windows))]
+                {
+                    CLEAR_HASH!(s);
                 }
             }
             unsafe {
@@ -2838,7 +2979,27 @@ fn flush_pending(strm: *mut z_stream_s) {
     if len == 0 {
         return;
     }
-    #[cfg(all(target_pointer_width = "64", unix))]
+    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*s).pending_out as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*strm).next_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((len as c_ulong) as usize) as usize,
+            )
+        };
+    }
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*s).pending_out as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*strm).next_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (len as usize) as usize,
+            )
+        };
+    }
+    #[cfg(target_os = "macos")]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
@@ -2848,23 +3009,23 @@ fn flush_pending(strm: *mut z_stream_s) {
             )
         };
     }
-    #[cfg(target_pointer_width = "32")]
+    #[cfg(all(target_pointer_width = "64", windows))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*s).pending_out as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*strm).next_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((len as u64) as usize) as usize,
+            )
+        };
+    }
+    #[cfg(all(target_arch = "arm", windows))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 ((*s).pending_out as *const ()) as *const u8,
                 ((*strm).next_out as *mut ()) as *mut u8,
                 len as usize,
-            )
-        };
-    }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                ((*s).pending_out as *const ()) as *const u8,
-                ((*strm).next_out as *mut ()) as *mut u8,
-                (len as u64) as usize,
             )
         };
     }
@@ -3123,7 +3284,39 @@ extern "C-unwind" fn deflate(strm: *mut z_stream_s, flush: i32) -> i32 {
                 {
                     let copy: c_ulong =
                         unsafe { (*s).pending_buf_size }.wrapping_sub(unsafe { (*s).pending });
-                    #[cfg(all(target_pointer_width = "64", unix))]
+                    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+                    {
+                        unsafe {
+                            std::ptr::copy_nonoverlapping(
+                                ((unsafe { (*(*s).gzhead).extra }.offset((*s).gzindex as isize)
+                                    as *const ())
+                                    as *const core::ffi::c_void)
+                                    as *const u8,
+                                ((unsafe { (*s).pending_buf }.offset((*s).pending as isize)
+                                    as *mut ())
+                                    as *mut core::ffi::c_void)
+                                    as *mut u8,
+                                (copy as usize) as usize,
+                            )
+                        };
+                    }
+                    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+                    {
+                        unsafe {
+                            std::ptr::copy_nonoverlapping(
+                                ((unsafe { (*(*s).gzhead).extra }.offset((*s).gzindex as isize)
+                                    as *const ())
+                                    as *const core::ffi::c_void)
+                                    as *const u8,
+                                ((unsafe { (*s).pending_buf }.offset((*s).pending as isize)
+                                    as *mut ())
+                                    as *mut core::ffi::c_void)
+                                    as *mut u8,
+                                ((copy as u32) as usize) as usize,
+                            )
+                        };
+                    }
+                    #[cfg(target_os = "macos")]
                     {
                         unsafe {
                             std::ptr::copy_nonoverlapping(
@@ -3135,7 +3328,23 @@ extern "C-unwind" fn deflate(strm: *mut z_stream_s, flush: i32) -> i32 {
                             )
                         };
                     }
-                    #[cfg(target_pointer_width = "32")]
+                    #[cfg(all(target_pointer_width = "64", windows))]
+                    {
+                        unsafe {
+                            std::ptr::copy_nonoverlapping(
+                                ((unsafe { (*(*s).gzhead).extra }.offset((*s).gzindex as isize)
+                                    as *const ())
+                                    as *const core::ffi::c_void)
+                                    as *const u8,
+                                ((unsafe { (*s).pending_buf }.offset((*s).pending as isize)
+                                    as *mut ())
+                                    as *mut core::ffi::c_void)
+                                    as *mut u8,
+                                ((copy as u64) as usize) as usize,
+                            )
+                        };
+                    }
+                    #[cfg(all(target_arch = "arm", windows))]
                     {
                         unsafe {
                             std::ptr::copy_nonoverlapping(
@@ -3144,18 +3353,6 @@ extern "C-unwind" fn deflate(strm: *mut z_stream_s, flush: i32) -> i32 {
                                 (unsafe { (*s).pending_buf }.offset((*s).pending as isize)
                                     as *mut ()) as *mut u8,
                                 (copy as u32) as usize,
-                            )
-                        };
-                    }
-                    #[cfg(all(target_pointer_width = "64", windows))]
-                    {
-                        unsafe {
-                            std::ptr::copy_nonoverlapping(
-                                (unsafe { (*(*s).gzhead).extra }.offset((*s).gzindex as isize)
-                                    as *const ()) as *const u8,
-                                (unsafe { (*s).pending_buf }.offset((*s).pending as isize)
-                                    as *mut ()) as *mut u8,
-                                (copy as u64) as usize,
                             )
                         };
                     }
@@ -3177,7 +3374,35 @@ extern "C-unwind" fn deflate(strm: *mut z_stream_s, flush: i32) -> i32 {
                     beg = 0;
                     left = left.wrapping_sub(copy);
                 }
-                #[cfg(all(target_pointer_width = "64", unix))]
+                #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+                {
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            ((unsafe { (*(*s).gzhead).extra }.offset((*s).gzindex as isize)
+                                as *const ())
+                                as *const core::ffi::c_void)
+                                as *const u8,
+                            ((unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
+                                as *mut core::ffi::c_void) as *mut u8,
+                            (left as usize) as usize,
+                        )
+                    };
+                }
+                #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+                {
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            ((unsafe { (*(*s).gzhead).extra }.offset((*s).gzindex as isize)
+                                as *const ())
+                                as *const core::ffi::c_void)
+                                as *const u8,
+                            ((unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
+                                as *mut core::ffi::c_void) as *mut u8,
+                            ((left as u32) as usize) as usize,
+                        )
+                    };
+                }
+                #[cfg(target_os = "macos")]
                 {
                     unsafe {
                         std::ptr::copy_nonoverlapping(
@@ -3189,7 +3414,21 @@ extern "C-unwind" fn deflate(strm: *mut z_stream_s, flush: i32) -> i32 {
                         )
                     };
                 }
-                #[cfg(target_pointer_width = "32")]
+                #[cfg(all(target_pointer_width = "64", windows))]
+                {
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            ((unsafe { (*(*s).gzhead).extra }.offset((*s).gzindex as isize)
+                                as *const ())
+                                as *const core::ffi::c_void)
+                                as *const u8,
+                            ((unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
+                                as *mut core::ffi::c_void) as *mut u8,
+                            ((left as u64) as usize) as usize,
+                        )
+                    };
+                }
+                #[cfg(all(target_arch = "arm", windows))]
                 {
                     unsafe {
                         std::ptr::copy_nonoverlapping(
@@ -3198,18 +3437,6 @@ extern "C-unwind" fn deflate(strm: *mut z_stream_s, flush: i32) -> i32 {
                             (unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
                                 as *mut u8,
                             (left as u32) as usize,
-                        )
-                    };
-                }
-                #[cfg(all(target_pointer_width = "64", windows))]
-                {
-                    unsafe {
-                        std::ptr::copy_nonoverlapping(
-                            (unsafe { (*(*s).gzhead).extra }.offset((*s).gzindex as isize)
-                                as *const ()) as *const u8,
-                            (unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
-                                as *mut u8,
-                            (left as u64) as usize,
                         )
                     };
                 }
@@ -3383,17 +3610,25 @@ extern "C-unwind" fn deflate(strm: *mut z_stream_s, flush: i32) -> i32 {
                     // For a full flush, this empty block will be recognized
                     // as a special marker by inflate_sync().
                     if flush == 3 {
-                        #[cfg(all(target_pointer_width = "64", unix))]
-                        {
-                            CLEAR_HASH!(s);
-                        }
-                        #[cfg(target_pointer_width = "32")]
+                        #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
                         {
                             CLEAR_HASH__3!(s);
                         }
-                        #[cfg(all(target_pointer_width = "64", windows))]
+                        #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
                         {
                             CLEAR_HASH__2!(s);
+                        }
+                        #[cfg(target_os = "macos")]
+                        {
+                            CLEAR_HASH__5!(s);
+                        }
+                        #[cfg(all(target_pointer_width = "64", windows))]
+                        {
+                            CLEAR_HASH__4!(s);
+                        }
+                        #[cfg(all(target_arch = "arm", windows))]
+                        {
+                            CLEAR_HASH!(s);
                         }
                         // forget history
                         if (unsafe { (*s).lookahead }) == 0 {
@@ -3488,48 +3723,122 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
         return -2;
     }
     let ss: *mut internal_state = unsafe { (*source).state };
-    unsafe {
-        std::ptr::copy_nonoverlapping(
-            source as *const u8,
-            dest as *mut u8,
-            std::mem::size_of::<z_stream_s>(),
-        )
-    };
+    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                ((source as *const ()) as *const core::ffi::c_void) as *const u8,
+                ((dest as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((std::mem::size_of::<z_stream_s>() as c_ulong) as usize) as usize,
+            )
+        };
+    }
+    #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                source as *const u8,
+                dest as *mut u8,
+                std::mem::size_of::<z_stream_s>(),
+            )
+        };
+    }
     #[cfg(all(target_pointer_width = "64", unix))]
     let ds: *mut internal_state =
         ZALLOC__2!(dest, 1i32, std::mem::size_of::<internal_state>() as c_ulong)
             as *mut internal_state;
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                ((source as *const ()) as *const core::ffi::c_void) as *const u8,
+                ((dest as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((std::mem::size_of::<z_stream_s>() as u32) as usize) as usize,
+            )
+        };
+    }
     #[cfg(target_pointer_width = "32")]
     let ds: *mut internal_state =
         ZALLOC__4!(dest, 1i32, std::mem::size_of::<internal_state>() as u32) as *mut internal_state;
+    #[cfg(all(target_pointer_width = "64", windows))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                ((source as *const ()) as *const core::ffi::c_void) as *const u8,
+                ((dest as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((std::mem::size_of::<z_stream_s>() as u64) as usize) as usize,
+            )
+        };
+    }
     #[cfg(all(target_pointer_width = "64", windows))]
     let ds: *mut internal_state =
         ZALLOC__2!(dest, 1i32, std::mem::size_of::<internal_state>() as u64) as *mut internal_state;
     if ds.is_null() {
         return -4;
     }
-    #[cfg(all(target_pointer_width = "64", unix))]
+    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
     {
         zmemzero!(ds, std::mem::size_of::<internal_state>() as c_ulong);
     }
-    #[cfg(target_pointer_width = "32")]
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
     {
         zmemzero!(ds, std::mem::size_of::<internal_state>() as u32);
+    }
+    #[cfg(target_os = "macos")]
+    {
+        zmemzero__2!(ds, std::mem::size_of::<internal_state>() as c_ulong);
     }
     #[cfg(all(target_pointer_width = "64", windows))]
     {
         zmemzero!(ds, std::mem::size_of::<internal_state>() as u64);
     }
+    #[cfg(all(target_arch = "arm", windows))]
+    {
+        zmemzero__2!(ds, std::mem::size_of::<internal_state>() as u32);
+    }
     unsafe {
         (*dest).state = ds;
     }
-    unsafe {
-        std::ptr::copy_nonoverlapping(
-            ss as *const u8,
-            ds as *mut u8,
-            std::mem::size_of::<internal_state>(),
-        )
-    };
+    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                ((ss as *const ()) as *const core::ffi::c_void) as *const u8,
+                ((ds as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((std::mem::size_of::<internal_state>() as c_ulong) as usize) as usize,
+            )
+        };
+    }
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                ((ss as *const ()) as *const core::ffi::c_void) as *const u8,
+                ((ds as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((std::mem::size_of::<internal_state>() as u32) as usize) as usize,
+            )
+        };
+    }
+    #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                ss as *const u8,
+                ds as *mut u8,
+                std::mem::size_of::<internal_state>(),
+            )
+        };
+    }
+    #[cfg(all(target_pointer_width = "64", windows))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                ((ss as *const ()) as *const core::ffi::c_void) as *const u8,
+                ((ds as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((std::mem::size_of::<internal_state>() as u64) as usize) as usize,
+            )
+        };
+    }
     unsafe {
         (*ds).strm = dest;
     }
@@ -3630,7 +3939,72 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
         return -4;
     }
     // following zmemcpy's do not work for 16-bit MSDOS
-    #[cfg(all(target_pointer_width = "64", unix))]
+    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).window as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((*ss).high_water as usize) as usize,
+            )
+        };
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).prev as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).prev as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (((if (*ss).slid != 0
+                    || unsafe { (*ss).strstart }.wrapping_sub((*ss).insert) > (*ds).w_size
+                {
+                    (*ds).w_size
+                } else {
+                    unsafe { (*ss).strstart }.wrapping_sub((*ss).insert)
+                }) as c_ulong)
+                    .wrapping_mul(std::mem::size_of::<u16>() as c_ulong) as usize)
+                    as usize,
+            )
+        };
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).head as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).head as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (((*ds).hash_size as c_ulong).wrapping_mul(std::mem::size_of::<u16>() as c_ulong)
+                    as usize) as usize,
+            )
+        };
+    }
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).window as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (((*ss).high_water as u32) as usize) as usize,
+            )
+        };
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).prev as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).prev as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (if (*ss).slid != 0
+                    || unsafe { (*ss).strstart }.wrapping_sub((*ss).insert) > (*ds).w_size
+                {
+                    (*ds).w_size
+                } else {
+                    unsafe { (*ss).strstart }.wrapping_sub((*ss).insert)
+                }
+                .wrapping_mul(std::mem::size_of::<u16>() as u32) as usize) as usize,
+            )
+        };
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).head as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).head as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (unsafe { (*ds).hash_size }.wrapping_mul(std::mem::size_of::<u16>() as u32)
+                    as usize) as usize,
+            )
+        };
+    }
+    #[cfg(target_os = "macos")]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
@@ -3662,7 +4036,40 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
             )
         };
     }
-    #[cfg(target_pointer_width = "32")]
+    #[cfg(all(target_pointer_width = "64", windows))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).window as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (((*ss).high_water as u64) as usize) as usize,
+            )
+        };
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).prev as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).prev as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (((if (*ss).slid != 0
+                    || unsafe { (*ss).strstart }.wrapping_sub((*ss).insert) > (*ds).w_size
+                {
+                    (*ds).w_size
+                } else {
+                    unsafe { (*ss).strstart }.wrapping_sub((*ss).insert)
+                }) as u64)
+                    .wrapping_mul(std::mem::size_of::<u16>() as u64) as usize)
+                    as usize,
+            )
+        };
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).head as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).head as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (((*ds).hash_size as u64).wrapping_mul(std::mem::size_of::<u16>() as u64) as usize)
+                    as usize,
+            )
+        };
+    }
+    #[cfg(all(target_arch = "arm", windows))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
@@ -3693,37 +4100,6 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
             )
         };
     }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                ((*ss).window as *const ()) as *const u8,
-                ((*ds).window as *mut ()) as *mut u8,
-                ((*ss).high_water as u64) as usize,
-            )
-        };
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                ((*ss).prev as *const ()) as *const u8,
-                ((*ds).prev as *mut ()) as *mut u8,
-                ((if (*ss).slid != 0
-                    || unsafe { (*ss).strstart }.wrapping_sub((*ss).insert) > (*ds).w_size
-                {
-                    (*ds).w_size
-                } else {
-                    unsafe { (*ss).strstart }.wrapping_sub((*ss).insert)
-                }) as u64)
-                    .wrapping_mul(std::mem::size_of::<u16>() as u64) as usize,
-            )
-        };
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                ((*ss).head as *const ()) as *const u8,
-                ((*ds).head as *mut ()) as *mut u8,
-                ((*ds).hash_size as u64).wrapping_mul(std::mem::size_of::<u16>() as u64) as usize,
-            )
-        };
-    }
     unsafe {
         #[cfg(all(target_pointer_width = "64", unix))]
         {
@@ -3747,7 +4123,27 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
             );
         }
     }
-    #[cfg(all(target_pointer_width = "64", unix))]
+    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).pending_out as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).pending_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((*ss).pending as usize) as usize,
+            )
+        };
+    }
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).pending_out as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).pending_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (((*ss).pending as u32) as usize) as usize,
+            )
+        };
+    }
+    #[cfg(target_os = "macos")]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
@@ -3757,23 +4153,23 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
             )
         };
     }
-    #[cfg(target_pointer_width = "32")]
+    #[cfg(all(target_pointer_width = "64", windows))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).pending_out as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).pending_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (((*ss).pending as u64) as usize) as usize,
+            )
+        };
+    }
+    #[cfg(all(target_arch = "arm", windows))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 ((*ss).pending_out as *const ()) as *const u8,
                 ((*ds).pending_out as *mut ()) as *mut u8,
                 ((*ss).pending as u32) as usize,
-            )
-        };
-    }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                ((*ss).pending_out as *const ()) as *const u8,
-                ((*ds).pending_out as *mut ()) as *mut u8,
-                ((*ss).pending as u64) as usize,
             )
         };
     }
@@ -3794,7 +4190,51 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
             (*ds).l_buf = unsafe { (*ds).pending_buf }.offset(((*ds).lit_bufsize << 2i32) as isize);
         }
     }
-    #[cfg(all(target_pointer_width = "64", unix, feature = "lit-mem"))]
+    #[cfg(all(
+        not(target_os = "macos"),
+        target_pointer_width = "64",
+        unix,
+        feature = "lit-mem"
+    ))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).d_buf as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).d_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (((*ss).sym_next as c_ulong).wrapping_mul(std::mem::size_of::<u16>() as c_ulong)
+                    as usize) as usize,
+            )
+        };
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).l_buf as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).l_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (((*ss).sym_next as c_ulong) as usize) as usize,
+            )
+        };
+    }
+    #[cfg(all(
+        any(target_arch = "x86", all(target_arch = "arm", unix)),
+        feature = "lit-mem"
+    ))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).d_buf as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).d_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (unsafe { (*ss).sym_next }.wrapping_mul(std::mem::size_of::<u16>() as u32) as usize)
+                    as usize,
+            )
+        };
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).l_buf as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).l_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((*ss).sym_next as usize) as usize,
+            )
+        };
+    }
+    #[cfg(all(target_os = "macos", feature = "lit-mem"))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
@@ -3812,7 +4252,25 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
             )
         };
     }
-    #[cfg(all(target_pointer_width = "32", feature = "lit-mem"))]
+    #[cfg(all(target_pointer_width = "64", windows, feature = "lit-mem"))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).d_buf as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).d_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (((*ss).sym_next as u64).wrapping_mul(std::mem::size_of::<u16>() as u64) as usize)
+                    as usize,
+            )
+        };
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).l_buf as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).l_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (((*ss).sym_next as u64) as usize) as usize,
+            )
+        };
+    }
+    #[cfg(all(target_arch = "arm", windows, feature = "lit-mem"))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
@@ -3829,24 +4287,35 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
             )
         };
     }
-    #[cfg(all(target_pointer_width = "64", windows, feature = "lit-mem"))]
+    #[cfg(all(
+        not(target_os = "macos"),
+        target_pointer_width = "64",
+        unix,
+        not(feature = "lit-mem")
+    ))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
-                ((*ss).d_buf as *const ()) as *const u8,
-                ((*ds).d_buf as *mut ()) as *mut u8,
-                ((*ss).sym_next as u64).wrapping_mul(std::mem::size_of::<u16>() as u64) as usize,
-            )
-        };
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                ((*ss).l_buf as *const ()) as *const u8,
-                ((*ds).l_buf as *mut ()) as *mut u8,
-                ((*ss).sym_next as u64) as usize,
+                (((*ss).sym_buf as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).sym_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (((*ss).sym_next as c_ulong) as usize) as usize,
             )
         };
     }
-    #[cfg(all(target_pointer_width = "64", unix, not(feature = "lit-mem")))]
+    #[cfg(all(
+        any(target_arch = "x86", all(target_arch = "arm", unix)),
+        not(feature = "lit-mem")
+    ))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).sym_buf as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).sym_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((*ss).sym_next as usize) as usize,
+            )
+        };
+    }
+    #[cfg(all(target_os = "macos", not(feature = "lit-mem")))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
@@ -3856,23 +4325,23 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
             )
         };
     }
-    #[cfg(all(target_pointer_width = "32", not(feature = "lit-mem")))]
+    #[cfg(all(target_pointer_width = "64", windows, not(feature = "lit-mem")))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (((*ss).sym_buf as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*ds).sym_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (((*ss).sym_next as u64) as usize) as usize,
+            )
+        };
+    }
+    #[cfg(all(target_arch = "arm", windows, not(feature = "lit-mem")))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 ((*ss).sym_buf as *const ()) as *const u8,
                 ((*ds).sym_buf as *mut ()) as *mut u8,
                 (*ss).sym_next as usize,
-            )
-        };
-    }
-    #[cfg(all(target_pointer_width = "64", windows, not(feature = "lit-mem")))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                ((*ss).sym_buf as *const ()) as *const u8,
-                ((*ds).sym_buf as *mut ()) as *mut u8,
-                ((*ss).sym_next as u64) as usize,
             )
         };
     }
@@ -6108,10 +6577,16 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
         here = unsafe { __v2.add(1) };
         len = len.wrapping_sub(1);
     }
-    #[cfg(all(target_pointer_width = "64", unix))]
+    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
     {
-        if (unsafe { memcmp(back as *const (), here as *const (), len as c_ulong) }) != 0 {
-            #[cfg(not(target_os = "freebsd"))]
+        if (unsafe {
+            memcmp(
+                (back as *const ()) as *const core::ffi::c_void,
+                (here as *const ()) as *const core::ffi::c_void,
+                (len as c_ulong) as usize,
+            ) as i32
+        }) != 0
+        {
             let _ = std::io::Write::flush(&mut std::io::stdout());
             unsafe {
                 slate_support::fprintf(
@@ -6122,16 +6597,12 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
                     length,
                 )
             };
-            #[cfg(not(target_os = "freebsd"))]
-            {
-                unsafe { fflush(std::ptr::null_mut()) };
-            }
+            unsafe { fflush(std::ptr::null_mut()) };
             loop {
                 let __v6: *mut u8 = back;
                 back = unsafe { __v6.add(1) };
                 let __v8: *mut u8 = here;
                 here = unsafe { __v8.add(1) };
-                #[cfg(not(target_os = "freebsd"))]
                 let _ = std::io::Write::flush(&mut std::io::stdout());
                 unsafe {
                     slate_support::fprintf(
@@ -6141,10 +6612,7 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
                         (*__v8 as u32) as i32,
                     )
                 };
-                #[cfg(not(target_os = "freebsd"))]
-                {
-                    unsafe { fflush(std::ptr::null_mut()) };
-                }
+                unsafe { fflush(std::ptr::null_mut()) };
                 let __v12: u32 = len.wrapping_sub(1);
                 len = __v12;
                 if __v12 == 0 {
@@ -6154,9 +6622,16 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
             unsafe { z_error(c"invalid match".as_ptr() as *mut c_char) };
         }
     }
-    #[cfg(target_pointer_width = "32")]
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
     {
-        if (unsafe { memcmp(back as *const (), here as *const (), len) }) != 0 {
+        if (unsafe {
+            memcmp(
+                (back as *const ()) as *const core::ffi::c_void,
+                (here as *const ()) as *const core::ffi::c_void,
+                len as usize,
+            ) as i32
+        }) != 0
+        {
             let _ = std::io::Write::flush(&mut std::io::stdout());
             #[cfg(unix)]
             {
@@ -6184,10 +6659,10 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
             }
             unsafe { fflush(std::ptr::null_mut()) };
             loop {
-                let __v1: *mut u8 = back;
-                back = unsafe { __v1.add(1) };
-                let __v3: *mut u8 = here;
-                here = unsafe { __v3.add(1) };
+                let __v3: *mut u8 = back;
+                back = unsafe { __v3.add(1) };
+                let __v4: *mut u8 = here;
+                here = unsafe { __v4.add(1) };
                 let _ = std::io::Write::flush(&mut std::io::stdout());
                 #[cfg(unix)]
                 {
@@ -6195,8 +6670,8 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
                         slate_support::fprintf(
                             slate_support::stderr(),
                             c"(%02x %02x)".as_ptr(),
-                            (*__v1 as u32) as i32,
                             (*__v3 as u32) as i32,
+                            (*__v4 as u32) as i32,
                         )
                     };
                 }
@@ -6206,24 +6681,24 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
                         slate_support::fprintf(
                             slate_support::stderr(),
                             c"(%02x %02x)".as_ptr(),
-                            (*__v1 as u32) as i32,
                             (*__v3 as u32) as i32,
+                            (*__v4 as u32) as i32,
                         )
                     };
                 }
                 unsafe { fflush(std::ptr::null_mut()) };
-                let __v4: u32 = len.wrapping_sub(1);
-                len = __v4;
-                if __v4 == 0 {
+                let __v5: u32 = len.wrapping_sub(1);
+                len = __v5;
+                if __v5 == 0 {
                     break;
                 }
             }
             unsafe { z_error(c"invalid match".as_ptr() as *mut c_char) };
         }
     }
-    #[cfg(all(target_pointer_width = "64", windows))]
+    #[cfg(target_os = "macos")]
     {
-        if (unsafe { memcmp(back as *const (), here as *const (), len as u64) }) != 0 {
+        if (unsafe { memcmp(back as *const (), here as *const (), len as c_ulong) }) != 0 {
             let _ = std::io::Write::flush(&mut std::io::stdout());
             unsafe {
                 slate_support::fprintf(
@@ -6236,23 +6711,106 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
             };
             unsafe { fflush(std::ptr::null_mut()) };
             loop {
-                let __v5: *mut u8 = back;
-                back = unsafe { __v5.add(1) };
-                let __v7: *mut u8 = here;
-                here = unsafe { __v7.add(1) };
+                let __v7: *mut u8 = back;
+                back = unsafe { __v7.add(1) };
+                let __v9: *mut u8 = here;
+                here = unsafe { __v9.add(1) };
                 let _ = std::io::Write::flush(&mut std::io::stdout());
                 unsafe {
                     slate_support::fprintf(
                         slate_support::stderr(),
                         c"(%02x %02x)".as_ptr(),
-                        (*__v5 as u32) as i32,
                         (*__v7 as u32) as i32,
+                        (*__v9 as u32) as i32,
                     )
                 };
                 unsafe { fflush(std::ptr::null_mut()) };
-                let __v9: u32 = len.wrapping_sub(1);
-                len = __v9;
-                if __v9 == 0 {
+                let __v10: u32 = len.wrapping_sub(1);
+                len = __v10;
+                if __v10 == 0 {
+                    break;
+                }
+            }
+            unsafe { z_error(c"invalid match".as_ptr() as *mut c_char) };
+        }
+    }
+    #[cfg(all(target_pointer_width = "64", windows))]
+    {
+        if (unsafe {
+            memcmp(
+                (back as *const ()) as *const core::ffi::c_void,
+                (here as *const ()) as *const core::ffi::c_void,
+                (len as u64) as usize,
+            ) as i32
+        }) != 0
+        {
+            let _ = std::io::Write::flush(&mut std::io::stdout());
+            unsafe {
+                slate_support::fprintf(
+                    slate_support::stderr(),
+                    c" start %u, match %d, length %d\n".as_ptr(),
+                    start,
+                    r#match as i32,
+                    length,
+                )
+            };
+            unsafe { fflush(std::ptr::null_mut()) };
+            loop {
+                let __v11: *mut u8 = back;
+                back = unsafe { __v11.add(1) };
+                let __v15: *mut u8 = here;
+                here = unsafe { __v15.add(1) };
+                let _ = std::io::Write::flush(&mut std::io::stdout());
+                unsafe {
+                    slate_support::fprintf(
+                        slate_support::stderr(),
+                        c"(%02x %02x)".as_ptr(),
+                        (*__v11 as u32) as i32,
+                        (*__v15 as u32) as i32,
+                    )
+                };
+                unsafe { fflush(std::ptr::null_mut()) };
+                let __v17: u32 = len.wrapping_sub(1);
+                len = __v17;
+                if __v17 == 0 {
+                    break;
+                }
+            }
+            unsafe { z_error(c"invalid match".as_ptr() as *mut c_char) };
+        }
+    }
+    #[cfg(all(target_arch = "arm", windows))]
+    {
+        if (unsafe { memcmp(back as *const (), here as *const (), len) }) != 0 {
+            let _ = std::io::Write::flush(&mut std::io::stdout());
+            unsafe {
+                slate_support::fprintf(
+                    slate_support::stderr(),
+                    c" start %u, match %d, length %d\n".as_ptr(),
+                    start,
+                    r#match as i32,
+                    length,
+                )
+            };
+            unsafe { fflush(std::ptr::null_mut()) };
+            loop {
+                let __v18: *mut u8 = back;
+                back = unsafe { __v18.add(1) };
+                let __v19: *mut u8 = here;
+                here = unsafe { __v19.add(1) };
+                let _ = std::io::Write::flush(&mut std::io::stdout());
+                unsafe {
+                    slate_support::fprintf(
+                        slate_support::stderr(),
+                        c"(%02x %02x)".as_ptr(),
+                        (*__v18 as u32) as i32,
+                        (*__v19 as u32) as i32,
+                    )
+                };
+                unsafe { fflush(std::ptr::null_mut()) };
+                let __v21: u32 = len.wrapping_sub(1);
+                len = __v21;
+                if __v21 == 0 {
                     break;
                 }
             }
@@ -6260,7 +6818,6 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
         }
     }
     if (unsafe { z_verbose }) > 1 {
-        #[cfg(not(target_os = "freebsd"))]
         let _ = std::io::Write::flush(&mut std::io::stdout());
         #[cfg(unix)]
         {
@@ -6284,31 +6841,17 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
                 )
             };
         }
-        #[cfg(not(target_os = "freebsd"))]
-        {
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
+        unsafe { fflush(std::ptr::null_mut()) };
         loop {
             #[cfg(not(target_os = "freebsd"))]
-            let __v13: u32 = start;
+            let __v1: u32 = start;
             #[cfg(not(target_os = "freebsd"))]
             {
-                start = __v13.wrapping_add(1);
+                start = __v1.wrapping_add(1);
             }
-            #[cfg(not(target_os = "freebsd"))]
             let _ = std::io::Write::flush(&mut std::io::stdout());
-            #[cfg(not(target_os = "freebsd"))]
-            {
-                unsafe {
-                    slate_support::putc(
-                        (*unsafe { (*s).window }.add(__v13 as usize) as u32) as i32,
-                        slate_support::stderr(),
-                    )
-                };
-                unsafe { fflush(std::ptr::null_mut()) };
-            }
             #[cfg(target_os = "freebsd")]
-            let __v10: i32 = if (unsafe { __isthreaded }) == 0 {
+            let __v13: i32 = if (unsafe { __isthreaded }) == 0 {
                 let __v14: u32 = start;
                 start = __v14.wrapping_add(1);
                 unsafe {
@@ -6327,9 +6870,19 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
                     )
                 }
             };
-            let __v17: i32 = length - 1;
-            length = __v17;
-            if __v17 == 0 {
+            #[cfg(not(target_os = "freebsd"))]
+            {
+                unsafe {
+                    slate_support::putc(
+                        (*unsafe { (*s).window }.add(__v1 as usize) as u32) as i32,
+                        slate_support::stderr(),
+                    )
+                };
+            }
+            unsafe { fflush(std::ptr::null_mut()) };
+            let __v20: i32 = length - 1;
+            length = __v20;
+            if __v20 == 0 {
                 break;
             }
         }
@@ -6465,7 +7018,29 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
             if left > len {
                 left = len;
             }
-            #[cfg(all(target_pointer_width = "64", unix))]
+            #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+            {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        ((unsafe { (*s).window }.offset((*s).block_start as isize) as *const ())
+                            as *const core::ffi::c_void) as *const u8,
+                        (((*(*s).strm).next_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                        ((left as c_ulong) as usize) as usize,
+                    )
+                };
+            }
+            #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+            {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        ((unsafe { (*s).window }.offset((*s).block_start as isize) as *const ())
+                            as *const core::ffi::c_void) as *const u8,
+                        (((*(*s).strm).next_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                        (left as usize) as usize,
+                    )
+                };
+            }
+            #[cfg(target_os = "macos")]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
@@ -6476,7 +7051,18 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                     )
                 };
             }
-            #[cfg(target_pointer_width = "32")]
+            #[cfg(all(target_pointer_width = "64", windows))]
+            {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        ((unsafe { (*s).window }.offset((*s).block_start as isize) as *const ())
+                            as *const core::ffi::c_void) as *const u8,
+                        (((*(*s).strm).next_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                        ((left as u64) as usize) as usize,
+                    )
+                };
+            }
+            #[cfg(all(target_arch = "arm", windows))]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
@@ -6484,17 +7070,6 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                             as *const u8,
                         ((*(*s).strm).next_out as *mut ()) as *mut u8,
                         left as usize,
-                    )
-                };
-            }
-            #[cfg(all(target_pointer_width = "64", windows))]
-            {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        (unsafe { (*s).window }.offset((*s).block_start as isize) as *const ())
-                            as *const u8,
-                        ((*(*s).strm).next_out as *mut ()) as *mut u8,
-                        (left as u64) as usize,
                     )
                 };
             }
@@ -6565,7 +7140,31 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                 (*s).matches = 2;
             }
             // clear hash
-            #[cfg(all(target_pointer_width = "64", unix))]
+            #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+            {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        ((unsafe { (*(*s).strm).next_in }.offset(-((*s).w_size as isize))
+                            as *const ()) as *const core::ffi::c_void)
+                            as *const u8,
+                        (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                        (((*s).w_size as c_ulong) as usize) as usize,
+                    )
+                };
+            }
+            #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+            {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        ((unsafe { (*(*s).strm).next_in }.offset(-((*s).w_size as isize))
+                            as *const ()) as *const core::ffi::c_void)
+                            as *const u8,
+                        (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                        ((*s).w_size as usize) as usize,
+                    )
+                };
+            }
+            #[cfg(target_os = "macos")]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
@@ -6576,7 +7175,19 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                     )
                 };
             }
-            #[cfg(target_pointer_width = "32")]
+            #[cfg(all(target_pointer_width = "64", windows))]
+            {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        ((unsafe { (*(*s).strm).next_in }.offset(-((*s).w_size as isize))
+                            as *const ()) as *const core::ffi::c_void)
+                            as *const u8,
+                        (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                        (((*s).w_size as u64) as usize) as usize,
+                    )
+                };
+            }
+            #[cfg(all(target_arch = "arm", windows))]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
@@ -6584,17 +7195,6 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                             as *const ()) as *const u8,
                         ((*s).window as *mut ()) as *mut u8,
                         (*s).w_size as usize,
-                    )
-                };
-            }
-            #[cfg(all(target_pointer_width = "64", windows))]
-            {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        (unsafe { (*(*s).strm).next_in }.offset(-((*s).w_size as isize))
-                            as *const ()) as *const u8,
-                        ((*s).window as *mut ()) as *mut u8,
-                        ((*s).w_size as u64) as usize,
                     )
                 };
             }
@@ -6613,7 +7213,31 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                 unsafe {
                     (*s).strstart = __v33.wrapping_sub((*s).w_size);
                 }
-                #[cfg(all(target_pointer_width = "64", unix))]
+                #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+                {
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            ((unsafe { (*s).window }.offset((*s).w_size as isize) as *const ())
+                                as *const core::ffi::c_void)
+                                as *const u8,
+                            (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                            (((*s).strstart as c_ulong) as usize) as usize,
+                        )
+                    };
+                }
+                #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+                {
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            ((unsafe { (*s).window }.offset((*s).w_size as isize) as *const ())
+                                as *const core::ffi::c_void)
+                                as *const u8,
+                            (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                            ((*s).strstart as usize) as usize,
+                        )
+                    };
+                }
+                #[cfg(target_os = "macos")]
                 {
                     unsafe {
                         std::ptr::copy_nonoverlapping(
@@ -6624,7 +7248,19 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                         )
                     };
                 }
-                #[cfg(target_pointer_width = "32")]
+                #[cfg(all(target_pointer_width = "64", windows))]
+                {
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            ((unsafe { (*s).window }.offset((*s).w_size as isize) as *const ())
+                                as *const core::ffi::c_void)
+                                as *const u8,
+                            (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                            (((*s).strstart as u64) as usize) as usize,
+                        )
+                    };
+                }
+                #[cfg(all(target_arch = "arm", windows))]
                 {
                     unsafe {
                         std::ptr::copy_nonoverlapping(
@@ -6632,17 +7268,6 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                                 as *const u8,
                             ((*s).window as *mut ()) as *mut u8,
                             (*s).strstart as usize,
-                        )
-                    };
-                }
-                #[cfg(all(target_pointer_width = "64", windows))]
-                {
-                    unsafe {
-                        std::ptr::copy_nonoverlapping(
-                            (unsafe { (*s).window }.offset((*s).w_size as isize) as *const ())
-                                as *const u8,
-                            ((*s).window as *mut ()) as *mut u8,
-                            ((*s).strstart as u64) as usize,
                         )
                     };
                 }
@@ -6659,7 +7284,31 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                     }
                 }
             }
-            #[cfg(all(target_pointer_width = "64", unix))]
+            #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+            {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        ((unsafe { (*(*s).strm).next_in }.sub(used as usize) as *const ())
+                            as *const core::ffi::c_void) as *const u8,
+                        ((unsafe { (*s).window }.offset((*s).strstart as isize) as *mut ())
+                            as *mut core::ffi::c_void) as *mut u8,
+                        ((used as c_ulong) as usize) as usize,
+                    )
+                };
+            }
+            #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+            {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        ((unsafe { (*(*s).strm).next_in }.sub(used as usize) as *const ())
+                            as *const core::ffi::c_void) as *const u8,
+                        ((unsafe { (*s).window }.offset((*s).strstart as isize) as *mut ())
+                            as *mut core::ffi::c_void) as *mut u8,
+                        (used as usize) as usize,
+                    )
+                };
+            }
+            #[cfg(target_os = "macos")]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
@@ -6671,7 +7320,19 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                     )
                 };
             }
-            #[cfg(target_pointer_width = "32")]
+            #[cfg(all(target_pointer_width = "64", windows))]
+            {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        ((unsafe { (*(*s).strm).next_in }.sub(used as usize) as *const ())
+                            as *const core::ffi::c_void) as *const u8,
+                        ((unsafe { (*s).window }.offset((*s).strstart as isize) as *mut ())
+                            as *mut core::ffi::c_void) as *mut u8,
+                        ((used as u64) as usize) as usize,
+                    )
+                };
+            }
+            #[cfg(all(target_arch = "arm", windows))]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
@@ -6680,18 +7341,6 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                         (unsafe { (*s).window }.offset((*s).strstart as isize) as *mut ())
                             as *mut u8,
                         used as usize,
-                    )
-                };
-            }
-            #[cfg(all(target_pointer_width = "64", windows))]
-            {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        (unsafe { (*(*s).strm).next_in }.sub(used as usize) as *const ())
-                            as *const u8,
-                        (unsafe { (*s).window }.offset((*s).strstart as isize) as *mut ())
-                            as *mut u8,
-                        (used as u64) as usize,
                     )
                 };
             }
@@ -6753,7 +7402,29 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
         unsafe {
             (*s).strstart = __v48.wrapping_sub((*s).w_size);
         }
-        #[cfg(all(target_pointer_width = "64", unix))]
+        #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((unsafe { (*s).window }.offset((*s).w_size as isize) as *const ())
+                        as *const core::ffi::c_void) as *const u8,
+                    (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                    (((*s).strstart as c_ulong) as usize) as usize,
+                )
+            };
+        }
+        #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((unsafe { (*s).window }.offset((*s).w_size as isize) as *const ())
+                        as *const core::ffi::c_void) as *const u8,
+                    (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                    ((*s).strstart as usize) as usize,
+                )
+            };
+        }
+        #[cfg(target_os = "macos")]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
@@ -6763,23 +7434,24 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                 )
             };
         }
-        #[cfg(target_pointer_width = "32")]
+        #[cfg(all(target_pointer_width = "64", windows))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((unsafe { (*s).window }.offset((*s).w_size as isize) as *const ())
+                        as *const core::ffi::c_void) as *const u8,
+                    (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                    (((*s).strstart as u64) as usize) as usize,
+                )
+            };
+        }
+        #[cfg(all(target_arch = "arm", windows))]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
                     (unsafe { (*s).window }.offset((*s).w_size as isize) as *const ()) as *const u8,
                     ((*s).window as *mut ()) as *mut u8,
                     (*s).strstart as usize,
-                )
-            };
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    (unsafe { (*s).window }.offset((*s).w_size as isize) as *const ()) as *const u8,
-                    ((*s).window as *mut ()) as *mut u8,
-                    ((*s).strstart as u64) as usize,
                 )
             };
         }
@@ -7061,7 +7733,7 @@ extern "C-unwind" fn deflate_fast(s: *mut internal_state, flush: i32) -> u32 {
             }
             #[cfg(all(not(feature = "lit-mem"), not(feature = "zlib-debug")))]
             {
-                _tr_tally_lit!(
+                _tr_tally_lit__3!(
                     s,
                     unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
                     bflush
@@ -7069,7 +7741,7 @@ extern "C-unwind" fn deflate_fast(s: *mut internal_state, flush: i32) -> u32 {
             }
             #[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
             {
-                _tr_tally_lit__3!(
+                _tr_tally_lit!(
                     s,
                     unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
                     bflush
@@ -7087,19 +7759,19 @@ extern "C-unwind" fn deflate_fast(s: *mut internal_state, flush: i32) -> u32 {
         if bflush != 0 {
             #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
             {
-                FLUSH_BLOCK!(s, 0i32);
+                FLUSH_BLOCK__3!(s, 0i32);
             }
             #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
             {
-                FLUSH_BLOCK__2!(s, 0i32);
+                FLUSH_BLOCK__4!(s, 0i32);
             }
             #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
             {
-                FLUSH_BLOCK__4!(s, 0i32);
+                FLUSH_BLOCK!(s, 0i32);
             }
             #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
             {
-                FLUSH_BLOCK__3!(s, 0i32);
+                FLUSH_BLOCK__2!(s, 0i32);
             }
         }
     }
@@ -7113,38 +7785,38 @@ extern "C-unwind" fn deflate_fast(s: *mut internal_state, flush: i32) -> u32 {
     if flush == 4 {
         #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
         {
-            FLUSH_BLOCK!(s, 1i32);
+            FLUSH_BLOCK__3!(s, 1i32);
         }
         #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
         {
-            FLUSH_BLOCK__2!(s, 1i32);
+            FLUSH_BLOCK__4!(s, 1i32);
         }
         #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
         {
-            FLUSH_BLOCK__4!(s, 1i32);
+            FLUSH_BLOCK!(s, 1i32);
         }
         #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
         {
-            FLUSH_BLOCK__3!(s, 1i32);
+            FLUSH_BLOCK__2!(s, 1i32);
         }
         return 3;
     }
     if (unsafe { (*s).sym_next }) != 0 {
         #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
         {
-            FLUSH_BLOCK!(s, 0i32);
+            FLUSH_BLOCK__3!(s, 0i32);
         }
         #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
         {
-            FLUSH_BLOCK__2!(s, 0i32);
+            FLUSH_BLOCK__4!(s, 0i32);
         }
         #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
         {
-            FLUSH_BLOCK__4!(s, 0i32);
+            FLUSH_BLOCK!(s, 0i32);
         }
         #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
         {
-            FLUSH_BLOCK__3!(s, 0i32);
+            FLUSH_BLOCK__2!(s, 0i32);
         }
     }
     1
@@ -7308,19 +7980,19 @@ extern "C-unwind" fn deflate_slow(s: *mut internal_state, flush: i32) -> u32 {
             if bflush != 0 {
                 #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
                 {
-                    FLUSH_BLOCK!(s, 0i32);
+                    FLUSH_BLOCK__3!(s, 0i32);
                 }
                 #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
                 {
-                    FLUSH_BLOCK__2!(s, 0i32);
+                    FLUSH_BLOCK__4!(s, 0i32);
                 }
                 #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
                 {
-                    FLUSH_BLOCK__4!(s, 0i32);
+                    FLUSH_BLOCK!(s, 0i32);
                 }
                 #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
                 {
-                    FLUSH_BLOCK__3!(s, 0i32);
+                    FLUSH_BLOCK__2!(s, 0i32);
                 }
             }
         } else {
@@ -7349,7 +8021,7 @@ extern "C-unwind" fn deflate_slow(s: *mut internal_state, flush: i32) -> u32 {
                 }
                 #[cfg(all(not(feature = "lit-mem"), not(feature = "zlib-debug")))]
                 {
-                    _tr_tally_lit!(
+                    _tr_tally_lit__3!(
                         s,
                         unsafe {
                             *unsafe { (*s).window }
@@ -7360,7 +8032,7 @@ extern "C-unwind" fn deflate_slow(s: *mut internal_state, flush: i32) -> u32 {
                 }
                 #[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
                 {
-                    _tr_tally_lit__3!(
+                    _tr_tally_lit!(
                         s,
                         unsafe {
                             *unsafe { (*s).window }
@@ -7372,7 +8044,7 @@ extern "C-unwind" fn deflate_slow(s: *mut internal_state, flush: i32) -> u32 {
                 if bflush != 0 {
                     #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
                     {
-                        FLUSH_BLOCK_ONLY__2!(s, 0i32);
+                        FLUSH_BLOCK_ONLY__3!(s, 0i32);
                     }
                     #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
                     {
@@ -7380,14 +8052,14 @@ extern "C-unwind" fn deflate_slow(s: *mut internal_state, flush: i32) -> u32 {
                     }
                     #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
                     {
-                        FLUSH_BLOCK_ONLY__3!(s, 0i32);
+                        FLUSH_BLOCK_ONLY!(s, 0i32);
                     }
                     #[cfg(all(
                         any(target_pointer_width = "32", windows),
                         not(feature = "zlib-debug")
                     ))]
                     {
-                        FLUSH_BLOCK_ONLY!(s, 0i32);
+                        FLUSH_BLOCK_ONLY__2!(s, 0i32);
                     }
                 }
                 let __v27: u32 = unsafe { (*s).strstart };
@@ -7444,7 +8116,7 @@ extern "C-unwind" fn deflate_slow(s: *mut internal_state, flush: i32) -> u32 {
         }
         #[cfg(all(not(feature = "lit-mem"), not(feature = "zlib-debug")))]
         {
-            _tr_tally_lit!(
+            _tr_tally_lit__3!(
                 s,
                 unsafe {
                     *unsafe { (*s).window }
@@ -7455,7 +8127,7 @@ extern "C-unwind" fn deflate_slow(s: *mut internal_state, flush: i32) -> u32 {
         }
         #[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
         {
-            _tr_tally_lit__3!(
+            _tr_tally_lit!(
                 s,
                 unsafe {
                     *unsafe { (*s).window }
@@ -7478,38 +8150,38 @@ extern "C-unwind" fn deflate_slow(s: *mut internal_state, flush: i32) -> u32 {
     if flush == 4 {
         #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
         {
-            FLUSH_BLOCK!(s, 1i32);
+            FLUSH_BLOCK__3!(s, 1i32);
         }
         #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
         {
-            FLUSH_BLOCK__2!(s, 1i32);
+            FLUSH_BLOCK__4!(s, 1i32);
         }
         #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
         {
-            FLUSH_BLOCK__4!(s, 1i32);
+            FLUSH_BLOCK!(s, 1i32);
         }
         #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
         {
-            FLUSH_BLOCK__3!(s, 1i32);
+            FLUSH_BLOCK__2!(s, 1i32);
         }
         return 3;
     }
     if (unsafe { (*s).sym_next }) != 0 {
         #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
         {
-            FLUSH_BLOCK!(s, 0i32);
+            FLUSH_BLOCK__3!(s, 0i32);
         }
         #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
         {
-            FLUSH_BLOCK__2!(s, 0i32);
+            FLUSH_BLOCK__4!(s, 0i32);
         }
         #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
         {
-            FLUSH_BLOCK__4!(s, 0i32);
+            FLUSH_BLOCK!(s, 0i32);
         }
         #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
         {
-            FLUSH_BLOCK__3!(s, 0i32);
+            FLUSH_BLOCK__2!(s, 0i32);
         }
     }
     1
@@ -7732,7 +8404,7 @@ fn deflate_rle(s: *mut internal_state, flush: i32) -> u32 {
             }
             #[cfg(all(not(feature = "lit-mem"), not(feature = "zlib-debug")))]
             {
-                _tr_tally_lit!(
+                _tr_tally_lit__3!(
                     s,
                     unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
                     bflush
@@ -7740,7 +8412,7 @@ fn deflate_rle(s: *mut internal_state, flush: i32) -> u32 {
             }
             #[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
             {
-                _tr_tally_lit__3!(
+                _tr_tally_lit!(
                     s,
                     unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
                     bflush
@@ -7758,19 +8430,19 @@ fn deflate_rle(s: *mut internal_state, flush: i32) -> u32 {
         if bflush != 0 {
             #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
             {
-                FLUSH_BLOCK!(s, 0i32);
+                FLUSH_BLOCK__3!(s, 0i32);
             }
             #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
             {
-                FLUSH_BLOCK__2!(s, 0i32);
+                FLUSH_BLOCK__4!(s, 0i32);
             }
             #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
             {
-                FLUSH_BLOCK__4!(s, 0i32);
+                FLUSH_BLOCK!(s, 0i32);
             }
             #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
             {
-                FLUSH_BLOCK__3!(s, 0i32);
+                FLUSH_BLOCK__2!(s, 0i32);
             }
         }
     }
@@ -7780,38 +8452,38 @@ fn deflate_rle(s: *mut internal_state, flush: i32) -> u32 {
     if flush == 4 {
         #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
         {
-            FLUSH_BLOCK!(s, 1i32);
+            FLUSH_BLOCK__3!(s, 1i32);
         }
         #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
         {
-            FLUSH_BLOCK__2!(s, 1i32);
+            FLUSH_BLOCK__4!(s, 1i32);
         }
         #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
         {
-            FLUSH_BLOCK__4!(s, 1i32);
+            FLUSH_BLOCK!(s, 1i32);
         }
         #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
         {
-            FLUSH_BLOCK__3!(s, 1i32);
+            FLUSH_BLOCK__2!(s, 1i32);
         }
         return 3;
     }
     if (unsafe { (*s).sym_next }) != 0 {
         #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
         {
-            FLUSH_BLOCK!(s, 0i32);
+            FLUSH_BLOCK__3!(s, 0i32);
         }
         #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
         {
-            FLUSH_BLOCK__2!(s, 0i32);
+            FLUSH_BLOCK__4!(s, 0i32);
         }
         #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
         {
-            FLUSH_BLOCK__4!(s, 0i32);
+            FLUSH_BLOCK!(s, 0i32);
         }
         #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
         {
-            FLUSH_BLOCK__3!(s, 0i32);
+            FLUSH_BLOCK__2!(s, 0i32);
         }
     }
     1
@@ -7851,7 +8523,7 @@ fn deflate_huff(s: *mut internal_state, flush: i32) -> u32 {
         }
         #[cfg(all(not(feature = "lit-mem"), not(feature = "zlib-debug")))]
         {
-            _tr_tally_lit!(
+            _tr_tally_lit__3!(
                 s,
                 unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
                 bflush
@@ -7859,7 +8531,7 @@ fn deflate_huff(s: *mut internal_state, flush: i32) -> u32 {
         }
         #[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
         {
-            _tr_tally_lit__3!(
+            _tr_tally_lit!(
                 s,
                 unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
                 bflush
@@ -7876,19 +8548,19 @@ fn deflate_huff(s: *mut internal_state, flush: i32) -> u32 {
         if bflush != 0 {
             #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
             {
-                FLUSH_BLOCK!(s, 0i32);
+                FLUSH_BLOCK__3!(s, 0i32);
             }
             #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
             {
-                FLUSH_BLOCK__2!(s, 0i32);
+                FLUSH_BLOCK__4!(s, 0i32);
             }
             #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
             {
-                FLUSH_BLOCK__4!(s, 0i32);
+                FLUSH_BLOCK!(s, 0i32);
             }
             #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
             {
-                FLUSH_BLOCK__3!(s, 0i32);
+                FLUSH_BLOCK__2!(s, 0i32);
             }
         }
     }
@@ -7898,38 +8570,38 @@ fn deflate_huff(s: *mut internal_state, flush: i32) -> u32 {
     if flush == 4 {
         #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
         {
-            FLUSH_BLOCK!(s, 1i32);
+            FLUSH_BLOCK__3!(s, 1i32);
         }
         #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
         {
-            FLUSH_BLOCK__2!(s, 1i32);
+            FLUSH_BLOCK__4!(s, 1i32);
         }
         #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
         {
-            FLUSH_BLOCK__4!(s, 1i32);
+            FLUSH_BLOCK!(s, 1i32);
         }
         #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
         {
-            FLUSH_BLOCK__3!(s, 1i32);
+            FLUSH_BLOCK__2!(s, 1i32);
         }
         return 3;
     }
     if (unsafe { (*s).sym_next }) != 0 {
         #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
         {
-            FLUSH_BLOCK!(s, 0i32);
+            FLUSH_BLOCK__3!(s, 0i32);
         }
         #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
         {
-            FLUSH_BLOCK__2!(s, 0i32);
+            FLUSH_BLOCK__4!(s, 0i32);
         }
         #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
         {
-            FLUSH_BLOCK__4!(s, 0i32);
+            FLUSH_BLOCK!(s, 0i32);
         }
         #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
         {
-            FLUSH_BLOCK__3!(s, 0i32);
+            FLUSH_BLOCK__2!(s, 0i32);
         }
     }
     1

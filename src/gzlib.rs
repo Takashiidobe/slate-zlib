@@ -2,7 +2,7 @@
 //! Copyright (C) 2004-2026 Mark Adler
 //! For conditions of distribution and use, see copyright notice in zlib.h
 #[cfg(all(target_pointer_width = "32", windows))]
-macro_rules! GT_OFF__8 {
+macro_rules! GT_OFF__6 {
     ($x:expr) => {{
         let __v: bool = (std::mem::size_of::<i32>() as u32) == (std::mem::size_of::<i64>() as u32)
             && ($x) > gz_intmax();
@@ -11,7 +11,7 @@ macro_rules! GT_OFF__8 {
 }
 
 #[cfg(all(target_pointer_width = "64", windows))]
-macro_rules! GT_OFF__5 {
+macro_rules! GT_OFF__7 {
     ($x:expr) => {{
         let __v: bool = (std::mem::size_of::<i32>() as u64) == (std::mem::size_of::<i64>() as u64)
             && ($x) > gz_intmax();
@@ -20,7 +20,7 @@ macro_rules! GT_OFF__5 {
 }
 
 #[cfg(all(target_pointer_width = "32", unix))]
-macro_rules! GT_OFF__7 {
+macro_rules! GT_OFF__8 {
     ($x:expr) => {{
         let __v: bool = (std::mem::size_of::<i32>() as u32)
             == (std::mem::size_of::<off_t>() as u32)
@@ -30,7 +30,7 @@ macro_rules! GT_OFF__7 {
 }
 
 #[cfg(all(target_pointer_width = "64", unix))]
-macro_rules! GT_OFF__6 {
+macro_rules! GT_OFF__5 {
     ($x:expr) => {{
         let __v: bool = (std::mem::size_of::<i32>() as c_ulong)
             == (std::mem::size_of::<off_t>() as c_ulong)
@@ -54,56 +54,65 @@ unsafe extern "C" {
         arg4: *mut __crt_locale_pointers,
         arg5: *mut c_char,
     ) -> i32;
-    fn wcstombs(arg0: *mut c_char, arg1: *const wchar_t, arg2: size_t) -> size_t;
     fn _wopen(arg0: *const wchar_t, arg1: i32, ...) -> i32;
     fn _lseeki64(arg0: i32, arg1: i64, arg2: i32) -> i64;
+    fn open(arg0: *const c_char, arg1: i32, ...) -> i32;
 }
 
-#[cfg(all(unix, feature = "no-vsnprintf"))]
+#[cfg(all(target_os = "macos", feature = "no-vsnprintf"))]
 unsafe extern "C" {
     fn sprintf(arg0: *mut c_char, arg1: *const c_char, ...) -> i32;
 }
 
-#[cfg(all(unix, not(feature = "no-vsnprintf")))]
+#[cfg(all(
+    any(target_os = "macos", all(target_arch = "arm", windows)),
+    feature = "no-vsnprintf"
+))]
+unsafe extern "C" {
+    fn strcat(arg0: *mut c_char, arg1: *const c_char) -> *mut c_char;
+    fn strcpy(arg0: *mut c_char, arg1: *const c_char) -> *mut c_char;
+}
+
+#[cfg(all(target_os = "macos", not(feature = "no-vsnprintf")))]
 unsafe extern "C" {
     fn snprintf(arg0: *mut c_char, arg1: size_t, arg2: *const c_char, ...) -> i32;
 }
 
-#[cfg(target_env = "gnu")]
-unsafe extern "C" {
-    fn lseek(arg0: i32, arg1: c_long, arg2: i32) -> c_long;
-}
-
-#[cfg(not(any(target_env = "gnu", target_os = "freebsd", windows)))]
-unsafe extern "C" {
-    fn lseek(arg0: i32, arg1: off_t, arg2: i32) -> off_t;
-}
-
-#[cfg(target_os = "freebsd")]
-unsafe extern "C" {
-    fn lseek(arg0: i32, arg1: i64, arg2: i32) -> i64;
-}
-
-#[cfg(feature = "no-vsnprintf")]
-unsafe extern "C" {
-    fn strcpy(arg0: *mut c_char, arg1: *const c_char) -> *mut c_char;
-    fn strcat(arg0: *mut c_char, arg1: *const c_char) -> *mut c_char;
-}
-
+#[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
 unsafe extern "C" {
     fn strlen(arg0: *const c_char) -> size_t;
-    fn malloc(arg0: size_t) -> *mut ();
-    fn free(arg0: *mut ());
-    fn open(arg0: *const c_char, arg1: i32, ...) -> i32;
 }
 
-#[cfg(unix)]
+#[cfg(any(
+    target_os = "macos",
+    target_os = "android",
+    all(target_arch = "arm", windows)
+))]
+unsafe extern "C" {
+    fn malloc(arg0: size_t) -> *mut ();
+    fn free(arg0: *mut ());
+}
+
+#[cfg(all(target_arch = "arm", windows))]
+unsafe extern "C" {
+    fn wcstombs(arg0: *mut c_char, arg1: *const wchar_t, arg2: size_t) -> size_t;
+}
+
+#[cfg(target_os = "macos")]
+unsafe extern "C" {
+    #[link_name = "_open"]
+    fn open(arg0: *const c_char, arg1: i32, ...) -> i32;
+    #[link_name = "_fcntl"]
+    fn fcntl(arg0: i32, arg1: i32, ...) -> i32;
+}
+
+#[cfg(target_os = "android")]
 unsafe extern "C" {
     fn fcntl(arg0: i32, arg1: i32, ...) -> i32;
 }
 
 use core::ffi::c_char;
-#[cfg(target_env = "gnu")]
+#[cfg(all(not(target_os = "macos"), unix))]
 use core::ffi::c_long;
 use core::ffi::c_ulong;
 #[cfg(unix)]
@@ -183,54 +192,6 @@ fn _vsprintf_l(
         _Locale,
         _ArgList,
     )
-}
-
-#[cfg(all(windows, feature = "no-vsnprintf"))]
-unsafe extern "C-unwind" fn sprintf(
-    _Buffer: *mut c_char,
-    _Format: *const c_char,
-    mut __va_args: ...
-) -> i32 {
-    let mut _Result: i32 = 0;
-    let mut _ArgList: *mut c_char = unsafe { std::mem::zeroed() };
-    #[cfg(target_pointer_width = "64")]
-    {
-        unsafe {
-            *std::ptr::addr_of_mut!(_ArgList) =
-                core::mem::transmute::<core::ffi::VaList<'_>, *mut i8>(__va_args.clone());
-        }
-    }
-    #[cfg(target_arch = "x86")]
-    {
-        _ArgList = unsafe {
-            (std::ptr::addr_of!(_Format) as *mut c_char).offset(
-                ((std::mem::size_of::<*const c_char>() as u32)
-                    .wrapping_add(std::mem::size_of::<i32>() as u32)
-                    .wrapping_sub(1)
-                    & !(std::mem::size_of::<i32>() as u32).wrapping_sub(1))
-                    as isize,
-            )
-        };
-    }
-    #[cfg(target_arch = "arm")]
-    {
-        _ArgList = unsafe {
-            (std::ptr::addr_of!(_Format) as *mut c_char).offset(
-                ((std::mem::size_of::<*const c_char>() as u32)
-                    .wrapping_add(4)
-                    .wrapping_sub(1)
-                    & 4294967292u32) as isize,
-            )
-        };
-    }
-    _Result = _vsprintf_l(
-        _Buffer,
-        _Format,
-        std::ptr::null_mut::<__crt_locale_pointers>(),
-        _ArgList,
-    );
-    _ArgList = std::ptr::null_mut::<c_char>();
-    _Result
 }
 
 #[cfg(all(windows, not(feature = "no-vsnprintf")))]
@@ -364,6 +325,92 @@ struct __SlateRecord_gzguts_h_203 {
     strm: z_stream_s,
 }
 
+#[cfg(unix)]
+use slate_support::lseek;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    all(not(target_arch = "arm"), windows)
+))]
+use slate_support::malloc;
+#[cfg(all(not(target_os = "macos"), unix, not(feature = "no-vsnprintf")))]
+use slate_support::snprintf;
+#[cfg(all(not(target_os = "macos"), unix, feature = "no-vsnprintf"))]
+use slate_support::sprintf;
+#[cfg(all(
+    not(any(target_os = "macos", all(target_arch = "arm", windows))),
+    feature = "no-vsnprintf"
+))]
+use slate_support::strcat;
+#[cfg(all(
+    not(any(target_os = "macos", all(target_arch = "arm", windows))),
+    feature = "no-vsnprintf"
+))]
+use slate_support::strcpy;
+#[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
+use slate_support::strlen;
+#[cfg(not(any(unix, target_arch = "arm")))]
+use slate_support::wcstombs;
+
+#[cfg(all(windows, feature = "no-vsnprintf"))]
+unsafe extern "C-unwind" fn sprintf(
+    _Buffer: *mut c_char,
+    _Format: *const c_char,
+    mut __va_args: ...
+) -> i32 {
+    let mut _Result: i32 = 0;
+    let mut _ArgList: *mut c_char = unsafe { std::mem::zeroed() };
+    #[cfg(target_pointer_width = "64")]
+    {
+        unsafe {
+            *std::ptr::addr_of_mut!(_ArgList) =
+                core::mem::transmute::<core::ffi::VaList<'_>, *mut i8>(__va_args.clone());
+        }
+    }
+    #[cfg(target_arch = "x86")]
+    {
+        _ArgList = unsafe {
+            (std::ptr::addr_of!(_Format) as *mut c_char).offset(
+                ((std::mem::size_of::<*const c_char>() as u32)
+                    .wrapping_add(std::mem::size_of::<i32>() as u32)
+                    .wrapping_sub(1)
+                    & !(std::mem::size_of::<i32>() as u32).wrapping_sub(1))
+                    as isize,
+            )
+        };
+    }
+    #[cfg(target_arch = "arm")]
+    {
+        _ArgList = unsafe {
+            (std::ptr::addr_of!(_Format) as *mut c_char).offset(
+                ((std::mem::size_of::<*const c_char>() as u32)
+                    .wrapping_add(4)
+                    .wrapping_sub(1)
+                    & 4294967292u32) as isize,
+            )
+        };
+    }
+    _Result = _vsprintf_l(
+        _Buffer,
+        _Format,
+        std::ptr::null_mut::<__crt_locale_pointers>(),
+        _ArgList,
+    );
+    _ArgList = std::ptr::null_mut::<c_char>();
+    _Result
+}
+
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+use slate_support::fcntl;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    all(not(target_arch = "arm"), windows)
+))]
+use slate_support::free;
+#[cfg(all(not(target_os = "macos"), unix))]
+use slate_support::open;
+
 /// Reset gzip file state
 fn gz_reset(state: *mut __SlateRecord_gzguts_h_203) {
     unsafe {
@@ -425,14 +472,25 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
     }
     // allocate gzFile structure to return
     #[cfg(all(target_pointer_width = "64", windows))]
-    let state: *mut __SlateRecord_gzguts_h_203 =
-        (unsafe { malloc(std::mem::size_of::<__SlateRecord_gzguts_h_203>() as u64) })
-            as *mut __SlateRecord_gzguts_h_203;
-    #[cfg(target_pointer_width = "32")]
+    let state: *mut __SlateRecord_gzguts_h_203 = (unsafe {
+        malloc((std::mem::size_of::<__SlateRecord_gzguts_h_203>() as u64) as usize) as *mut ()
+    }) as *mut __SlateRecord_gzguts_h_203;
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+    let state: *mut __SlateRecord_gzguts_h_203 = (unsafe {
+        malloc((std::mem::size_of::<__SlateRecord_gzguts_h_203>() as u32) as usize) as *mut ()
+    }) as *mut __SlateRecord_gzguts_h_203;
+    #[cfg(all(target_arch = "arm", windows))]
     let state: *mut __SlateRecord_gzguts_h_203 =
         (unsafe { malloc(std::mem::size_of::<__SlateRecord_gzguts_h_203>() as u32) })
             as *mut __SlateRecord_gzguts_h_203;
-    #[cfg(all(target_pointer_width = "64", unix))]
+    #[cfg(any(
+        all(target_os = "linux", target_pointer_width = "64"),
+        target_os = "freebsd"
+    ))]
+    let state: *mut __SlateRecord_gzguts_h_203 = (unsafe {
+        malloc((std::mem::size_of::<__SlateRecord_gzguts_h_203>() as c_ulong) as usize) as *mut ()
+    }) as *mut __SlateRecord_gzguts_h_203;
+    #[cfg(any(target_os = "macos", target_os = "android"))]
     let state: *mut __SlateRecord_gzguts_h_203 =
         (unsafe { malloc(std::mem::size_of::<__SlateRecord_gzguts_h_203>() as c_ulong) })
             as *mut __SlateRecord_gzguts_h_203;
@@ -495,7 +553,15 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
                                 (*state).mode = 1;
                             },
                             43 => {
-                                unsafe { free(state as *mut ()) }; // can't read and write at the same time
+                                #[cfg(not(target_arch = "arm"))]
+                                {
+                                    unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
+                                }
+                                #[cfg(target_arch = "arm")]
+                                {
+                                    unsafe { free(state as *mut ()) };
+                                }
+                                // can't read and write at the same time
                                 return std::ptr::null_mut::<gzFile_s>();
                             }
                             98 => {
@@ -540,24 +606,30 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
                                 (*state).mode = 1;
                             },
                             43 => {
-                                unsafe { free(state as *mut ()) }; // can't read and write at the same time
+                                #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+                                {
+                                    unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
+                                }
+                                #[cfg(any(target_os = "macos", target_os = "android"))]
+                                {
+                                    unsafe { free(state as *mut ()) };
+                                }
+                                // can't read and write at the same time
                                 return std::ptr::null_mut::<gzFile_s>();
                             }
                             98 => {
                                 break '__slate_break_0; // ignore -- will request binary anyway
                             }
                             101 => {
-                                #[cfg(any(target_os = "linux", target_os = "android"))]
+                                #[cfg(not(target_env = "gnu"))]
+                                let __v2: i32 = oflag | (slate_support::O_CLOEXEC as i32);
+                                #[cfg(not(target_env = "gnu"))]
+                                {
+                                    oflag = __v2;
+                                }
+                                #[cfg(target_env = "gnu")]
                                 {
                                     oflag |= 524288;
-                                }
-                                #[cfg(target_os = "macos")]
-                                {
-                                    oflag |= 16777216;
-                                }
-                                #[cfg(target_os = "freebsd")]
-                                {
-                                    oflag |= 1048576;
                                 }
                             }
                             120 => {
@@ -579,14 +651,8 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
                                 (*state).direct = -1;
                             },
                             78 => {
-                                #[cfg(any(target_os = "linux", target_os = "android"))]
-                                {
-                                    oflag |= 2048;
-                                }
-                                #[cfg(any(target_os = "macos", target_os = "freebsd"))]
-                                {
-                                    oflag |= 4;
-                                }
+                                let __v4: i32 = oflag | (slate_support::O_NONBLOCK as i32);
+                                oflag = __v4;
                             }
                             84 => unsafe {
                                 (*state).direct = 1;
@@ -603,7 +669,15 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
                                 (*state).mode = 7247;
                             },
                             43 => {
-                                unsafe { free(state as *mut ()) }; // can't read and write at the same time
+                                #[cfg(not(target_arch = "arm"))]
+                                {
+                                    unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
+                                }
+                                #[cfg(target_arch = "arm")]
+                                {
+                                    unsafe { free(state as *mut ()) };
+                                }
+                                // can't read and write at the same time
                                 return std::ptr::null_mut::<gzFile_s>();
                             }
                             98 => {
@@ -642,24 +716,30 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
                                 (*state).mode = 7247;
                             },
                             43 => {
-                                unsafe { free(state as *mut ()) }; // can't read and write at the same time
+                                #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+                                {
+                                    unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
+                                }
+                                #[cfg(any(target_os = "macos", target_os = "android"))]
+                                {
+                                    unsafe { free(state as *mut ()) };
+                                }
+                                // can't read and write at the same time
                                 return std::ptr::null_mut::<gzFile_s>();
                             }
                             98 => {
                                 break '__slate_break_0; // ignore -- will request binary anyway
                             }
                             101 => {
-                                #[cfg(any(target_os = "linux", target_os = "android"))]
+                                #[cfg(not(target_env = "gnu"))]
+                                let __v6: i32 = oflag | (slate_support::O_CLOEXEC as i32);
+                                #[cfg(not(target_env = "gnu"))]
+                                {
+                                    oflag = __v6;
+                                }
+                                #[cfg(target_env = "gnu")]
                                 {
                                     oflag |= 524288;
-                                }
-                                #[cfg(target_os = "macos")]
-                                {
-                                    oflag |= 16777216;
-                                }
-                                #[cfg(target_os = "freebsd")]
-                                {
-                                    oflag |= 1048576;
                                 }
                             }
                             120 => {
@@ -681,14 +761,8 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
                                 (*state).direct = -1;
                             },
                             78 => {
-                                #[cfg(any(target_os = "linux", target_os = "android"))]
-                                {
-                                    oflag |= 2048;
-                                }
-                                #[cfg(any(target_os = "macos", target_os = "freebsd"))]
-                                {
-                                    oflag |= 4;
-                                }
+                                let __v7: i32 = oflag | (slate_support::O_NONBLOCK as i32);
+                                oflag = __v7;
                             }
                             84 => unsafe {
                                 (*state).direct = 1;
@@ -729,20 +803,30 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
                                 (*state).mode = 1;
                             },
                             43 => {
-                                unsafe { free(state as *mut ()) }; // can't read and write at the same time
+                                #[cfg(not(target_os = "android"))]
+                                {
+                                    unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
+                                }
+                                #[cfg(target_os = "android")]
+                                {
+                                    unsafe { free(state as *mut ()) };
+                                }
+                                // can't read and write at the same time
                                 return std::ptr::null_mut::<gzFile_s>();
                             }
                             98 => {
                                 break '__slate_break_1; // ignore -- will request binary anyway
                             }
                             101 => {
-                                #[cfg(not(target_os = "freebsd"))]
+                                #[cfg(not(target_env = "gnu"))]
+                                let __v3: i32 = oflag | (slate_support::O_CLOEXEC as i32);
+                                #[cfg(not(target_env = "gnu"))]
+                                {
+                                    oflag = __v3;
+                                }
+                                #[cfg(target_env = "gnu")]
                                 {
                                     oflag |= 524288;
-                                }
-                                #[cfg(target_os = "freebsd")]
-                                {
-                                    oflag |= 1048576;
                                 }
                             }
                             120 => {
@@ -764,14 +848,8 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
                                 (*state).direct = -1;
                             },
                             78 => {
-                                #[cfg(not(target_os = "freebsd"))]
-                                {
-                                    oflag |= 2048;
-                                }
-                                #[cfg(target_os = "freebsd")]
-                                {
-                                    oflag |= 4;
-                                }
+                                let __v5: i32 = oflag | (slate_support::O_NONBLOCK as i32);
+                                oflag = __v5;
                             }
                             84 => unsafe {
                                 (*state).direct = 1;
@@ -788,20 +866,30 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
                                 (*state).mode = 7247;
                             },
                             43 => {
-                                unsafe { free(state as *mut ()) }; // can't read and write at the same time
+                                #[cfg(not(target_os = "android"))]
+                                {
+                                    unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
+                                }
+                                #[cfg(target_os = "android")]
+                                {
+                                    unsafe { free(state as *mut ()) };
+                                }
+                                // can't read and write at the same time
                                 return std::ptr::null_mut::<gzFile_s>();
                             }
                             98 => {
                                 break '__slate_break_1; // ignore -- will request binary anyway
                             }
                             101 => {
-                                #[cfg(not(target_os = "freebsd"))]
+                                #[cfg(not(target_env = "gnu"))]
+                                let __v8: i32 = oflag | (slate_support::O_CLOEXEC as i32);
+                                #[cfg(not(target_env = "gnu"))]
+                                {
+                                    oflag = __v8;
+                                }
+                                #[cfg(target_env = "gnu")]
                                 {
                                     oflag |= 524288;
-                                }
-                                #[cfg(target_os = "freebsd")]
-                                {
-                                    oflag |= 1048576;
                                 }
                             }
                             120 => {
@@ -823,14 +911,8 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
                                 (*state).direct = -1;
                             },
                             78 => {
-                                #[cfg(not(target_os = "freebsd"))]
-                                {
-                                    oflag |= 2048;
-                                }
-                                #[cfg(target_os = "freebsd")]
-                                {
-                                    oflag |= 4;
-                                }
+                                let __v10: i32 = oflag | (slate_support::O_NONBLOCK as i32);
+                                oflag = __v10;
                             }
                             84 => unsafe {
                                 (*state).direct = 1;
@@ -848,14 +930,44 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
     }
     // must provide an "r", "w", or "a"
     if (unsafe { (*state).mode }) == 0 {
-        unsafe { free(state as *mut ()) };
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            all(not(target_arch = "arm"), windows)
+        ))]
+        {
+            unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
+        }
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "android",
+            all(target_arch = "arm", windows)
+        ))]
+        {
+            unsafe { free(state as *mut ()) };
+        }
         return std::ptr::null_mut::<gzFile_s>();
     }
     // direct is 0, 1 if "T", or -1 if "G" (last "G" or "T" wins)
     if (unsafe { (*state).mode }) == 7247 {
         if (unsafe { (*state).direct }) == 1 {
             // can't force a transparent read
-            unsafe { free(state as *mut ()) };
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                all(not(target_arch = "arm"), windows)
+            ))]
+            {
+                unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
+            }
+            #[cfg(any(
+                target_os = "macos",
+                target_os = "android",
+                all(target_arch = "arm", windows)
+            ))]
+            {
+                unsafe { free(state as *mut ()) };
+            }
             return std::ptr::null_mut::<gzFile_s>();
         }
         if (unsafe { (*state).direct }) == 0 {
@@ -868,7 +980,22 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
     } else {
         if (unsafe { (*state).direct }) == -1 {
             // "G" has no meaning when writing -- disallow it
-            unsafe { free(state as *mut ()) };
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                all(not(target_arch = "arm"), windows)
+            ))]
+            {
+                unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
+            }
+            #[cfg(any(
+                target_os = "macos",
+                target_os = "android",
+                all(target_arch = "arm", windows)
+            ))]
+            {
+                unsafe { free(state as *mut ()) };
+            }
             return std::ptr::null_mut::<gzFile_s>();
         }
     }
@@ -878,37 +1005,114 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
     #[cfg(windows)]
     {
         if fd == -2 {
-            len = unsafe {
-                wcstombs(
-                    std::ptr::null_mut::<c_char>(),
-                    path as *const wchar_t,
-                    (0 as size_t),
-                )
-            };
+            #[cfg(target_pointer_width = "64")]
+            {
+                len = unsafe {
+                    wcstombs(
+                        std::ptr::null_mut::<c_char>() as *mut core::ffi::c_char,
+                        (path as *const wchar_t) as *const u16,
+                        (0 as size_t) as usize,
+                    ) as u64
+                };
+            }
+            #[cfg(target_arch = "x86")]
+            {
+                len = unsafe {
+                    wcstombs(
+                        std::ptr::null_mut::<c_char>() as *mut core::ffi::c_char,
+                        (path as *const wchar_t) as *const u16,
+                        (0 as size_t) as usize,
+                    ) as u32
+                };
+            }
+            #[cfg(target_arch = "arm")]
+            {
+                len = unsafe {
+                    wcstombs(
+                        std::ptr::null_mut::<c_char>(),
+                        path as *const wchar_t,
+                        (0 as size_t),
+                    )
+                };
+            }
         } else {
-            len = (unsafe { strlen(path as *const c_char) }) as size_t;
+            #[cfg(target_pointer_width = "64")]
+            {
+                len =
+                    (unsafe { strlen((path as *const c_char) as *const core::ffi::c_char) as u64 })
+                        as size_t;
+            }
+            #[cfg(target_arch = "x86")]
+            {
+                len =
+                    (unsafe { strlen((path as *const c_char) as *const core::ffi::c_char) as u32 })
+                        as size_t;
+            }
+            #[cfg(target_arch = "arm")]
+            {
+                len = (unsafe { strlen(path as *const c_char) }) as size_t;
+            }
         }
     }
-    #[cfg(unix)]
+    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+    {
+        len = (unsafe { strlen((path as *const c_char) as *const core::ffi::c_char) as c_ulong })
+            as size_t;
+    }
+    #[cfg(target_os = "macos")]
     {
         len = (unsafe { strlen(path as *const c_char) }) as size_t;
+    }
+    #[cfg(all(target_pointer_width = "32", unix))]
+    {
+        len = (unsafe { strlen((path as *const c_char) as *const core::ffi::c_char) as u32 })
+            as size_t;
     }
     unsafe {
         #[cfg(all(target_pointer_width = "64", windows))]
         {
-            (*state).path = malloc(len.wrapping_add(1) as u64) as *mut c_char;
+            (*state).path =
+                (malloc((len.wrapping_add(1) as u64) as usize) as *mut ()) as *mut c_char;
         }
-        #[cfg(target_pointer_width = "32")]
+        #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+        {
+            (*state).path =
+                (malloc((len as u32).wrapping_add(1) as usize) as *mut ()) as *mut c_char;
+        }
+        #[cfg(all(target_arch = "arm", windows))]
         {
             (*state).path = malloc((len as u32).wrapping_add(1)) as *mut c_char;
         }
-        #[cfg(all(target_pointer_width = "64", unix))]
+        #[cfg(any(
+            all(target_os = "linux", target_pointer_width = "64"),
+            target_os = "freebsd"
+        ))]
+        {
+            (*state).path =
+                (malloc((len.wrapping_add(1) as c_ulong) as usize) as *mut ()) as *mut c_char;
+        }
+        #[cfg(any(target_os = "macos", target_os = "android"))]
         {
             (*state).path = malloc(len.wrapping_add(1) as c_ulong) as *mut c_char;
         }
     }
     if unsafe { (*state).path }.is_null() {
-        unsafe { free(state as *mut ()) };
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            all(not(target_arch = "arm"), windows)
+        ))]
+        {
+            unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
+        }
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "android",
+            all(target_arch = "arm", windows)
+        ))]
+        {
+            unsafe { free(state as *mut ()) };
+        }
         return std::ptr::null_mut::<gzFile_s>();
     }
     #[cfg(windows)]
@@ -917,9 +1121,25 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
             if len != 0 {
                 #[cfg(target_pointer_width = "64")]
                 {
-                    unsafe { wcstombs((*state).path, path as *const wchar_t, len.wrapping_add(1)) };
+                    unsafe {
+                        wcstombs(
+                            (*state).path as *mut core::ffi::c_char,
+                            (path as *const wchar_t) as *const u16,
+                            len.wrapping_add(1) as usize,
+                        ) as u64
+                    };
                 }
-                #[cfg(target_pointer_width = "32")]
+                #[cfg(target_arch = "x86")]
+                {
+                    unsafe {
+                        wcstombs(
+                            (*state).path as *mut core::ffi::c_char,
+                            (path as *const wchar_t) as *const u16,
+                            ((len as u32).wrapping_add(1) as size_t) as usize,
+                        ) as u32
+                    };
+                }
+                #[cfg(target_arch = "arm")]
                 {
                     unsafe {
                         wcstombs(
@@ -946,9 +1166,14 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
                     )
                 };
             }
-            #[cfg(feature = "no-vsnprintf")]
+            #[cfg(all(not(target_arch = "arm"), feature = "no-vsnprintf"))]
             {
-                unsafe { strcpy((*state).path, path as *const c_char) };
+                unsafe {
+                    strcpy(
+                        (*state).path as *mut core::ffi::c_char,
+                        (path as *const c_char) as *const core::ffi::c_char,
+                    ) as *mut c_char
+                };
             }
             #[cfg(all(target_pointer_width = "32", not(feature = "no-vsnprintf")))]
             {
@@ -961,9 +1186,38 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
                     )
                 };
             }
+            #[cfg(all(target_arch = "arm", feature = "no-vsnprintf"))]
+            {
+                unsafe { strcpy((*state).path, path as *const c_char) };
+            }
         }
     }
-    #[cfg(all(target_pointer_width = "64", unix, not(feature = "no-vsnprintf")))]
+    #[cfg(all(
+        not(target_os = "macos"),
+        target_pointer_width = "64",
+        unix,
+        not(feature = "no-vsnprintf")
+    ))]
+    {
+        unsafe {
+            snprintf(
+                (*state).path as *mut core::ffi::c_char,
+                (len.wrapping_add(1) as c_ulong) as usize,
+                c"%s".as_ptr() as *const core::ffi::c_char,
+                path as *const c_char,
+            ) as i32
+        };
+    }
+    #[cfg(all(not(target_os = "macos"), unix, feature = "no-vsnprintf"))]
+    {
+        unsafe {
+            strcpy(
+                (*state).path as *mut core::ffi::c_char,
+                (path as *const c_char) as *const core::ffi::c_char,
+            ) as *mut c_char
+        };
+    }
+    #[cfg(all(target_os = "macos", not(feature = "no-vsnprintf")))]
     {
         unsafe {
             snprintf(
@@ -974,7 +1228,7 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
             )
         };
     }
-    #[cfg(all(unix, feature = "no-vsnprintf"))]
+    #[cfg(all(target_os = "macos", feature = "no-vsnprintf"))]
     {
         unsafe { strcpy((*state).path, path as *const c_char) };
     }
@@ -982,11 +1236,11 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
     {
         unsafe {
             snprintf(
-                (*state).path,
-                (len as u32).wrapping_add(1),
-                c"%s".as_ptr(),
+                (*state).path as *mut core::ffi::c_char,
+                (len as u32).wrapping_add(1) as usize,
+                c"%s".as_ptr() as *const core::ffi::c_char,
                 path as *const c_char,
-            )
+            ) as i32
         };
     }
     // compute the flags for open()
@@ -1005,74 +1259,62 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
                     }
             };
     }
-    #[cfg(target_env = "gnu")]
-    {
-        oflag |= if (unsafe { (*state).mode }) == 7247 {
-            0
+    #[cfg(any(target_env = "musl", target_os = "android"))]
+    let __v9: i32 = oflag
+        | ((slate_support::O_LARGEFILE as i32)
+            | if (unsafe { (*state).mode }) == 7247 {
+                slate_support::O_RDONLY as i32
+            } else {
+                (slate_support::O_WRONLY as i32)
+                    | (slate_support::O_CREAT as i32)
+                    | if exclusive != 0 {
+                        slate_support::O_EXCL as i32
+                    } else {
+                        0
+                    }
+                    | if (unsafe { (*state).mode }) == 31153 {
+                        slate_support::O_TRUNC as i32
+                    } else {
+                        slate_support::O_APPEND as i32
+                    }
+            });
+    #[cfg(not(any(target_env = "musl", target_os = "android", windows)))]
+    let __v9: i32 = oflag
+        | if (unsafe { (*state).mode }) == 7247 {
+            slate_support::O_RDONLY as i32
         } else {
-            1 | 64
-                | if exclusive != 0 { 128 } else { 0 }
-                | if (unsafe { (*state).mode }) == 31153 {
-                    512
+            (slate_support::O_WRONLY as i32)
+                | (slate_support::O_CREAT as i32)
+                | if exclusive != 0 {
+                    slate_support::O_EXCL as i32
                 } else {
-                    1024
+                    0
+                }
+                | if (unsafe { (*state).mode }) == 31153 {
+                    slate_support::O_TRUNC as i32
+                } else {
+                    slate_support::O_APPEND as i32
                 }
         };
-    }
-    #[cfg(not(any(
-        all(not(target_env = "musl"), not(target_os = "android")),
-        target_arch = "aarch64"
-    )))]
+    #[cfg(unix)]
     {
-        oflag |= 32768
-            | if (unsafe { (*state).mode }) == 7247 {
-                0
-            } else {
-                1 | 64
-                    | if exclusive != 0 { 128 } else { 0 }
-                    | if (unsafe { (*state).mode }) == 31153 {
-                        512
-                    } else {
-                        1024
-                    }
-            };
-    }
-    #[cfg(not(any(
-        target_arch = "x86_64",
-        all(not(target_env = "musl"), not(target_os = "android"))
-    )))]
-    {
-        oflag |= 131072
-            | if (unsafe { (*state).mode }) == 7247 {
-                0
-            } else {
-                1 | 64
-                    | if exclusive != 0 { 128 } else { 0 }
-                    | if (unsafe { (*state).mode }) == 31153 {
-                        512
-                    } else {
-                        1024
-                    }
-            };
-    }
-    #[cfg(any(target_os = "macos", target_os = "freebsd"))]
-    {
-        oflag |= if (unsafe { (*state).mode }) == 7247 {
-            0
-        } else {
-            1 | 512
-                | if exclusive != 0 { 2048 } else { 0 }
-                | if (unsafe { (*state).mode }) == 31153 {
-                    1024
-                } else {
-                    8
-                }
-        };
+        oflag = __v9;
     }
     // open the file with the appropriate flags (or just use fd)
     if fd == -1 {
         unsafe {
-            (*state).fd = open(path as *const c_char, oflag, 438i32);
+            #[cfg(any(target_os = "macos", windows))]
+            {
+                (*state).fd = open(path as *const c_char, oflag, 438i32);
+            }
+            #[cfg(all(not(target_os = "macos"), unix))]
+            {
+                (*state).fd = open(
+                    (path as *const c_char) as *const core::ffi::c_char,
+                    oflag as i32,
+                    438i32,
+                ) as i32;
+            }
         }
     } else {
         #[cfg(windows)]
@@ -1087,31 +1329,70 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
                 }
             }
         }
-        #[cfg(any(target_os = "linux", target_os = "android"))]
+        #[cfg(unix)]
         {
-            if oflag & 2048 != 0 {
-                unsafe { fcntl(fd, 4i32, fcntl(fd, 3i32) | 2048) };
+            if oflag & (slate_support::O_NONBLOCK as i32) != 0 {
+                #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+                {
+                    unsafe {
+                        fcntl(
+                            fd as i32,
+                            (slate_support::F_SETFL as i32) as i32,
+                            (fcntl(fd as i32, (slate_support::F_GETFL as i32) as i32) as i32)
+                                | (slate_support::O_NONBLOCK as i32),
+                        ) as i32
+                    };
+                }
+                #[cfg(any(target_os = "macos", target_os = "android"))]
+                {
+                    unsafe {
+                        fcntl(
+                            fd,
+                            slate_support::F_SETFL as i32,
+                            fcntl(fd, slate_support::F_GETFL as i32)
+                                | (slate_support::O_NONBLOCK as i32),
+                        )
+                    };
+                }
             }
+        }
+        #[cfg(all(not(target_env = "gnu"), unix))]
+        {
+            if oflag & (slate_support::O_CLOEXEC as i32) != 0 {
+                #[cfg(any(target_env = "musl", target_os = "freebsd"))]
+                {
+                    unsafe {
+                        fcntl(
+                            fd as i32,
+                            (slate_support::F_SETFD as i32) as i32,
+                            (fcntl(fd as i32, (slate_support::F_GETFD as i32) as i32) as i32)
+                                | (slate_support::O_CLOEXEC as i32),
+                        ) as i32
+                    };
+                }
+                #[cfg(any(target_os = "macos", target_os = "android"))]
+                {
+                    unsafe {
+                        fcntl(
+                            fd,
+                            slate_support::F_SETFD as i32,
+                            fcntl(fd, slate_support::F_GETFD as i32)
+                                | (slate_support::O_CLOEXEC as i32),
+                        )
+                    };
+                }
+            }
+        }
+        #[cfg(target_env = "gnu")]
+        {
             if oflag & 524288 != 0 {
-                unsafe { fcntl(fd, 2i32, fcntl(fd, 1i32) | 524288) };
-            }
-        }
-        #[cfg(any(target_os = "macos", target_os = "freebsd"))]
-        {
-            if oflag & 4 != 0 {
-                unsafe { fcntl(fd, 4i32, fcntl(fd, 3i32) | 4) };
-            }
-        }
-        #[cfg(target_os = "macos")]
-        {
-            if oflag & 16777216 != 0 {
-                unsafe { fcntl(fd, 2i32, fcntl(fd, 1i32) | 16777216) };
-            }
-        }
-        #[cfg(target_os = "freebsd")]
-        {
-            if oflag & 1048576 != 0 {
-                unsafe { fcntl(fd, 2i32, fcntl(fd, 1i32) | 1048576) };
+                unsafe {
+                    fcntl(
+                        fd as i32,
+                        (slate_support::F_SETFD as i32) as i32,
+                        (fcntl(fd as i32, (slate_support::F_GETFD as i32) as i32) as i32) | 524288,
+                    ) as i32
+                };
             }
         }
         #[cfg(unix)]
@@ -1122,26 +1403,90 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
         }
     }
     if (unsafe { (*state).fd }) == -1 {
-        unsafe { free((*state).path as *mut ()) };
-        unsafe { free(state as *mut ()) };
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            all(not(target_arch = "arm"), windows)
+        ))]
+        {
+            unsafe { free(((*state).path as *mut ()) as *mut core::ffi::c_void) };
+            unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
+        }
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "android",
+            all(target_arch = "arm", windows)
+        ))]
+        {
+            unsafe { free((*state).path as *mut ()) };
+            unsafe { free(state as *mut ()) };
+        }
         return std::ptr::null_mut::<gzFile_s>();
     }
     if (unsafe { (*state).mode }) == 1 {
-        #[cfg(windows)]
+        #[cfg(not(any(unix, target_arch = "arm")))]
+        {
+            unsafe {
+                _lseeki64(
+                    (*state).fd,
+                    0i64,
+                    slate_support::windows::Win32::Media::Multimedia::SEEK_END as i32,
+                )
+            };
+        }
+        #[cfg(all(target_arch = "arm", windows))]
         {
             unsafe { _lseeki64((*state).fd, 0i64, 2i32) };
         }
-        #[cfg(target_env = "gnu")]
+        #[cfg(any(target_env = "musl", target_os = "android"))]
         {
-            unsafe { lseek((*state).fd, (0 as c_long), 2i32) };
+            unsafe {
+                lseek(
+                    (*state).fd as i32,
+                    (0 as off_t) as i64,
+                    (slate_support::SEEK_END as i32) as i32,
+                ) as c_long
+            };
         }
-        #[cfg(not(any(target_env = "gnu", target_os = "freebsd", windows)))]
+        #[cfg(target_os = "macos")]
         {
-            unsafe { lseek((*state).fd, (0 as off_t), 2i32) };
+            unsafe {
+                lseek(
+                    (*state).fd as i32,
+                    (0 as off_t) as i64,
+                    (slate_support::SEEK_END as i32) as i32,
+                ) as i64
+            };
         }
         #[cfg(target_os = "freebsd")]
         {
-            unsafe { lseek((*state).fd, 0i64, 2i32) };
+            unsafe {
+                lseek(
+                    (*state).fd as i32,
+                    0i64 as i64,
+                    (slate_support::SEEK_END as i32) as i32,
+                ) as c_long
+            };
+        }
+        #[cfg(all(target_env = "gnu", target_pointer_width = "64"))]
+        {
+            unsafe {
+                lseek(
+                    (*state).fd as i32,
+                    (0 as c_long) as i64,
+                    (slate_support::SEEK_END as i32) as i32,
+                ) as c_long
+            };
+        }
+        #[cfg(all(target_pointer_width = "32", unix))]
+        {
+            unsafe {
+                lseek(
+                    (*state).fd as i32,
+                    (0 as c_long) as i32,
+                    (slate_support::SEEK_END as i32) as i32,
+                ) as c_long
+            };
         }
         // so gzoffset() is correct
         unsafe {
@@ -1152,21 +1497,57 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
     // save the current position for rewinding (only if reading)
     if (unsafe { (*state).mode }) == 7247 {
         unsafe {
-            #[cfg(windows)]
+            #[cfg(not(any(unix, target_arch = "arm")))]
+            {
+                (*state).start = _lseeki64(
+                    (*state).fd,
+                    0i64,
+                    slate_support::windows::Win32::Media::Multimedia::SEEK_CUR as i32,
+                );
+            }
+            #[cfg(all(target_arch = "arm", windows))]
             {
                 (*state).start = _lseeki64((*state).fd, 0i64, 1i32);
             }
-            #[cfg(target_env = "gnu")]
+            #[cfg(any(target_env = "musl", target_os = "android"))]
             {
-                (*state).start = lseek((*state).fd, (0 as c_long), 1i32) as off_t;
+                (*state).start = lseek(
+                    (*state).fd as i32,
+                    (0 as off_t) as i64,
+                    (slate_support::SEEK_CUR as i32) as i32,
+                ) as c_long;
             }
-            #[cfg(not(any(target_env = "gnu", target_os = "freebsd", windows)))]
+            #[cfg(target_os = "macos")]
             {
-                (*state).start = lseek((*state).fd, (0 as off_t), 1i32);
+                (*state).start = lseek(
+                    (*state).fd as i32,
+                    (0 as off_t) as i64,
+                    (slate_support::SEEK_CUR as i32) as i32,
+                ) as i64;
             }
             #[cfg(target_os = "freebsd")]
             {
-                (*state).start = lseek((*state).fd, 0i64, 1i32) as off_t;
+                (*state).start = (lseek(
+                    (*state).fd as i32,
+                    0i64 as i64,
+                    (slate_support::SEEK_CUR as i32) as i32,
+                ) as c_long) as off_t;
+            }
+            #[cfg(all(target_env = "gnu", target_pointer_width = "64"))]
+            {
+                (*state).start = (lseek(
+                    (*state).fd as i32,
+                    (0 as c_long) as i64,
+                    (slate_support::SEEK_CUR as i32) as i32,
+                ) as c_long) as off_t;
+            }
+            #[cfg(all(target_pointer_width = "32", unix))]
+            {
+                (*state).start = (lseek(
+                    (*state).fd as i32,
+                    (0 as c_long) as i32,
+                    (slate_support::SEEK_CUR as i32) as i32,
+                ) as c_long) as off_t;
             }
         }
         if (unsafe { (*state).start }) == -1 {
@@ -1200,20 +1581,36 @@ extern "C-unwind" fn gzdopen(fd: i32, mode: *const c_char) -> *mut gzFile_s {
     let __v0: bool = if fd == -1 {
         true
     } else {
-        #[cfg(all(target_pointer_width = "64", unix))]
+        #[cfg(any(
+            all(target_os = "linux", target_pointer_width = "64"),
+            target_os = "freebsd"
+        ))]
+        let __v1: *mut c_char =
+            (unsafe {
+                malloc((7 as c_ulong).wrapping_add(
+                    (3 as c_ulong).wrapping_mul(std::mem::size_of::<i32>() as c_ulong),
+                ) as usize) as *mut ()
+            }) as *mut c_char;
+        #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+        let __v1: *mut c_char = (unsafe {
+            malloc(7u32.wrapping_add(3u32.wrapping_mul(std::mem::size_of::<i32>() as u32)) as usize)
+                as *mut ()
+        }) as *mut c_char;
+        #[cfg(any(target_os = "macos", target_os = "android"))]
         let __v1: *mut c_char =
             (unsafe {
                 malloc((7 as c_ulong).wrapping_add(
                     (3 as c_ulong).wrapping_mul(std::mem::size_of::<i32>() as c_ulong),
                 ))
             }) as *mut c_char;
-        #[cfg(target_pointer_width = "32")]
-        let __v1: *mut c_char = (unsafe {
-            malloc(7u32.wrapping_add(3u32.wrapping_mul(std::mem::size_of::<i32>() as u32)))
-        }) as *mut c_char;
         #[cfg(all(target_pointer_width = "64", windows))]
         let __v1: *mut c_char = (unsafe {
-            malloc(7u64.wrapping_add(3u64.wrapping_mul(std::mem::size_of::<i32>() as u64)))
+            malloc(7u64.wrapping_add(3u64.wrapping_mul(std::mem::size_of::<i32>() as u64)) as usize)
+                as *mut ()
+        }) as *mut c_char;
+        #[cfg(all(target_arch = "arm", windows))]
+        let __v1: *mut c_char = (unsafe {
+            malloc(7u32.wrapping_add(3u32.wrapping_mul(std::mem::size_of::<i32>() as u32)))
         }) as *mut c_char;
         path = __v1;
         __v1.is_null()
@@ -1221,7 +1618,17 @@ extern "C-unwind" fn gzdopen(fd: i32, mode: *const c_char) -> *mut gzFile_s {
     if __v0 {
         return std::ptr::null_mut::<gzFile_s>();
     }
-    #[cfg(all(unix, feature = "no-vsnprintf"))]
+    #[cfg(all(not(target_os = "macos"), unix, feature = "no-vsnprintf"))]
+    {
+        unsafe {
+            sprintf(
+                path as *mut core::ffi::c_char,
+                c"<fd:%d>".as_ptr() as *const core::ffi::c_char,
+                fd,
+            ) as i32
+        };
+    }
+    #[cfg(all(target_os = "macos", feature = "no-vsnprintf"))]
     {
         unsafe { sprintf(path, c"<fd:%d>".as_ptr(), fd) };
     }
@@ -1229,7 +1636,36 @@ extern "C-unwind" fn gzdopen(fd: i32, mode: *const c_char) -> *mut gzFile_s {
     {
         unsafe { sprintf(path, c"<fd:%d>".as_ptr(), fd) };
     }
-    #[cfg(all(target_pointer_width = "64", unix, not(feature = "no-vsnprintf")))]
+    #[cfg(all(
+        not(target_os = "macos"),
+        target_pointer_width = "64",
+        unix,
+        not(feature = "no-vsnprintf")
+    ))]
+    {
+        unsafe {
+            snprintf(
+                path as *mut core::ffi::c_char,
+                (7 as c_ulong).wrapping_add(
+                    (3 as c_ulong).wrapping_mul(std::mem::size_of::<i32>() as c_ulong),
+                ) as usize,
+                c"<fd:%d>".as_ptr() as *const core::ffi::c_char,
+                fd,
+            ) as i32
+        };
+    }
+    #[cfg(all(target_pointer_width = "32", unix, not(feature = "no-vsnprintf")))]
+    {
+        unsafe {
+            snprintf(
+                path as *mut core::ffi::c_char,
+                7u32.wrapping_add(3u32.wrapping_mul(std::mem::size_of::<i32>() as u32)) as usize,
+                c"<fd:%d>".as_ptr() as *const core::ffi::c_char,
+                fd,
+            ) as i32
+        };
+    }
+    #[cfg(all(target_os = "macos", not(feature = "no-vsnprintf")))]
     {
         unsafe {
             snprintf(
@@ -1237,17 +1673,6 @@ extern "C-unwind" fn gzdopen(fd: i32, mode: *const c_char) -> *mut gzFile_s {
                 (7 as c_ulong).wrapping_add(
                     (3 as c_ulong).wrapping_mul(std::mem::size_of::<i32>() as c_ulong),
                 ),
-                c"<fd:%d>".as_ptr(),
-                fd,
-            )
-        };
-    }
-    #[cfg(all(target_pointer_width = "32", unix, not(feature = "no-vsnprintf")))]
-    {
-        unsafe {
-            snprintf(
-                path,
-                7u32.wrapping_add(3u32.wrapping_mul(std::mem::size_of::<i32>() as u32)),
                 c"<fd:%d>".as_ptr(),
                 fd,
             )
@@ -1276,7 +1701,22 @@ extern "C-unwind" fn gzdopen(fd: i32, mode: *const c_char) -> *mut gzFile_s {
         };
     }
     let gz: *mut gzFile_s = gz_open(path as *const (), fd, mode);
-    unsafe { free(path as *mut ()) };
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "freebsd",
+        all(not(target_arch = "arm"), windows)
+    ))]
+    {
+        unsafe { free((path as *mut ()) as *mut core::ffi::c_void) };
+    }
+    #[cfg(any(
+        target_os = "macos",
+        target_os = "android",
+        all(target_arch = "arm", windows)
+    ))]
+    {
+        unsafe { free(path as *mut ()) };
+    }
     gz
 }
 
@@ -1367,25 +1807,85 @@ extern "C-unwind" fn gzrewind(file: *mut gzFile_s) -> i32 {
         return -1;
     }
     // back up and start over
-    #[cfg(target_env = "gnu")]
+    #[cfg(all(target_env = "gnu", target_pointer_width = "64"))]
     {
-        if (unsafe { lseek((*state).fd, (*state).start as c_long, 0i32) }) == -1 {
+        if (unsafe {
+            lseek(
+                (*state).fd as i32,
+                ((*state).start as c_long) as i64,
+                (slate_support::SEEK_SET as i32) as i32,
+            ) as c_long
+        }) == -1
+        {
             return -1;
         }
     }
-    #[cfg(not(any(target_env = "gnu", target_os = "freebsd", windows)))]
+    #[cfg(all(target_pointer_width = "32", unix))]
     {
-        if (unsafe { lseek((*state).fd, (*state).start, 0i32) }) == -1 {
+        if (unsafe {
+            lseek(
+                (*state).fd as i32,
+                ((*state).start as c_long) as i32,
+                (slate_support::SEEK_SET as i32) as i32,
+            ) as c_long
+        }) == -1
+        {
+            return -1;
+        }
+    }
+    #[cfg(any(target_env = "musl", target_os = "android"))]
+    {
+        if (unsafe {
+            lseek(
+                (*state).fd as i32,
+                (*state).start as i64,
+                (slate_support::SEEK_SET as i32) as i32,
+            ) as c_long
+        }) == -1
+        {
+            return -1;
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        if (unsafe {
+            lseek(
+                (*state).fd as i32,
+                (*state).start as i64,
+                (slate_support::SEEK_SET as i32) as i32,
+            ) as i64
+        }) == -1
+        {
             return -1;
         }
     }
     #[cfg(target_os = "freebsd")]
     {
-        if (unsafe { lseek((*state).fd, (*state).start as i64, 0i32) }) == -1 {
+        if (unsafe {
+            lseek(
+                (*state).fd as i32,
+                ((*state).start as i64) as i64,
+                (slate_support::SEEK_SET as i32) as i32,
+            ) as c_long
+        }) == -1
+        {
             return -1;
         }
     }
-    #[cfg(windows)]
+    #[cfg(not(any(unix, target_arch = "arm")))]
+    {
+        if (unsafe {
+            _lseeki64(
+                (*state).fd,
+                (*state).start,
+                slate_support::windows::Win32::Media::Multimedia::SEEK_SET as i32,
+            )
+        }) == -1
+        {
+            return -1;
+        }
+    }
+    #[cfg(all(target_arch = "arm", windows))]
     {
         if (unsafe { _lseeki64((*state).fd, (*state).start, 0i32) }) == -1 {
             return -1;
@@ -1432,20 +1932,71 @@ extern "C-unwind" fn gzseek64(
         return -1;
     }
     // can only seek from start or relative to current position
-    if whence != 0 && whence != 1 {
-        return -1;
+    #[cfg(unix)]
+    {
+        if whence != (slate_support::SEEK_SET as i32) && whence != (slate_support::SEEK_CUR as i32)
+        {
+            return -1;
+        }
+    }
+    #[cfg(not(any(unix, target_arch = "arm")))]
+    {
+        if whence != (slate_support::windows::Win32::Media::Multimedia::SEEK_SET as i32)
+            && whence != (slate_support::windows::Win32::Media::Multimedia::SEEK_CUR as i32)
+        {
+            return -1;
+        }
+    }
+    #[cfg(all(target_arch = "arm", windows))]
+    {
+        if whence != 0 && whence != 1 {
+            return -1;
+        }
     }
     // normalize offset to a SEEK_CUR specification
-    if whence == 0 {
-        offset -= unsafe { (*state).x.pos };
-    } else {
-        offset += if (unsafe { (*state).past }) != 0 {
-            0
+    #[cfg(unix)]
+    {
+        if whence == (slate_support::SEEK_SET as i32) {
+            offset -= unsafe { (*state).x.pos };
         } else {
-            unsafe { (*state).skip }
-        };
-        unsafe {
-            (*state).skip = 0;
+            offset += if (unsafe { (*state).past }) != 0 {
+                0
+            } else {
+                unsafe { (*state).skip }
+            };
+            unsafe {
+                (*state).skip = 0;
+            }
+        }
+    }
+    #[cfg(not(any(unix, target_arch = "arm")))]
+    {
+        if whence == (slate_support::windows::Win32::Media::Multimedia::SEEK_SET as i32) {
+            offset -= unsafe { (*state).x.pos };
+        } else {
+            offset += if (unsafe { (*state).past }) != 0 {
+                0
+            } else {
+                unsafe { (*state).skip }
+            };
+            unsafe {
+                (*state).skip = 0;
+            }
+        }
+    }
+    #[cfg(all(target_arch = "arm", windows))]
+    {
+        if whence == 0 {
+            offset -= unsafe { (*state).x.pos };
+        } else {
+            offset += if (unsafe { (*state).past }) != 0 {
+                0
+            } else {
+                unsafe { (*state).skip }
+            };
+            unsafe {
+                (*state).skip = 0;
+            }
         }
     }
     // if within raw area while reading, just go there
@@ -1453,31 +2004,67 @@ extern "C-unwind" fn gzseek64(
         && (unsafe { (*state).how }) == 1
         && (unsafe { (*state).x.pos }) + offset >= 0
     {
-        #[cfg(target_env = "gnu")]
+        #[cfg(all(target_env = "gnu", target_pointer_width = "64"))]
         {
             ret = (unsafe {
                 lseek(
-                    (*state).fd,
-                    (offset - ((*state).x.have as off_t)) as c_long,
-                    1i32,
-                )
+                    (*state).fd as i32,
+                    ((offset - ((*state).x.have as off_t)) as c_long) as i64,
+                    (slate_support::SEEK_CUR as i32) as i32,
+                ) as c_long
             }) as off_t;
         }
-        #[cfg(not(any(target_env = "gnu", target_os = "freebsd", windows)))]
+        #[cfg(all(target_pointer_width = "32", unix))]
         {
-            ret = unsafe { lseek((*state).fd, offset - ((*state).x.have as off_t), 1i32) };
+            ret = (unsafe {
+                lseek(
+                    (*state).fd as i32,
+                    ((offset - ((*state).x.have as off_t)) as c_long) as i32,
+                    (slate_support::SEEK_CUR as i32) as i32,
+                ) as c_long
+            }) as off_t;
+        }
+        #[cfg(any(target_env = "musl", target_os = "android"))]
+        {
+            ret = unsafe {
+                lseek(
+                    (*state).fd as i32,
+                    (offset - ((*state).x.have as off_t)) as i64,
+                    (slate_support::SEEK_CUR as i32) as i32,
+                ) as c_long
+            };
+        }
+        #[cfg(target_os = "macos")]
+        {
+            ret = unsafe {
+                lseek(
+                    (*state).fd as i32,
+                    (offset - ((*state).x.have as off_t)) as i64,
+                    (slate_support::SEEK_CUR as i32) as i32,
+                ) as i64
+            };
         }
         #[cfg(target_os = "freebsd")]
         {
             ret = (unsafe {
                 lseek(
-                    (*state).fd,
-                    (offset - ((*state).x.have as off_t)) as i64,
-                    1i32,
-                )
+                    (*state).fd as i32,
+                    ((offset - ((*state).x.have as off_t)) as i64) as i64,
+                    (slate_support::SEEK_CUR as i32) as i32,
+                ) as c_long
             }) as off_t;
         }
-        #[cfg(windows)]
+        #[cfg(not(any(unix, target_arch = "arm")))]
+        {
+            ret = unsafe {
+                _lseeki64(
+                    (*state).fd,
+                    offset - (((*state).x.have as u64) as i64),
+                    slate_support::windows::Win32::Media::Multimedia::SEEK_CUR as i32,
+                )
+            };
+        }
+        #[cfg(all(target_arch = "arm", windows))]
         {
             ret = unsafe {
                 _lseeki64(
@@ -1531,7 +2118,7 @@ extern "C-unwind" fn gzseek64(
     if (unsafe { (*state).mode }) == 7247 {
         #[cfg(all(target_pointer_width = "64", unix))]
         {
-            n = if GT_OFF__6!(unsafe { (*state).x.have })
+            n = if GT_OFF__5!(unsafe { (*state).x.have })
                 || ((unsafe { (*state).x.have }) as off_t) > offset
             {
                 (offset as i32) as u32
@@ -1541,7 +2128,7 @@ extern "C-unwind" fn gzseek64(
         }
         #[cfg(all(target_pointer_width = "32", unix))]
         {
-            n = if GT_OFF__7!(unsafe { (*state).x.have })
+            n = if GT_OFF__8!(unsafe { (*state).x.have })
                 || ((unsafe { (*state).x.have }) as off_t) > offset
             {
                 offset as u32
@@ -1551,7 +2138,7 @@ extern "C-unwind" fn gzseek64(
         }
         #[cfg(all(target_pointer_width = "64", windows))]
         {
-            n = if GT_OFF__5!(unsafe { (*state).x.have })
+            n = if GT_OFF__7!(unsafe { (*state).x.have })
                 || (((unsafe { (*state).x.have }) as u64) as i64) > offset
             {
                 (offset as i32) as u32
@@ -1561,7 +2148,7 @@ extern "C-unwind" fn gzseek64(
         }
         #[cfg(all(target_pointer_width = "32", windows))]
         {
-            n = if GT_OFF__8!(unsafe { (*state).x.have })
+            n = if GT_OFF__6!(unsafe { (*state).x.have })
                 || (((unsafe { (*state).x.have }) as u64) as i64) > offset
             {
                 (offset as i32) as u32
@@ -1690,32 +2277,67 @@ extern "C-unwind" fn gzoffset64(file: *mut gzFile_s) -> __SlateRet_gzoffset64 {
         return -1;
     }
     // compute and return effective offset in file
-    #[cfg(target_env = "gnu")]
+    #[cfg(all(target_env = "gnu", target_pointer_width = "64"))]
     {
         offset = (unsafe {
             lseek(
-                (*(file as *mut __SlateRecord_gzguts_h_203)).fd,
-                (0 as c_long),
-                1i32,
-            )
+                (*(file as *mut __SlateRecord_gzguts_h_203)).fd as i32,
+                (0 as c_long) as i64,
+                (slate_support::SEEK_CUR as i32) as i32,
+            ) as c_long
         }) as off_t;
     }
-    #[cfg(not(any(target_env = "gnu", target_os = "freebsd", windows)))]
+    #[cfg(all(target_pointer_width = "32", unix))]
+    {
+        offset = (unsafe {
+            lseek(
+                (*(file as *mut __SlateRecord_gzguts_h_203)).fd as i32,
+                (0 as c_long) as i32,
+                (slate_support::SEEK_CUR as i32) as i32,
+            ) as c_long
+        }) as off_t;
+    }
+    #[cfg(any(target_env = "musl", target_os = "android"))]
     {
         offset = unsafe {
             lseek(
-                (*(file as *mut __SlateRecord_gzguts_h_203)).fd,
-                (0 as off_t),
-                1i32,
-            )
+                (*(file as *mut __SlateRecord_gzguts_h_203)).fd as i32,
+                (0 as off_t) as i64,
+                (slate_support::SEEK_CUR as i32) as i32,
+            ) as c_long
+        };
+    }
+    #[cfg(target_os = "macos")]
+    {
+        offset = unsafe {
+            lseek(
+                (*(file as *mut __SlateRecord_gzguts_h_203)).fd as i32,
+                (0 as off_t) as i64,
+                (slate_support::SEEK_CUR as i32) as i32,
+            ) as i64
         };
     }
     #[cfg(target_os = "freebsd")]
     {
-        offset = (unsafe { lseek((*(file as *mut __SlateRecord_gzguts_h_203)).fd, 0i64, 1i32) })
-            as off_t;
+        offset = (unsafe {
+            lseek(
+                (*(file as *mut __SlateRecord_gzguts_h_203)).fd as i32,
+                0i64 as i64,
+                (slate_support::SEEK_CUR as i32) as i32,
+            ) as c_long
+        }) as off_t;
     }
-    #[cfg(windows)]
+    #[cfg(not(any(unix, target_arch = "arm")))]
+    {
+        offset = unsafe {
+            _lseeki64(
+                (*(file as *mut __SlateRecord_gzguts_h_203)).fd,
+                0i64,
+                slate_support::windows::Win32::Media::Multimedia::SEEK_CUR as i32,
+            )
+        };
+    }
+    #[cfg(all(target_arch = "arm", windows))]
     {
         offset = unsafe { _lseeki64((*(file as *mut __SlateRecord_gzguts_h_203)).fd, 0i64, 1i32) };
     }
@@ -1843,7 +2465,22 @@ extern "C-unwind" fn gz_error(
     // free previously allocated message and clear
     if !unsafe { (*state).msg }.is_null() {
         if (unsafe { (*state).err }) != -4 {
-            unsafe { free((*state).msg as *mut ()) };
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                all(not(target_arch = "arm"), windows)
+            ))]
+            {
+                unsafe { free(((*state).msg as *mut ()) as *mut core::ffi::c_void) };
+            }
+            #[cfg(any(
+                target_os = "macos",
+                target_os = "android",
+                all(target_arch = "arm", windows)
+            ))]
+            {
+                unsafe { free((*state).msg as *mut ()) };
+            }
         }
         unsafe {
             (*state).msg = std::ptr::null_mut::<c_char>();
@@ -1867,12 +2504,48 @@ extern "C-unwind" fn gz_error(
         return;
     }
     // construct error message with path
+    #[cfg(any(
+        all(target_os = "linux", target_pointer_width = "64"),
+        target_os = "freebsd"
+    ))]
+    let __v0: *mut c_char = (unsafe {
+        malloc(
+            (strlen(((*state).path as *const c_char) as *const core::ffi::c_char) as c_ulong)
+                .wrapping_add(strlen(msg as *const core::ffi::c_char) as c_ulong)
+                .wrapping_add(3) as usize,
+        ) as *mut ()
+    }) as *mut c_char;
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+    let __v0: *mut c_char = (unsafe {
+        malloc(
+            (strlen(((*state).path as *const c_char) as *const core::ffi::c_char) as u32)
+                .wrapping_add(strlen(msg as *const core::ffi::c_char) as u32)
+                .wrapping_add(3) as usize,
+        ) as *mut ()
+    }) as *mut c_char;
+    #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
     let __v0: *mut c_char = (unsafe {
         malloc(
             strlen((*state).path as *const c_char)
                 .wrapping_add(strlen(msg))
                 .wrapping_add(3),
         )
+    }) as *mut c_char;
+    #[cfg(target_os = "android")]
+    let __v0: *mut c_char = (unsafe {
+        malloc(
+            (strlen(((*state).path as *const c_char) as *const core::ffi::c_char) as c_ulong)
+                .wrapping_add(strlen(msg as *const core::ffi::c_char) as c_ulong)
+                .wrapping_add(3),
+        )
+    }) as *mut c_char;
+    #[cfg(all(target_pointer_width = "64", windows))]
+    let __v0: *mut c_char = (unsafe {
+        malloc(
+            (strlen(((*state).path as *const c_char) as *const core::ffi::c_char) as u64)
+                .wrapping_add(strlen(msg as *const core::ffi::c_char) as u64)
+                .wrapping_add(3) as usize,
+        ) as *mut ()
     }) as *mut c_char;
     unsafe {
         (*state).msg = __v0;
@@ -1883,13 +2556,75 @@ extern "C-unwind" fn gz_error(
         }
         return;
     }
-    #[cfg(feature = "no-vsnprintf")]
+    #[cfg(all(
+        not(any(target_os = "macos", all(target_arch = "arm", windows))),
+        feature = "no-vsnprintf"
+    ))]
+    {
+        unsafe {
+            strcpy(
+                (*state).msg as *mut core::ffi::c_char,
+                ((*state).path as *const c_char) as *const core::ffi::c_char,
+            ) as *mut c_char
+        };
+        unsafe {
+            strcat(
+                (*state).msg as *mut core::ffi::c_char,
+                c": ".as_ptr() as *const core::ffi::c_char,
+            ) as *mut c_char
+        };
+        unsafe {
+            strcat(
+                (*state).msg as *mut core::ffi::c_char,
+                msg as *const core::ffi::c_char,
+            ) as *mut c_char
+        };
+    }
+    #[cfg(all(
+        any(target_os = "macos", all(target_arch = "arm", windows)),
+        feature = "no-vsnprintf"
+    ))]
     {
         unsafe { strcpy((*state).msg, (*state).path as *const c_char) };
         unsafe { strcat((*state).msg, c": ".as_ptr()) };
         unsafe { strcat((*state).msg, msg) };
     }
-    #[cfg(all(unix, not(feature = "no-vsnprintf")))]
+    #[cfg(all(
+        not(target_os = "macos"),
+        target_pointer_width = "64",
+        unix,
+        not(feature = "no-vsnprintf")
+    ))]
+    {
+        unsafe {
+            snprintf(
+                (*state).msg as *mut core::ffi::c_char,
+                (strlen(((*state).path as *const c_char) as *const core::ffi::c_char) as c_ulong)
+                    .wrapping_add(strlen(msg as *const core::ffi::c_char) as c_ulong)
+                    .wrapping_add(3) as usize,
+                c"%s%s%s".as_ptr() as *const core::ffi::c_char,
+                (*state).path,
+                c": ".as_ptr() as *mut c_char,
+                msg,
+            ) as i32
+        };
+    }
+    #[cfg(all(target_pointer_width = "32", unix, not(feature = "no-vsnprintf")))]
+    {
+        unsafe {
+            snprintf(
+                (*state).msg as *mut core::ffi::c_char,
+                (strlen(((*state).path as *const c_char) as *const core::ffi::c_char) as u32)
+                    .wrapping_add(strlen(msg as *const core::ffi::c_char) as u32)
+                    .wrapping_add(3) as usize,
+                c"%s%s%s".as_ptr() as *const core::ffi::c_char,
+                (*state).path,
+                c": ".as_ptr() as *mut c_char,
+                msg,
+            ) as i32
+        };
+    }
+    #[cfg(all(target_os = "macos", not(feature = "no-vsnprintf")))]
     {
         unsafe {
             snprintf(
@@ -1904,7 +2639,37 @@ extern "C-unwind" fn gz_error(
             )
         };
     }
-    #[cfg(all(windows, not(feature = "no-vsnprintf")))]
+    #[cfg(all(target_pointer_width = "64", windows, not(feature = "no-vsnprintf")))]
+    {
+        unsafe {
+            snprintf(
+                (*state).msg,
+                (strlen(((*state).path as *const c_char) as *const core::ffi::c_char) as u64)
+                    .wrapping_add(strlen(msg as *const core::ffi::c_char) as u64)
+                    .wrapping_add(3),
+                c"%s%s%s".as_ptr(),
+                (*state).path,
+                c": ".as_ptr() as *mut c_char,
+                msg,
+            )
+        };
+    }
+    #[cfg(all(target_arch = "x86", windows, not(feature = "no-vsnprintf")))]
+    {
+        unsafe {
+            snprintf(
+                (*state).msg,
+                (strlen(((*state).path as *const c_char) as *const core::ffi::c_char) as u32)
+                    .wrapping_add(strlen(msg as *const core::ffi::c_char) as u32)
+                    .wrapping_add(3),
+                c"%s%s%s".as_ptr(),
+                (*state).path,
+                c": ".as_ptr() as *mut c_char,
+                msg,
+            )
+        };
+    }
+    #[cfg(all(target_arch = "arm", windows, not(feature = "no-vsnprintf")))]
     {
         unsafe {
             snprintf(
@@ -1921,6 +2686,7 @@ extern "C-unwind" fn gz_error(
     }
 }
 
+#[cfg(not(target_os = "macos"))]
 /// portably return maximum value for an int (when limits.h presumed not
 /// available) -- we need to do this to cover cases where 2's complement not
 /// used, since C standard permits 1's complement and sign-bit representations,
@@ -1928,4 +2694,14 @@ extern "C-unwind" fn gz_error(
 #[unsafe(no_mangle)]
 extern "C-unwind" fn gz_intmax() -> u32 {
     2147483647
+}
+
+#[cfg(target_os = "macos")]
+/// portably return maximum value for an int (when limits.h presumed not
+/// available) -- we need to do this to cover cases where 2's complement not
+/// used, since C standard permits 1's complement and sign-bit representations,
+/// otherwise we could just use ((unsigned)-1) >> 1
+#[unsafe(no_mangle)]
+extern "C-unwind" fn gz_intmax() -> u32 {
+    (slate_support::INT_MAX as i32) as u32
 }

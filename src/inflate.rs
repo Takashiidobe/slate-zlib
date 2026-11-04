@@ -88,8 +88,6 @@ unsafe extern "C" {
 
 unsafe extern "C" {
     fn adler32(arg0: c_ulong, arg1: *const u8, arg2: u32) -> c_ulong;
-    fn memcpy(arg0: *mut (), arg1: *const (), arg2: size_t) -> *mut ();
-    fn memset(arg0: *mut (), arg1: i32, arg2: size_t) -> *mut ();
     fn zcalloc(arg0: *mut (), arg1: u32, arg2: u32) -> *mut ();
     fn zcfree(arg0: *mut (), arg1: *mut ());
     fn inflate_table(
@@ -109,9 +107,16 @@ unsafe extern "C" {
     fn crc32(arg0: c_ulong, arg1: *const u8, arg2: u32) -> c_ulong;
 }
 
+#[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
+unsafe extern "C" {
+    fn memcpy(arg0: *mut (), arg1: *const (), arg2: size_t) -> *mut ();
+    fn memset(arg0: *mut (), arg1: i32, arg2: size_t) -> *mut ();
+}
+
 use core::ffi::c_char;
 use core::ffi::c_long;
 use core::ffi::c_ulong;
+#[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
 use slate_support::size_t;
 
 #[repr(C)]
@@ -302,6 +307,11 @@ fn inflateStateCheck(strm: *mut z_stream_s) -> i32 {
     }
     0
 }
+
+#[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
+use slate_support::memcpy;
+#[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
+use slate_support::memset;
 
 #[unsafe(no_mangle)]
 extern "C-unwind" fn inflateResetKeep(strm: *mut z_stream_s) -> i32 {
@@ -526,17 +536,25 @@ extern "C-unwind" fn inflateInit2_(
     if state.is_null() {
         return -4;
     }
-    #[cfg(all(target_pointer_width = "64", unix))]
+    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
     {
         zmemzero!(state, std::mem::size_of::<inflate_state>() as c_ulong);
     }
-    #[cfg(target_pointer_width = "32")]
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
     {
         zmemzero!(state, std::mem::size_of::<inflate_state>() as u32);
+    }
+    #[cfg(target_os = "macos")]
+    {
+        zmemzero__2!(state, std::mem::size_of::<inflate_state>() as c_ulong);
     }
     #[cfg(all(target_pointer_width = "64", windows))]
     {
         zmemzero!(state, std::mem::size_of::<inflate_state>() as u64);
+    }
+    #[cfg(all(target_arch = "arm", windows))]
+    {
+        zmemzero__2!(state, std::mem::size_of::<inflate_state>() as u32);
     }
     #[cfg(feature = "zlib-debug")]
     {
@@ -678,7 +696,29 @@ fn updatewindow(strm: *mut z_stream_s, end: *const u8, mut copy: u32) -> i32 {
     }
     // copy state->wsize or less output bytes into the circular window
     if copy >= unsafe { (*state).wsize } {
-        #[cfg(all(target_pointer_width = "64", unix))]
+        #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((end.offset(-((*state).wsize as isize)) as *const ())
+                        as *const core::ffi::c_void) as *const u8,
+                    (((*state).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                    (((*state).wsize as c_ulong) as usize) as usize,
+                )
+            };
+        }
+        #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((end.offset(-((*state).wsize as isize)) as *const ())
+                        as *const core::ffi::c_void) as *const u8,
+                    (((*state).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                    ((*state).wsize as usize) as usize,
+                )
+            };
+        }
+        #[cfg(target_os = "macos")]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
@@ -688,23 +728,24 @@ fn updatewindow(strm: *mut z_stream_s, end: *const u8, mut copy: u32) -> i32 {
                 )
             };
         }
-        #[cfg(target_pointer_width = "32")]
+        #[cfg(all(target_pointer_width = "64", windows))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((end.offset(-((*state).wsize as isize)) as *const ())
+                        as *const core::ffi::c_void) as *const u8,
+                    (((*state).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                    (((*state).wsize as u64) as usize) as usize,
+                )
+            };
+        }
+        #[cfg(all(target_arch = "arm", windows))]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
                     (end.offset(-((*state).wsize as isize)) as *const ()) as *const u8,
                     ((*state).window as *mut ()) as *mut u8,
                     (*state).wsize as usize,
-                )
-            };
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    (end.offset(-((*state).wsize as isize)) as *const ()) as *const u8,
-                    ((*state).window as *mut ()) as *mut u8,
-                    ((*state).wsize as u64) as usize,
                 )
             };
         }
@@ -719,7 +760,31 @@ fn updatewindow(strm: *mut z_stream_s, end: *const u8, mut copy: u32) -> i32 {
         if dist > copy {
             dist = copy;
         }
-        #[cfg(all(target_pointer_width = "64", unix))]
+        #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((end.sub(copy as usize) as *const ()) as *const core::ffi::c_void)
+                        as *const u8,
+                    ((unsafe { (*state).window }.offset((*state).wnext as isize) as *mut ())
+                        as *mut core::ffi::c_void) as *mut u8,
+                    ((dist as c_ulong) as usize) as usize,
+                )
+            };
+        }
+        #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((end.sub(copy as usize) as *const ()) as *const core::ffi::c_void)
+                        as *const u8,
+                    ((unsafe { (*state).window }.offset((*state).wnext as isize) as *mut ())
+                        as *mut core::ffi::c_void) as *mut u8,
+                    (dist as usize) as usize,
+                )
+            };
+        }
+        #[cfg(target_os = "macos")]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
@@ -730,7 +795,19 @@ fn updatewindow(strm: *mut z_stream_s, end: *const u8, mut copy: u32) -> i32 {
                 )
             };
         }
-        #[cfg(target_pointer_width = "32")]
+        #[cfg(all(target_pointer_width = "64", windows))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((end.sub(copy as usize) as *const ()) as *const core::ffi::c_void)
+                        as *const u8,
+                    ((unsafe { (*state).window }.offset((*state).wnext as isize) as *mut ())
+                        as *mut core::ffi::c_void) as *mut u8,
+                    ((dist as u64) as usize) as usize,
+                )
+            };
+        }
+        #[cfg(all(target_arch = "arm", windows))]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
@@ -741,20 +818,31 @@ fn updatewindow(strm: *mut z_stream_s, end: *const u8, mut copy: u32) -> i32 {
                 )
             };
         }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    (end.sub(copy as usize) as *const ()) as *const u8,
-                    (unsafe { (*state).window }.offset((*state).wnext as isize) as *mut ())
-                        as *mut u8,
-                    (dist as u64) as usize,
-                )
-            };
-        }
         copy = copy.wrapping_sub(dist);
         if copy != 0 {
-            #[cfg(all(target_pointer_width = "64", unix))]
+            #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+            {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        ((end.sub(copy as usize) as *const ()) as *const core::ffi::c_void)
+                            as *const u8,
+                        (((*state).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                        ((copy as c_ulong) as usize) as usize,
+                    )
+                };
+            }
+            #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+            {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        ((end.sub(copy as usize) as *const ()) as *const core::ffi::c_void)
+                            as *const u8,
+                        (((*state).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                        (copy as usize) as usize,
+                    )
+                };
+            }
+            #[cfg(target_os = "macos")]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
@@ -764,23 +852,24 @@ fn updatewindow(strm: *mut z_stream_s, end: *const u8, mut copy: u32) -> i32 {
                     )
                 };
             }
-            #[cfg(target_pointer_width = "32")]
+            #[cfg(all(target_pointer_width = "64", windows))]
+            {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        ((end.sub(copy as usize) as *const ()) as *const core::ffi::c_void)
+                            as *const u8,
+                        (((*state).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                        ((copy as u64) as usize) as usize,
+                    )
+                };
+            }
+            #[cfg(all(target_arch = "arm", windows))]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
                         (end.sub(copy as usize) as *const ()) as *const u8,
                         ((*state).window as *mut ()) as *mut u8,
                         copy as usize,
-                    )
-                };
-            }
-            #[cfg(all(target_pointer_width = "64", windows))]
-            {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        (end.sub(copy as usize) as *const ()) as *const u8,
-                        ((*state).window as *mut ()) as *mut u8,
-                        (copy as u64) as usize,
                     )
                 };
             }
@@ -2921,17 +3010,25 @@ break '__join_10;
                                                                                         {
                                                                                             break '__join_10;
                                                                                         } else {
-                                                                                            #[cfg(all(target_pointer_width = "64", unix))]
+                                                                                            #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+                                                                                            {
+                                                                                                std::ptr::copy_nonoverlapping(((next as *const ()) as *const core::ffi::c_void) as *const u8, ((put as *mut ()) as *mut core::ffi::c_void) as *mut u8, ((copy as c_ulong) as usize) as usize);
+                                                                                            }
+                                                                                            #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+                                                                                            {
+                                                                                                std::ptr::copy_nonoverlapping(((next as *const ()) as *const core::ffi::c_void) as *const u8, ((put as *mut ()) as *mut core::ffi::c_void) as *mut u8, (copy as usize) as usize);
+                                                                                            }
+                                                                                            #[cfg(target_os = "macos")]
                                                                                             {
                                                                                                 std::ptr::copy_nonoverlapping(next as *const u8, put as *mut u8, (copy as c_ulong) as usize);
                                                                                             }
-                                                                                            #[cfg(target_pointer_width = "32")]
-                                                                                            {
-                                                                                                std::ptr::copy_nonoverlapping(next as *const u8, put as *mut u8, copy as usize);
-                                                                                            }
                                                                                             #[cfg(all(target_pointer_width = "64", windows))]
                                                                                             {
-                                                                                                std::ptr::copy_nonoverlapping(next as *const u8, put as *mut u8, (copy as u64) as usize);
+                                                                                                std::ptr::copy_nonoverlapping(((next as *const ()) as *const core::ffi::c_void) as *const u8, ((put as *mut ()) as *mut core::ffi::c_void) as *mut u8, ((copy as u64) as usize) as usize);
+                                                                                            }
+                                                                                            #[cfg(all(target_arch = "arm", windows))]
+                                                                                            {
+                                                                                                std::ptr::copy_nonoverlapping(next as *const u8, put as *mut u8, copy as usize);
                                                                                             }
                                                                                             have = have.wrapping_sub(copy);
                                                                                             let __v294: *mut u8 = next;
@@ -3915,24 +4012,40 @@ let __v11: u32 = (*state).length;
                                                                 }
                                                                 if __v382 {
                                                                     #[cfg(all(
+                                                                        not(target_os = "macos"),
                                                                         target_pointer_width = "64",
                                                                         unix
                                                                     ))]
                                                                     {
-                                                                        std::ptr::copy_nonoverlapping(next as *const u8, (unsafe { (*(*state).head).extra }.add(len as usize) as *mut ()) as *mut u8, ((if len.wrapping_add(copy) > (*(*state).head).extra_max { unsafe { (*(*state).head).extra_max }.wrapping_sub(len) } else { copy }) as c_ulong) as usize);
+                                                                        std::ptr::copy_nonoverlapping(((next as *const ()) as *const core::ffi::c_void) as *const u8, ((unsafe { (*(*state).head).extra }.add(len as usize) as *mut ()) as *mut core::ffi::c_void) as *mut u8, (((if len.wrapping_add(copy) > (*(*state).head).extra_max { unsafe { (*(*state).head).extra_max }.wrapping_sub(len) } else { copy }) as c_ulong) as usize) as usize);
                                                                     }
-                                                                    #[cfg(
-                                                                        target_pointer_width = "32"
-                                                                    )]
+                                                                    #[cfg(any(
+                                                                        target_arch = "x86",
+                                                                        all(
+                                                                            target_arch = "arm",
+                                                                            unix
+                                                                        )
+                                                                    ))]
                                                                     {
-                                                                        std::ptr::copy_nonoverlapping(next as *const u8, (unsafe { (*(*state).head).extra }.add(len as usize) as *mut ()) as *mut u8, (if len.wrapping_add(copy) > (*(*state).head).extra_max { unsafe { (*(*state).head).extra_max }.wrapping_sub(len) } else { copy }) as usize);
+                                                                        std::ptr::copy_nonoverlapping(((next as *const ()) as *const core::ffi::c_void) as *const u8, ((unsafe { (*(*state).head).extra }.add(len as usize) as *mut ()) as *mut core::ffi::c_void) as *mut u8, ((if len.wrapping_add(copy) > (*(*state).head).extra_max { unsafe { (*(*state).head).extra_max }.wrapping_sub(len) } else { copy }) as usize) as usize);
+                                                                    }
+                                                                    #[cfg(target_os = "macos")]
+                                                                    {
+                                                                        std::ptr::copy_nonoverlapping(next as *const u8, (unsafe { (*(*state).head).extra }.add(len as usize) as *mut ()) as *mut u8, ((if len.wrapping_add(copy) > (*(*state).head).extra_max { unsafe { (*(*state).head).extra_max }.wrapping_sub(len) } else { copy }) as c_ulong) as usize);
                                                                     }
                                                                     #[cfg(all(
                                                                         target_pointer_width = "64",
                                                                         windows
                                                                     ))]
                                                                     {
-                                                                        std::ptr::copy_nonoverlapping(next as *const u8, (unsafe { (*(*state).head).extra }.add(len as usize) as *mut ()) as *mut u8, ((if len.wrapping_add(copy) > (*(*state).head).extra_max { unsafe { (*(*state).head).extra_max }.wrapping_sub(len) } else { copy }) as u64) as usize);
+                                                                        std::ptr::copy_nonoverlapping(((next as *const ()) as *const core::ffi::c_void) as *const u8, ((unsafe { (*(*state).head).extra }.add(len as usize) as *mut ()) as *mut core::ffi::c_void) as *mut u8, (((if len.wrapping_add(copy) > (*(*state).head).extra_max { unsafe { (*(*state).head).extra_max }.wrapping_sub(len) } else { copy }) as u64) as usize) as usize);
+                                                                    }
+                                                                    #[cfg(all(
+                                                                        target_arch = "arm",
+                                                                        windows
+                                                                    ))]
+                                                                    {
+                                                                        std::ptr::copy_nonoverlapping(next as *const u8, (unsafe { (*(*state).head).extra }.add(len as usize) as *mut ()) as *mut u8, (if len.wrapping_add(copy) > (*(*state).head).extra_max { unsafe { (*(*state).head).extra_max }.wrapping_sub(len) } else { copy }) as usize);
                                                                     }
                                                                 }
                                                                 if (*state).flags & 512 != 0
@@ -3972,9 +4085,21 @@ let __v11: u32 = (*state).length;
                                                                 break '__join_10;
                                                             } else {
                                                                 #[cfg(all(
+                                                                    not(target_os = "macos"),
                                                                     target_pointer_width = "64",
                                                                     unix
                                                                 ))]
+                                                                {
+                                                                    std::ptr::copy_nonoverlapping(((next as *const ()) as *const core::ffi::c_void) as *const u8, ((put as *mut ()) as *mut core::ffi::c_void) as *mut u8, ((copy as c_ulong) as usize) as usize);
+                                                                }
+                                                                #[cfg(any(
+                                                                    target_arch = "x86",
+                                                                    all(target_arch = "arm", unix)
+                                                                ))]
+                                                                {
+                                                                    std::ptr::copy_nonoverlapping(((next as *const ()) as *const core::ffi::c_void) as *const u8, ((put as *mut ()) as *mut core::ffi::c_void) as *mut u8, (copy as usize) as usize);
+                                                                }
+                                                                #[cfg(target_os = "macos")]
                                                                 {
                                                                     std::ptr::copy_nonoverlapping(
                                                                         next as *const u8,
@@ -3982,23 +4107,22 @@ let __v11: u32 = (*state).length;
                                                                         (copy as c_ulong) as usize,
                                                                     );
                                                                 }
-                                                                #[cfg(target_pointer_width = "32")]
-                                                                {
-                                                                    std::ptr::copy_nonoverlapping(
-                                                                        next as *const u8,
-                                                                        put as *mut u8,
-                                                                        copy as usize,
-                                                                    );
-                                                                }
                                                                 #[cfg(all(
                                                                     target_pointer_width = "64",
+                                                                    windows
+                                                                ))]
+                                                                {
+                                                                    std::ptr::copy_nonoverlapping(((next as *const ()) as *const core::ffi::c_void) as *const u8, ((put as *mut ()) as *mut core::ffi::c_void) as *mut u8, ((copy as u64) as usize) as usize);
+                                                                }
+                                                                #[cfg(all(
+                                                                    target_arch = "arm",
                                                                     windows
                                                                 ))]
                                                                 {
                                                                     std::ptr::copy_nonoverlapping(
                                                                         next as *const u8,
                                                                         put as *mut u8,
-                                                                        (copy as u64) as usize,
+                                                                        copy as usize,
                                                                     );
                                                                 }
                                                                 have = have.wrapping_sub(copy);
@@ -4499,7 +4623,50 @@ extern "C-unwind" fn inflateGetDictionary(
     let state: *mut inflate_state = (unsafe { (*strm).state }) as *mut inflate_state;
     // copy dictionary
     if (unsafe { (*state).whave }) != 0 && !dictionary.is_null() {
-        #[cfg(all(target_pointer_width = "64", unix))]
+        #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((unsafe { (*state).window }.offset((*state).wnext as isize) as *const ())
+                        as *const core::ffi::c_void) as *const u8,
+                    ((dictionary as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                    ((unsafe { (*state).whave }.wrapping_sub((*state).wnext) as c_ulong) as usize)
+                        as usize,
+                )
+            };
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    (((*state).window as *const ()) as *const core::ffi::c_void) as *const u8,
+                    ((dictionary
+                        .offset((*state).whave as isize)
+                        .offset(-((*state).wnext as isize)) as *mut ())
+                        as *mut core::ffi::c_void) as *mut u8,
+                    (((*state).wnext as c_ulong) as usize) as usize,
+                )
+            };
+        }
+        #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((unsafe { (*state).window }.offset((*state).wnext as isize) as *const ())
+                        as *const core::ffi::c_void) as *const u8,
+                    ((dictionary as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                    (unsafe { (*state).whave }.wrapping_sub((*state).wnext) as usize) as usize,
+                )
+            };
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    (((*state).window as *const ()) as *const core::ffi::c_void) as *const u8,
+                    ((dictionary
+                        .offset((*state).whave as isize)
+                        .offset(-((*state).wnext as isize)) as *mut ())
+                        as *mut core::ffi::c_void) as *mut u8,
+                    ((*state).wnext as usize) as usize,
+                )
+            };
+        }
+        #[cfg(target_os = "macos")]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
@@ -4520,7 +4687,29 @@ extern "C-unwind" fn inflateGetDictionary(
                 )
             };
         }
-        #[cfg(target_pointer_width = "32")]
+        #[cfg(all(target_pointer_width = "64", windows))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((unsafe { (*state).window }.offset((*state).wnext as isize) as *const ())
+                        as *const core::ffi::c_void) as *const u8,
+                    ((dictionary as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                    ((unsafe { (*state).whave }.wrapping_sub((*state).wnext) as u64) as usize)
+                        as usize,
+                )
+            };
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    (((*state).window as *const ()) as *const core::ffi::c_void) as *const u8,
+                    ((dictionary
+                        .offset((*state).whave as isize)
+                        .offset(-((*state).wnext as isize)) as *mut ())
+                        as *mut core::ffi::c_void) as *mut u8,
+                    (((*state).wnext as u64) as usize) as usize,
+                )
+            };
+        }
+        #[cfg(all(target_arch = "arm", windows))]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
@@ -4538,27 +4727,6 @@ extern "C-unwind" fn inflateGetDictionary(
                         .offset(-((*state).wnext as isize)) as *mut ())
                         as *mut u8,
                     (*state).wnext as usize,
-                )
-            };
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    (unsafe { (*state).window }.offset((*state).wnext as isize) as *const ())
-                        as *const u8,
-                    dictionary as *mut u8,
-                    (unsafe { (*state).whave }.wrapping_sub((*state).wnext) as u64) as usize,
-                )
-            };
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    ((*state).window as *const ()) as *const u8,
-                    (dictionary
-                        .offset((*state).whave as isize)
-                        .offset(-((*state).wnext as isize)) as *mut ())
-                        as *mut u8,
-                    ((*state).wnext as u64) as usize,
                 )
             };
         }
@@ -4813,17 +4981,25 @@ extern "C-unwind" fn inflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
     if copy.is_null() {
         return -4;
     }
-    #[cfg(all(target_pointer_width = "64", unix))]
+    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
     {
         zmemzero!(copy, std::mem::size_of::<inflate_state>() as c_ulong);
     }
-    #[cfg(target_pointer_width = "32")]
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
     {
         zmemzero!(copy, std::mem::size_of::<inflate_state>() as u32);
+    }
+    #[cfg(target_os = "macos")]
+    {
+        zmemzero__2!(copy, std::mem::size_of::<inflate_state>() as c_ulong);
     }
     #[cfg(all(target_pointer_width = "64", windows))]
     {
         zmemzero!(copy, std::mem::size_of::<inflate_state>() as u64);
+    }
+    #[cfg(all(target_arch = "arm", windows))]
+    {
+        zmemzero__2!(copy, std::mem::size_of::<inflate_state>() as u32);
     }
     window = std::ptr::null_mut::<u8>();
     if !unsafe { (*state).window }.is_null() {
@@ -4857,20 +5033,74 @@ extern "C-unwind" fn inflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
         }
     }
     // copy state
-    unsafe {
-        std::ptr::copy_nonoverlapping(
-            source as *const u8,
-            dest as *mut u8,
-            std::mem::size_of::<z_stream_s>(),
-        )
-    };
-    unsafe {
-        std::ptr::copy_nonoverlapping(
-            state as *const u8,
-            copy as *mut u8,
-            std::mem::size_of::<inflate_state>(),
-        )
-    };
+    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                ((source as *const ()) as *const core::ffi::c_void) as *const u8,
+                ((dest as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((std::mem::size_of::<z_stream_s>() as c_ulong) as usize) as usize,
+            )
+        };
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                ((state as *const ()) as *const core::ffi::c_void) as *const u8,
+                ((copy as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((std::mem::size_of::<inflate_state>() as c_ulong) as usize) as usize,
+            )
+        };
+    }
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                ((source as *const ()) as *const core::ffi::c_void) as *const u8,
+                ((dest as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((std::mem::size_of::<z_stream_s>() as u32) as usize) as usize,
+            )
+        };
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                ((state as *const ()) as *const core::ffi::c_void) as *const u8,
+                ((copy as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((std::mem::size_of::<inflate_state>() as u32) as usize) as usize,
+            )
+        };
+    }
+    #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                source as *const u8,
+                dest as *mut u8,
+                std::mem::size_of::<z_stream_s>(),
+            )
+        };
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                state as *const u8,
+                copy as *mut u8,
+                std::mem::size_of::<inflate_state>(),
+            )
+        };
+    }
+    #[cfg(all(target_pointer_width = "64", windows))]
+    {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                ((source as *const ()) as *const core::ffi::c_void) as *const u8,
+                ((dest as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((std::mem::size_of::<z_stream_s>() as u64) as usize) as usize,
+            )
+        };
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                ((state as *const ()) as *const core::ffi::c_void) as *const u8,
+                ((copy as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((std::mem::size_of::<inflate_state>() as u64) as usize) as usize,
+            )
+        };
+    }
     unsafe {
         (*copy).strm = dest;
     }
@@ -5060,7 +5290,27 @@ extern "C-unwind" fn inflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
         }
     }
     if !window.is_null() {
-        #[cfg(all(target_pointer_width = "64", unix))]
+        #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    (((*state).window as *const ()) as *const core::ffi::c_void) as *const u8,
+                    ((window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                    (((*state).whave as c_ulong) as usize) as usize,
+                )
+            };
+        }
+        #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    (((*state).window as *const ()) as *const core::ffi::c_void) as *const u8,
+                    ((window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                    ((*state).whave as usize) as usize,
+                )
+            };
+        }
+        #[cfg(target_os = "macos")]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
@@ -5070,23 +5320,23 @@ extern "C-unwind" fn inflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
                 )
             };
         }
-        #[cfg(target_pointer_width = "32")]
+        #[cfg(all(target_pointer_width = "64", windows))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    (((*state).window as *const ()) as *const core::ffi::c_void) as *const u8,
+                    ((window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                    (((*state).whave as u64) as usize) as usize,
+                )
+            };
+        }
+        #[cfg(all(target_arch = "arm", windows))]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
                     ((*state).window as *const ()) as *const u8,
                     window as *mut u8,
                     (*state).whave as usize,
-                )
-            };
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    ((*state).window as *const ()) as *const u8,
-                    window as *mut u8,
-                    ((*state).whave as u64) as usize,
                 )
             };
         }

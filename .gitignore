@@ -4,3 +4,6 @@ bitint/
 libc/
 num-complex/
 num-traits/
+windows-link/
+windows-sys/
+mach2/

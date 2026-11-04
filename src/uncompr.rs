@@ -15,7 +15,7 @@ macro_rules! inflateInit__2 {
 }
 
 #[cfg(target_pointer_width = "32")]
-macro_rules! inflateInit {
+macro_rules! inflateInit__3 {
     ($strm:expr) => {
         unsafe {
             inflateInit_(
@@ -28,7 +28,7 @@ macro_rules! inflateInit {
 }
 
 #[cfg(all(target_pointer_width = "64", unix))]
-macro_rules! inflateInit__3 {
+macro_rules! inflateInit {
     ($strm:expr) => {
         unsafe {
             inflateInit_(
@@ -144,7 +144,7 @@ extern "C-unwind" fn uncompress2_z(
     stream.opaque = std::ptr::null_mut::<()>();
     #[cfg(all(target_pointer_width = "64", unix))]
     {
-        err = inflateInit__3!(std::ptr::addr_of_mut!(stream));
+        err = inflateInit!(std::ptr::addr_of_mut!(stream));
     }
     #[cfg(all(target_pointer_width = "64", windows))]
     {
@@ -152,7 +152,7 @@ extern "C-unwind" fn uncompress2_z(
     }
     #[cfg(target_pointer_width = "32")]
     {
-        err = inflateInit!(std::ptr::addr_of_mut!(stream));
+        err = inflateInit__3!(std::ptr::addr_of_mut!(stream));
     }
     if err != 0 {
         return err;

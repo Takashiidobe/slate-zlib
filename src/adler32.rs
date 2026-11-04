@@ -59,7 +59,7 @@ macro_rules! MOD63 {
 }
 
 #[cfg(all(target_pointer_width = "32", unix))]
-macro_rules! MOD63__3 {
+macro_rules! MOD63__2 {
     ($a:expr) => {
         let __v: off_t = $a;
         let __v2: off_t = ((__v as c_ulong) % 65521) as off_t;
@@ -68,7 +68,7 @@ macro_rules! MOD63__3 {
 }
 
 #[cfg(all(target_pointer_width = "64", unix))]
-macro_rules! MOD63__2 {
+macro_rules! MOD63__3 {
     ($a:expr) => {
         let __v: off_t = $a;
         let __v2: off_t = __v % 65521;
@@ -294,11 +294,11 @@ fn adler32_combine_(
     // the derivation of this formula is left as an exercise for the reader
     #[cfg(all(target_pointer_width = "64", unix))]
     {
-        MOD63__2!(len2);
+        MOD63__3!(len2);
     }
     #[cfg(all(target_pointer_width = "32", unix))]
     {
-        MOD63__3!(len2);
+        MOD63__2!(len2);
     }
     #[cfg(windows)]
     {

@@ -2,7 +2,7 @@
 //! Copyright (C) 2004-2026 Mark Adler
 //! For conditions of distribution and use, see copyright notice in zlib.h
 #[cfg(all(target_pointer_width = "64", windows))]
-macro_rules! deflateInit2__3 {
+macro_rules! deflateInit2__2 {
     ($strm:expr, $level:expr, $method:expr, $windowBits:expr, $memLevel:expr, $strategy:expr) => {
         unsafe {
             deflateInit2_(
@@ -20,7 +20,7 @@ macro_rules! deflateInit2__3 {
 }
 
 #[cfg(target_pointer_width = "32")]
-macro_rules! deflateInit2__2 {
+macro_rules! deflateInit2__3 {
     ($strm:expr, $level:expr, $method:expr, $windowBits:expr, $memLevel:expr, $strategy:expr) => {
         unsafe {
             deflateInit2_(
@@ -95,8 +95,23 @@ unsafe extern "C" {
     fn vsnprintf(arg0: *mut c_char, arg1: size_t, arg2: *const c_char, arg3: *mut c_char) -> i32;
 }
 
+#[cfg(target_os = "macos")]
+unsafe extern "C" {
+    #[link_name = "_close"]
+    fn close(arg0: i32) -> i32;
+    #[link_name = "_write"]
+    fn write(arg0: i32, arg1: *const (), arg2: size_t) -> ssize_t;
+    #[link_name = "_strerror"]
+    fn strerror(arg0: i32) -> *mut c_char;
+}
+
+#[cfg(windows)]
 unsafe extern "C" {
     fn close(arg0: i32) -> i32;
+    fn write(arg0: i32, arg1: *const (), arg2: u32) -> i32;
+}
+
+unsafe extern "C" {
     fn deflate(arg0: *mut z_stream_s, arg1: i32) -> i32;
     fn deflateEnd(arg0: *mut z_stream_s) -> i32;
     fn deflateReset(arg0: *mut z_stream_s) -> i32;
@@ -111,29 +126,38 @@ unsafe extern "C" {
         arg6: *const c_char,
         arg7: i32,
     ) -> i32;
-    fn memcpy(arg0: *mut (), arg1: *const (), arg2: size_t) -> *mut ();
-    fn memset(arg0: *mut (), arg1: i32, arg2: size_t) -> *mut ();
-    fn strlen(arg0: *const c_char) -> size_t;
-    fn strerror(arg0: i32) -> *mut c_char;
-    fn malloc(arg0: size_t) -> *mut ();
-    fn free(arg0: *mut ());
     fn gz_error(arg0: *mut __SlateRecord_gzguts_h_203, arg1: i32, arg2: *const c_char);
     fn gz_intmax() -> u32;
 }
 
-#[cfg(unix)]
+#[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
 unsafe extern "C" {
-    fn write(arg0: i32, arg1: *const (), arg2: size_t) -> ssize_t;
+    fn memcpy(arg0: *mut (), arg1: *const (), arg2: size_t) -> *mut ();
+    fn memset(arg0: *mut (), arg1: i32, arg2: size_t) -> *mut ();
+    fn strlen(arg0: *const c_char) -> size_t;
 }
 
-#[cfg(windows)]
-unsafe extern "C" {
-    fn write(arg0: i32, arg1: *const (), arg2: u32) -> i32;
-}
-
-#[cfg(not(feature = "no-vsnprintf"))]
+#[cfg(all(
+    any(target_os = "macos", all(target_arch = "arm", windows)),
+    not(feature = "no-vsnprintf")
+))]
 unsafe extern "C" {
     fn memmove(arg0: *mut (), arg1: *const (), arg2: size_t) -> *mut ();
+}
+
+#[cfg(all(target_arch = "arm", windows))]
+unsafe extern "C" {
+    fn strerror(arg0: i32) -> *mut c_char;
+}
+
+#[cfg(any(
+    target_os = "macos",
+    target_os = "android",
+    all(target_arch = "arm", windows)
+))]
+unsafe extern "C" {
+    fn malloc(arg0: size_t) -> *mut ();
+    fn free(arg0: *mut ());
 }
 
 use core::ffi::c_char;
@@ -162,7 +186,7 @@ struct __crt_locale_data {}
 #[derive(Clone, Copy)]
 struct __crt_multibyte_data {}
 
-#[cfg(unix)]
+#[cfg(any(all(target_pointer_width = "32", unix), target_os = "macos"))]
 use slate_support::ssize_t;
 
 #[repr(C)]
@@ -260,6 +284,36 @@ struct __SlateRecord_gzguts_h_203 {
     strm: z_stream_s,
 }
 
+#[cfg(all(not(target_os = "macos"), unix))]
+use slate_support::close;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    all(not(target_arch = "arm"), windows)
+))]
+use slate_support::free;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    all(not(target_arch = "arm"), windows)
+))]
+use slate_support::malloc;
+#[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
+use slate_support::memcpy;
+#[cfg(all(
+    not(any(target_os = "macos", all(target_arch = "arm", windows))),
+    not(feature = "no-vsnprintf")
+))]
+use slate_support::memmove;
+#[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
+use slate_support::memset;
+#[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
+use slate_support::strerror;
+#[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
+use slate_support::strlen;
+#[cfg(all(not(target_os = "macos"), unix))]
+use slate_support::write;
+
 /// Initialize state for writing a gzip file.  Mark initialization by setting
 /// state->size to non-zero.  Return -1 on a memory allocation failure, or 0 on
 /// success.
@@ -268,17 +322,30 @@ fn gz_init(state: *mut __SlateRecord_gzguts_h_203) -> i32 {
     let strm: *mut z_stream_s = unsafe { std::ptr::addr_of_mut!((*state).strm) };
     // allocate input buffer (double size for gzprintf)
     unsafe {
-        #[cfg(all(target_pointer_width = "64", unix))]
+        #[cfg(any(
+            all(target_os = "linux", target_pointer_width = "64"),
+            target_os = "freebsd"
+        ))]
+        {
+            (*state).r#in =
+                (malloc((((*state).want << 1i32) as c_ulong) as usize) as *mut ()) as *mut u8;
+        }
+        #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+        {
+            (*state).r#in = (malloc(((*state).want << 1i32) as usize) as *mut ()) as *mut u8;
+        }
+        #[cfg(any(target_os = "macos", target_os = "android"))]
         {
             (*state).r#in = malloc(((*state).want << 1i32) as c_ulong) as *mut u8;
         }
-        #[cfg(target_pointer_width = "32")]
-        {
-            (*state).r#in = malloc((*state).want << 1i32) as *mut u8;
-        }
         #[cfg(all(target_pointer_width = "64", windows))]
         {
-            (*state).r#in = malloc(((*state).want << 1i32) as u64) as *mut u8;
+            (*state).r#in =
+                (malloc((((*state).want << 1i32) as u64) as usize) as *mut ()) as *mut u8;
+        }
+        #[cfg(all(target_arch = "arm", windows))]
+        {
+            (*state).r#in = malloc((*state).want << 1i32) as *mut u8;
         }
     }
     if unsafe { (*state).r#in }.is_null() {
@@ -289,21 +356,47 @@ fn gz_init(state: *mut __SlateRecord_gzguts_h_203) -> i32 {
     if (unsafe { (*state).direct }) == 0 {
         // allocate output buffer
         unsafe {
-            #[cfg(all(target_pointer_width = "64", unix))]
+            #[cfg(any(
+                all(target_os = "linux", target_pointer_width = "64"),
+                target_os = "freebsd"
+            ))]
+            {
+                (*state).out = (malloc(((*state).want as c_ulong) as usize) as *mut ()) as *mut u8;
+            }
+            #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+            {
+                (*state).out = (malloc((*state).want as usize) as *mut ()) as *mut u8;
+            }
+            #[cfg(any(target_os = "macos", target_os = "android"))]
             {
                 (*state).out = malloc((*state).want as c_ulong) as *mut u8;
             }
-            #[cfg(target_pointer_width = "32")]
+            #[cfg(all(target_pointer_width = "64", windows))]
+            {
+                (*state).out = (malloc(((*state).want as u64) as usize) as *mut ()) as *mut u8;
+            }
+            #[cfg(all(target_arch = "arm", windows))]
             {
                 (*state).out = malloc((*state).want) as *mut u8;
             }
-            #[cfg(all(target_pointer_width = "64", windows))]
-            {
-                (*state).out = malloc((*state).want as u64) as *mut u8;
-            }
         }
         if unsafe { (*state).out }.is_null() {
-            unsafe { free((*state).r#in as *mut ()) };
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                all(not(target_arch = "arm"), windows)
+            ))]
+            {
+                unsafe { free(((*state).r#in as *mut ()) as *mut core::ffi::c_void) };
+            }
+            #[cfg(any(
+                target_os = "macos",
+                target_os = "android",
+                all(target_arch = "arm", windows)
+            ))]
+            {
+                unsafe { free((*state).r#in as *mut ()) };
+            }
             unsafe { gz_error(state, -4i32, c"out of memory".as_ptr()) };
             return -1;
         }
@@ -325,19 +418,35 @@ fn gz_init(state: *mut __SlateRecord_gzguts_h_203) -> i32 {
         }
         #[cfg(target_pointer_width = "32")]
         {
-            ret = deflateInit2__2!(strm, unsafe { (*state).level }, 8i32, 31i32, 8i32, unsafe {
+            ret = deflateInit2__3!(strm, unsafe { (*state).level }, 8i32, 31i32, 8i32, unsafe {
                 (*state).strategy
             });
         }
         #[cfg(all(target_pointer_width = "64", windows))]
         {
-            ret = deflateInit2__3!(strm, unsafe { (*state).level }, 8i32, 31i32, 8i32, unsafe {
+            ret = deflateInit2__2!(strm, unsafe { (*state).level }, 8i32, 31i32, 8i32, unsafe {
                 (*state).strategy
             });
         }
         if ret != 0 {
-            unsafe { free((*state).out as *mut ()) };
-            unsafe { free((*state).r#in as *mut ()) };
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                all(not(target_arch = "arm"), windows)
+            ))]
+            {
+                unsafe { free(((*state).out as *mut ()) as *mut core::ffi::c_void) };
+                unsafe { free(((*state).r#in as *mut ()) as *mut core::ffi::c_void) };
+            }
+            #[cfg(any(
+                target_os = "macos",
+                target_os = "android",
+                all(target_arch = "arm", windows)
+            ))]
+            {
+                unsafe { free((*state).out as *mut ()) };
+                unsafe { free((*state).r#in as *mut ()) };
+            }
             unsafe { gz_error(state, -4i32, c"out of memory".as_ptr()) };
             return -1;
         }
@@ -397,20 +506,46 @@ fn gz_comp(state: *mut __SlateRecord_gzguts_h_203, flush: i32) -> i32 {
             } else {
                 unsafe { (*strm).avail_in }
             };
-            #[cfg(unix)]
+            #[cfg(target_os = "macos")]
             {
                 writ = (unsafe { write((*state).fd, (*strm).next_in as *const (), put as size_t) })
                     as i32;
+            }
+            #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+            {
+                writ = (unsafe {
+                    write(
+                        (*state).fd as i32,
+                        ((*strm).next_in as *const ()) as *const core::ffi::c_void,
+                        (put as size_t) as usize,
+                    ) as c_long
+                }) as i32;
             }
             #[cfg(windows)]
             {
                 writ = unsafe { write((*state).fd, (*strm).next_in as *const (), put) };
             }
+            #[cfg(all(target_pointer_width = "32", unix))]
+            {
+                writ = (unsafe {
+                    write(
+                        (*state).fd as i32,
+                        ((*strm).next_in as *const ()) as *const core::ffi::c_void,
+                        (put as size_t) as usize,
+                    ) as i32
+                }) as i32;
+            }
             if writ < 0 {
                 #[cfg(any(target_os = "macos", target_os = "freebsd"))]
-                let __v1: bool = (unsafe { *slate_support::errno_location() }) == 35
+                let __v1: bool = (unsafe { *slate_support::errno_location() })
+                    == (slate_support::EAGAIN as i32)
                     || (unsafe { *slate_support::errno_location() }) == 35;
-                #[cfg(windows)]
+                #[cfg(not(any(unix, target_arch = "arm")))]
+                let __v1: bool = (unsafe { *slate_support::errno_location() })
+                    == (slate_support::EAGAIN as i32)
+                    || (unsafe { *slate_support::errno_location() })
+                        == (slate_support::EWOULDBLOCK as i32);
+                #[cfg(all(target_arch = "arm", windows))]
                 let __v1: bool = (unsafe { *slate_support::errno_location() }) == 11
                     || (unsafe { *slate_support::errno_location() }) == 140;
                 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -421,9 +556,14 @@ fn gz_comp(state: *mut __SlateRecord_gzguts_h_203, flush: i32) -> i32 {
                         }
                     }
                 }
+                #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
+                {
+                    unsafe { gz_error(state, -1i32, zstrerror__2!() as *const c_char) };
+                }
                 #[cfg(any(target_os = "linux", target_os = "android"))]
                 {
-                    if (unsafe { *slate_support::errno_location() }) == 11
+                    if (unsafe { *slate_support::errno_location() })
+                        == (slate_support::EAGAIN as i32)
                         || (unsafe { *slate_support::errno_location() }) == 11
                     {
                         unsafe {
@@ -431,7 +571,10 @@ fn gz_comp(state: *mut __SlateRecord_gzguts_h_203, flush: i32) -> i32 {
                         }
                     }
                 }
-                unsafe { gz_error(state, -1i32, zstrerror!() as *const c_char) };
+                #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
+                {
+                    unsafe { gz_error(state, -1i32, zstrerror!() as *const c_char) };
+                }
                 return -1;
             }
             let __v3: u32 = unsafe { (*strm).avail_in };
@@ -481,8 +624,21 @@ fn gz_comp(state: *mut __SlateRecord_gzguts_h_203, flush: i32) -> i32 {
                             unsafe { (*strm).next_out }.offset_from((*state).x.next as *mut u8)
                         }) as c_long) as i32) as u32
                     };
+                }
+                #[cfg(target_os = "macos")]
+                {
                     writ = (unsafe {
                         write((*state).fd, (*state).x.next as *const (), put as size_t)
+                    }) as i32;
+                }
+                #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+                {
+                    writ = (unsafe {
+                        write(
+                            (*state).fd as i32,
+                            ((*state).x.next as *const ()) as *const core::ffi::c_void,
+                            (put as size_t) as usize,
+                        ) as c_long
                     }) as i32;
                 }
                 #[cfg(all(target_pointer_width = "64", windows))]
@@ -520,14 +676,24 @@ fn gz_comp(state: *mut __SlateRecord_gzguts_h_203, flush: i32) -> i32 {
                 #[cfg(all(target_pointer_width = "32", unix))]
                 {
                     writ = (unsafe {
-                        write((*state).fd, (*state).x.next as *const (), put as size_t)
+                        write(
+                            (*state).fd as i32,
+                            ((*state).x.next as *const ()) as *const core::ffi::c_void,
+                            (put as size_t) as usize,
+                        ) as i32
                     }) as i32;
                 }
                 if writ < 0 {
                     #[cfg(any(target_os = "macos", target_os = "freebsd"))]
-                    let __v9: bool = (unsafe { *slate_support::errno_location() }) == 35
+                    let __v9: bool = (unsafe { *slate_support::errno_location() })
+                        == (slate_support::EAGAIN as i32)
                         || (unsafe { *slate_support::errno_location() }) == 35;
-                    #[cfg(windows)]
+                    #[cfg(not(any(unix, target_arch = "arm")))]
+                    let __v9: bool = (unsafe { *slate_support::errno_location() })
+                        == (slate_support::EAGAIN as i32)
+                        || (unsafe { *slate_support::errno_location() })
+                            == (slate_support::EWOULDBLOCK as i32);
+                    #[cfg(all(target_arch = "arm", windows))]
                     let __v9: bool = (unsafe { *slate_support::errno_location() }) == 11
                         || (unsafe { *slate_support::errno_location() }) == 140;
                     #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -538,9 +704,14 @@ fn gz_comp(state: *mut __SlateRecord_gzguts_h_203, flush: i32) -> i32 {
                             }
                         }
                     }
+                    #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
+                    {
+                        unsafe { gz_error(state, -1i32, zstrerror__2!() as *const c_char) };
+                    }
                     #[cfg(any(target_os = "linux", target_os = "android"))]
                     {
-                        if (unsafe { *slate_support::errno_location() }) == 11
+                        if (unsafe { *slate_support::errno_location() })
+                            == (slate_support::EAGAIN as i32)
                             || (unsafe { *slate_support::errno_location() }) == 11
                         {
                             unsafe {
@@ -548,7 +719,10 @@ fn gz_comp(state: *mut __SlateRecord_gzguts_h_203, flush: i32) -> i32 {
                             }
                         }
                     }
-                    unsafe { gz_error(state, -1i32, zstrerror!() as *const c_char) };
+                    #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
+                    {
+                        unsafe { gz_error(state, -1i32, zstrerror!() as *const c_char) };
+                    }
                     return -1;
                 }
                 let __v11: *mut u8 = unsafe { (*state).x.next };
@@ -614,7 +788,7 @@ fn gz_zero(state: *mut __SlateRecord_gzguts_h_203) -> i32 {
     loop {
         #[cfg(all(target_pointer_width = "64", unix))]
         {
-            n = if GT_OFF__3!(unsafe { (*state).size })
+            n = if GT_OFF__2!(unsafe { (*state).size })
                 || ((unsafe { (*state).size }) as off_t) > unsafe { (*state).skip }
             {
                 ((unsafe { (*state).skip }) as i32) as u32
@@ -624,7 +798,7 @@ fn gz_zero(state: *mut __SlateRecord_gzguts_h_203) -> i32 {
         }
         #[cfg(all(target_pointer_width = "32", unix))]
         {
-            n = if GT_OFF__2!(unsafe { (*state).size })
+            n = if GT_OFF__4!(unsafe { (*state).size })
                 || ((unsafe { (*state).size }) as off_t) > unsafe { (*state).skip }
             {
                 (unsafe { (*state).skip }) as u32
@@ -634,7 +808,7 @@ fn gz_zero(state: *mut __SlateRecord_gzguts_h_203) -> i32 {
         }
         #[cfg(all(target_pointer_width = "64", windows))]
         {
-            n = if GT_OFF__4!(unsafe { (*state).size })
+            n = if GT_OFF__3!(unsafe { (*state).size })
                 || (((unsafe { (*state).size }) as u64) as i64) > unsafe { (*state).skip }
             {
                 ((unsafe { (*state).skip }) as i32) as u32
@@ -653,7 +827,27 @@ fn gz_zero(state: *mut __SlateRecord_gzguts_h_203) -> i32 {
             };
         }
         if first != 0 {
-            #[cfg(all(target_pointer_width = "64", unix))]
+            #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+            {
+                unsafe {
+                    std::ptr::write_bytes(
+                        (((*state).r#in as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                        (0i32 as i32) as u8,
+                        ((n as c_ulong) as usize) as usize,
+                    )
+                };
+            }
+            #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+            {
+                unsafe {
+                    std::ptr::write_bytes(
+                        (((*state).r#in as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                        (0i32 as i32) as u8,
+                        (n as usize) as usize,
+                    )
+                };
+            }
+            #[cfg(target_os = "macos")]
             {
                 unsafe {
                     std::ptr::write_bytes(
@@ -663,20 +857,20 @@ fn gz_zero(state: *mut __SlateRecord_gzguts_h_203) -> i32 {
                     )
                 };
             }
-            #[cfg(target_pointer_width = "32")]
-            {
-                unsafe {
-                    std::ptr::write_bytes(((*state).r#in as *mut ()) as *mut u8, 0u8, n as usize)
-                };
-            }
             #[cfg(all(target_pointer_width = "64", windows))]
             {
                 unsafe {
                     std::ptr::write_bytes(
-                        ((*state).r#in as *mut ()) as *mut u8,
-                        0u8,
-                        (n as u64) as usize,
+                        (((*state).r#in as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                        (0i32 as i32) as u8,
+                        ((n as u64) as usize) as usize,
                     )
+                };
+            }
+            #[cfg(all(target_arch = "arm", windows))]
+            {
+                unsafe {
+                    std::ptr::write_bytes(((*state).r#in as *mut ()) as *mut u8, 0u8, n as usize)
                 };
             }
             first = 0;
@@ -790,7 +984,18 @@ fn gz_write(state: *mut __SlateRecord_gzguts_h_203, mut buf: *const (), mut len:
                 if (copy as size_t) > len {
                     copy = len as u32;
                 }
-                #[cfg(unix)]
+                #[cfg(all(not(target_os = "macos"), unix))]
+                {
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            (buf as *const core::ffi::c_void) as *const u8,
+                            ((unsafe { (*state).r#in }.add(have as usize) as *mut ())
+                                as *mut core::ffi::c_void) as *mut u8,
+                            ((copy as c_ulong) as usize) as usize,
+                        )
+                    };
+                }
+                #[cfg(target_os = "macos")]
                 {
                     unsafe {
                         std::ptr::copy_nonoverlapping(
@@ -804,9 +1009,10 @@ fn gz_write(state: *mut __SlateRecord_gzguts_h_203, mut buf: *const (), mut len:
                 {
                     unsafe {
                         std::ptr::copy_nonoverlapping(
-                            buf as *const u8,
-                            (unsafe { (*state).r#in }.add(have as usize) as *mut ()) as *mut u8,
-                            (copy as u64) as usize,
+                            (buf as *const core::ffi::c_void) as *const u8,
+                            ((unsafe { (*state).r#in }.add(have as usize) as *mut ())
+                                as *mut core::ffi::c_void) as *mut u8,
+                            ((copy as u64) as usize) as usize,
                         )
                     };
                 }
@@ -903,13 +1109,27 @@ fn gz_write(state: *mut __SlateRecord_gzguts_h_203, mut buf: *const (), mut len:
                 if copy > (len as u32) {
                     copy = len as u32;
                 }
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        buf as *const u8,
-                        (unsafe { (*state).r#in }.add(have as usize) as *mut ()) as *mut u8,
-                        copy as usize,
-                    )
-                };
+                #[cfg(any(unix, target_arch = "x86"))]
+                {
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            (buf as *const core::ffi::c_void) as *const u8,
+                            ((unsafe { (*state).r#in }.add(have as usize) as *mut ())
+                                as *mut core::ffi::c_void) as *mut u8,
+                            (copy as usize) as usize,
+                        )
+                    };
+                }
+                #[cfg(all(target_arch = "arm", windows))]
+                {
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            buf as *const u8,
+                            (unsafe { (*state).r#in }.add(have as usize) as *mut ()) as *mut u8,
+                            copy as usize,
+                        )
+                    };
+                }
                 let __v2: u32 = unsafe { (*state).strm.avail_in };
                 unsafe {
                     (*state).strm.avail_in = __v2.wrapping_add(copy);
@@ -1191,13 +1411,28 @@ extern "C-unwind" fn gzputs(file: *mut gzFile_s, s: *const c_char) -> i32 {
     }
     unsafe { gz_error(state, 0i32, std::ptr::null::<c_char>()) };
     // write string
-    len = (unsafe { strlen(s) }) as size_t;
+    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+    {
+        len = (unsafe { strlen(s as *const core::ffi::c_char) as c_ulong }) as size_t;
+    }
+    #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
+    {
+        len = (unsafe { strlen(s) }) as size_t;
+    }
+    #[cfg(all(target_pointer_width = "64", windows))]
+    {
+        len = (unsafe { strlen(s as *const core::ffi::c_char) as u64 }) as size_t;
+    }
     #[cfg(target_pointer_width = "64")]
     {
         if ((len as u32) as i32) < 0 || ((len as u32) as size_t) != len {
             unsafe { gz_error(state, -2i32, c"string length does not fit in int".as_ptr()) };
             return -1;
         }
+    }
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+    {
+        len = (unsafe { strlen(s as *const core::ffi::c_char) as u32 }) as size_t;
     }
     #[cfg(target_pointer_width = "32")]
     {
@@ -1246,7 +1481,27 @@ fn gz_vacate(state: *mut __SlateRecord_gzguts_h_203) -> i32 {
         }
         return 0;
     }
-    #[cfg(all(target_pointer_width = "64", unix))]
+    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+    {
+        unsafe {
+            std::ptr::copy(
+                (((*strm).next_in as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*state).r#in as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (((*strm).avail_in as c_ulong) as usize) as usize,
+            )
+        };
+    }
+    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+    {
+        unsafe {
+            std::ptr::copy(
+                (((*strm).next_in as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*state).r#in as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                ((*strm).avail_in as usize) as usize,
+            )
+        };
+    }
+    #[cfg(target_os = "macos")]
     {
         unsafe {
             std::ptr::copy(
@@ -1256,23 +1511,23 @@ fn gz_vacate(state: *mut __SlateRecord_gzguts_h_203) -> i32 {
             )
         };
     }
-    #[cfg(target_pointer_width = "32")]
+    #[cfg(all(target_pointer_width = "64", windows))]
+    {
+        unsafe {
+            std::ptr::copy(
+                (((*strm).next_in as *const ()) as *const core::ffi::c_void) as *const u8,
+                (((*state).r#in as *mut ()) as *mut core::ffi::c_void) as *mut u8,
+                (((*strm).avail_in as u64) as usize) as usize,
+            )
+        };
+    }
+    #[cfg(all(target_arch = "arm", windows))]
     {
         unsafe {
             std::ptr::copy(
                 ((*strm).next_in as *const ()) as *const u8,
                 ((*state).r#in as *mut ()) as *mut u8,
                 (*strm).avail_in as usize,
-            )
-        };
-    }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        unsafe {
-            std::ptr::copy(
-                ((*strm).next_in as *const ()) as *const u8,
-                ((*state).r#in as *mut ()) as *mut u8,
-                ((*strm).avail_in as u64) as usize,
             )
         };
     }
@@ -1683,15 +1938,84 @@ extern "C-unwind" fn gzclose_w(file: *mut gzFile_s) -> i32 {
     if (unsafe { (*state).size }) != 0 {
         if (unsafe { (*state).direct }) == 0 {
             unsafe { deflateEnd(std::ptr::addr_of_mut!((*state).strm)) };
-            unsafe { free((*state).out as *mut ()) };
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                all(not(target_arch = "arm"), windows)
+            ))]
+            {
+                unsafe { free(((*state).out as *mut ()) as *mut core::ffi::c_void) };
+            }
+            #[cfg(any(
+                target_os = "macos",
+                target_os = "android",
+                all(target_arch = "arm", windows)
+            ))]
+            {
+                unsafe { free((*state).out as *mut ()) };
+            }
         }
-        unsafe { free((*state).r#in as *mut ()) };
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            all(not(target_arch = "arm"), windows)
+        ))]
+        {
+            unsafe { free(((*state).r#in as *mut ()) as *mut core::ffi::c_void) };
+        }
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "android",
+            all(target_arch = "arm", windows)
+        ))]
+        {
+            unsafe { free((*state).r#in as *mut ()) };
+        }
     }
     unsafe { gz_error(state, 0i32, std::ptr::null::<c_char>()) };
-    unsafe { free((*state).path as *mut ()) };
-    if (unsafe { close((*state).fd) }) == -1 {
-        ret = -1;
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "freebsd",
+        all(not(target_arch = "arm"), windows)
+    ))]
+    {
+        unsafe { free(((*state).path as *mut ()) as *mut core::ffi::c_void) };
     }
-    unsafe { free(state as *mut ()) };
+    #[cfg(target_os = "android")]
+    {
+        unsafe { free((*state).path as *mut ()) };
+    }
+    #[cfg(all(not(target_os = "macos"), unix))]
+    {
+        if (unsafe { close((*state).fd as i32) as i32 }) == -1 {
+            ret = -1;
+        }
+    }
+    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+    {
+        unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
+    }
+    #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
+    {
+        unsafe { free((*state).path as *mut ()) };
+    }
+    #[cfg(any(target_os = "macos", windows))]
+    {
+        if (unsafe { close((*state).fd) }) == -1 {
+            ret = -1;
+        }
+    }
+    #[cfg(any(
+        target_os = "macos",
+        target_os = "android",
+        all(target_arch = "arm", windows)
+    ))]
+    {
+        unsafe { free(state as *mut ()) };
+    }
+    #[cfg(not(any(unix, target_arch = "arm")))]
+    {
+        unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
+    }
     ret
 }

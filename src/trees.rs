@@ -9,8 +9,19 @@ macro_rules! MAX_DIST {
     };
 }
 
-#[cfg(all(unix, feature = "zlib-debug"))]
+#[cfg(all(any(target_os = "linux", target_os = "macos"), feature = "zlib-debug"))]
 macro_rules! Tracecv {
+    ($c:expr, $x__0:expr, $x__1:expr, $x__2:expr) => {
+        if (unsafe { z_verbose }) > 1 && ($c) != 0 {
+            let _ = std::io::Write::flush(&mut std::io::stdout());
+            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char, $x__2) };
+            unsafe { fflush(std::ptr::null_mut()) };
+        }
+    };
+}
+
+#[cfg(all(unix, feature = "zlib-debug"))]
+macro_rules! Tracecv__2 {
     ($c:expr, $x__0:expr, $x__1:expr, $x__2:expr, $x__3:expr, $x__4:expr, $x__5:expr, $x__6:expr) => {
         if (unsafe { z_verbose }) > 1 && $c {
             let _ = std::io::Write::flush(&mut std::io::stdout());
@@ -31,7 +42,7 @@ macro_rules! Tracecv {
 }
 
 #[cfg(all(windows, feature = "zlib-debug"))]
-macro_rules! Tracecv {
+macro_rules! Tracecv__2 {
     ($c:expr, $x__0:expr, $x__1:expr, $x__2:expr, $x__3:expr, $x__4:expr, $x__5:expr, $x__6:expr) => {
         if (unsafe { z_verbose }) > 1 && $c {
             let _ = std::io::Write::flush(&mut std::io::stdout());
@@ -71,17 +82,6 @@ macro_rules! Tracecv__3 {
     ($c:expr, $x__0:expr, $x__1:expr, $x__2:expr) => {
         let __v: bool = (unsafe { z_verbose }) > 1 && ($c) != 0;
         if __v {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char, $x__2) };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
-#[cfg(all(any(target_os = "linux", target_os = "macos"), feature = "zlib-debug"))]
-macro_rules! Tracecv__2 {
-    ($c:expr, $x__0:expr, $x__1:expr, $x__2:expr) => {
-        if (unsafe { z_verbose }) > 1 && ($c) != 0 {
             let _ = std::io::Write::flush(&mut std::io::stdout());
             unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char, $x__2) };
             unsafe { fflush(std::ptr::null_mut()) };
@@ -307,7 +307,7 @@ macro_rules! send_code__3 {
 }
 
 #[cfg(all(unix, feature = "zlib-debug"))]
-macro_rules! send_code__2 {
+macro_rules! send_code {
     ($s:expr, $c:expr, $tree:expr) => {
         if (unsafe { z_verbose }) > 2 {
             let _ = std::io::Write::flush(&mut std::io::stdout());
@@ -331,7 +331,7 @@ macro_rules! send_code__2 {
 }
 
 #[cfg(all(windows, feature = "zlib-debug"))]
-macro_rules! send_code__2 {
+macro_rules! send_code {
     ($s:expr, $c:expr, $tree:expr) => {
         if (unsafe { z_verbose }) > 2 {
             let _ = std::io::Write::flush(&mut std::io::stdout());
@@ -389,7 +389,7 @@ macro_rules! send_code__6 {
 #[cfg(not(feature = "zlib-debug"))]
 macro_rules! send_bits {
     ($s:expr, $value:expr, $length:expr) => {
-        let len: i32 = (($length) as u32) as i32;
+        let len: i32 = $length;
         if (unsafe { (*$s).bi_valid }) > 16 - len {
             let val: i32 = ($value) as i32;
             let __v: *mut internal_state = $s;
@@ -429,7 +429,7 @@ macro_rules! send_bits {
 #[cfg(not(feature = "zlib-debug"))]
 macro_rules! send_bits__2 {
     ($s:expr, $value:expr, $length:expr) => {
-        let len: i32 = $length;
+        let len: i32 = (($length) as u32) as i32;
         if (unsafe { (*$s).bi_valid }) > 16 - len {
             let val: i32 = ($value) as i32;
             let __v: *mut internal_state = $s;
@@ -467,9 +467,29 @@ macro_rules! send_bits__2 {
 }
 
 #[cfg(not(feature = "zlib-debug"))]
-macro_rules! send_code {
+macro_rules! send_code__5 {
     ($s:expr, $c:expr, $tree:expr) => {
-        send_bits!(
+        send_bits__2!($s, unsafe { $tree[($c) as usize].fc.code }, unsafe {
+            $tree[($c) as usize].dl.len
+        });
+    };
+}
+
+#[cfg(not(feature = "zlib-debug"))]
+macro_rules! send_code__4 {
+    ($s:expr, $c:expr, $tree:expr) => {
+        send_bits__2!(
+            $s,
+            unsafe { (*$tree.offset(($c) as isize)).fc.code },
+            unsafe { (*$tree.offset(($c) as isize)).dl.len }
+        );
+    };
+}
+
+#[cfg(not(feature = "zlib-debug"))]
+macro_rules! send_code__2 {
+    ($s:expr, $c:expr, $tree:expr) => {
+        send_bits__2!(
             $s,
             unsafe {
                 (*($tree.as_mut_ptr() as *mut ct_data_s).offset(($c) as isize))
@@ -481,26 +501,6 @@ macro_rules! send_code {
                     .dl
                     .len
             }
-        );
-    };
-}
-
-#[cfg(not(feature = "zlib-debug"))]
-macro_rules! send_code__5 {
-    ($s:expr, $c:expr, $tree:expr) => {
-        send_bits!($s, unsafe { $tree[($c) as usize].fc.code }, unsafe {
-            $tree[($c) as usize].dl.len
-        });
-    };
-}
-
-#[cfg(not(feature = "zlib-debug"))]
-macro_rules! send_code__4 {
-    ($s:expr, $c:expr, $tree:expr) => {
-        send_bits!(
-            $s,
-            unsafe { (*$tree.offset(($c) as isize)).fc.code },
-            unsafe { (*$tree.offset(($c) as isize)).dl.len }
         );
     };
 }
@@ -518,6 +518,11 @@ macro_rules! smaller {
     };
 }
 
+#[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
+unsafe extern "C" {
+    fn memcpy(arg0: *mut (), arg1: *const (), arg2: size_t) -> *mut ();
+}
+
 #[cfg(feature = "zlib-debug")]
 unsafe extern "C" {
     static mut z_verbose: i32;
@@ -525,13 +530,10 @@ unsafe extern "C" {
     fn fflush(_0: *mut slate_support::FILE) -> i32;
 }
 
-unsafe extern "C" {
-    fn memcpy(arg0: *mut (), arg1: *const (), arg2: size_t) -> *mut ();
-}
-
 use core::ffi::c_char;
 use core::ffi::c_long;
 use core::ffi::c_ulong;
+#[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
 use slate_support::size_t;
 
 #[repr(C)]
@@ -2162,6 +2164,9 @@ static mut static_bl_desc: static_tree_desc_s = static_tree_desc_s {
     max_length: 7i32,
 };
 
+#[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
+use slate_support::memcpy;
+
 // Output a short LSB first on the stream.
 // IN assertion: there is enough room in pendingBuf.
 /// Reverse the first len bits of a code, using straightforward code (a faster
@@ -2280,7 +2285,7 @@ fn gen_codes(tree: *mut ct_data_s, max_code: i32, bl_count: *mut u16) {
             }
             #[cfg(all(target_env = "gnu", feature = "zlib-debug"))]
             {
-                Tracecv!(
+                Tracecv__2!(
                     tree != ((unsafe { std::ptr::addr_of!(static_ltree.0) as *const ct_data_s })
                         as *mut ct_data_s),
                     slate_support::stderr(),
@@ -2298,7 +2303,7 @@ fn gen_codes(tree: *mut ct_data_s, max_code: i32, bl_count: *mut u16) {
             }
             #[cfg(all(not(target_env = "gnu"), feature = "zlib-debug"))]
             {
-                Tracecv!(
+                Tracecv__2!(
                     tree != ((unsafe { std::ptr::addr_of!(static_ltree.0) as *const ct_data_s })
                         as *mut ct_data_s),
                     slate_support::stderr(),
@@ -2984,11 +2989,11 @@ fn send_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
                     loop {
                         #[cfg(not(feature = "zlib-debug"))]
                         {
-                            send_code!(s, curlen, (*s).bl_tree);
+                            send_code__2!(s, curlen, (*s).bl_tree);
                         }
                         #[cfg(feature = "zlib-debug")]
                         {
-                            send_code__2!(s, curlen, (*s).bl_tree);
+                            send_code!(s, curlen, (*s).bl_tree);
                         }
                         let __v23: i32 = count - 1;
                         count = __v23;
@@ -3001,17 +3006,17 @@ fn send_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
                         if curlen != prevlen {
                             #[cfg(not(feature = "zlib-debug"))]
                             {
-                                send_code!(s, curlen, (*s).bl_tree);
+                                send_code__2!(s, curlen, (*s).bl_tree);
                             }
                             #[cfg(feature = "zlib-debug")]
                             {
-                                send_code__2!(s, curlen, (*s).bl_tree);
+                                send_code!(s, curlen, (*s).bl_tree);
                             }
                             count -= 1;
                         }
                         #[cfg(not(feature = "zlib-debug"))]
                         {
-                            send_code!(s, 16i32, (*s).bl_tree);
+                            send_code__2!(s, 16i32, (*s).bl_tree);
                         }
                         #[cfg(not(feature = "zlib-debug"))]
                         let len: i32 = 2;
@@ -3051,14 +3056,14 @@ fn send_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
                         #[cfg(feature = "zlib-debug")]
                         {
                             Assert!(count >= 3 && count <= 6, c" 3_6?".as_ptr() as *mut c_char);
-                            send_code__2!(s, 16i32, (*s).bl_tree);
+                            send_code!(s, 16i32, (*s).bl_tree);
                             send_bits(s, count - 3, 2i32);
                         }
                     } else {
                         if count <= 10 {
                             #[cfg(not(feature = "zlib-debug"))]
                             {
-                                send_code!(s, 17i32, (*s).bl_tree);
+                                send_code__2!(s, 17i32, (*s).bl_tree);
                             }
                             #[cfg(not(feature = "zlib-debug"))]
                             let len: i32 = 3;
@@ -3098,13 +3103,13 @@ fn send_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
                             }
                             #[cfg(feature = "zlib-debug")]
                             {
-                                send_code__2!(s, 17i32, (*s).bl_tree);
+                                send_code!(s, 17i32, (*s).bl_tree);
                                 send_bits(s, count - 3, 3i32);
                             }
                         } else {
                             #[cfg(not(feature = "zlib-debug"))]
                             {
-                                send_code!(s, 18i32, (*s).bl_tree);
+                                send_code__2!(s, 18i32, (*s).bl_tree);
                             }
                             #[cfg(not(feature = "zlib-debug"))]
                             let len: i32 = 7;
@@ -3144,7 +3149,7 @@ fn send_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
                             }
                             #[cfg(feature = "zlib-debug")]
                             {
-                                send_code__2!(s, 18i32, (*s).bl_tree);
+                                send_code!(s, 18i32, (*s).bl_tree);
                                 send_bits(s, count - 11, 7i32);
                             }
                         }
@@ -3343,7 +3348,7 @@ fn send_all_trees(s: *mut internal_state, lcodes: i32, dcodes: i32, blcodes: i32
     for rank in 0..blcodes {
         #[cfg(not(feature = "zlib-debug"))]
         {
-            send_bits__2!(
+            send_bits!(
                 s,
                 unsafe {
                     (*((*s).bl_tree.as_mut_ptr() as *mut ct_data_s)
@@ -3455,7 +3460,29 @@ extern "C-unwind" fn _tr_stored_block(
     put_short!(s, stored_len as u16);
     put_short!(s, !stored_len as u16);
     if stored_len != 0 {
-        #[cfg(all(target_pointer_width = "64", unix))]
+        #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((buf as *const ()) as *const core::ffi::c_void) as *const u8,
+                    ((unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
+                        as *mut core::ffi::c_void) as *mut u8,
+                    (stored_len as usize) as usize,
+                )
+            };
+        }
+        #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((buf as *const ()) as *const core::ffi::c_void) as *const u8,
+                    ((unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
+                        as *mut core::ffi::c_void) as *mut u8,
+                    ((stored_len as u32) as usize) as usize,
+                )
+            };
+        }
+        #[cfg(target_os = "macos")]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
@@ -3466,7 +3493,18 @@ extern "C-unwind" fn _tr_stored_block(
                 )
             };
         }
-        #[cfg(target_pointer_width = "32")]
+        #[cfg(all(target_pointer_width = "64", windows))]
+        {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    ((buf as *const ()) as *const core::ffi::c_void) as *const u8,
+                    ((unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
+                        as *mut core::ffi::c_void) as *mut u8,
+                    ((stored_len as u64) as usize) as usize,
+                )
+            };
+        }
+        #[cfg(all(target_arch = "arm", windows))]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
@@ -3474,17 +3512,6 @@ extern "C-unwind" fn _tr_stored_block(
                     (unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
                         as *mut u8,
                     (stored_len as u32) as usize,
-                )
-            };
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    buf as *const u8,
-                    (unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
-                        as *mut u8,
-                    (stored_len as u64) as usize,
                 )
             };
         }
@@ -3651,7 +3678,7 @@ fn compress_block(
                 }
                 #[cfg(all(target_env = "gnu", feature = "zlib-debug"))]
                 {
-                    Tracecv__2!(
+                    Tracecv!(
                         unsafe { slate_support::isgraph(lc as i32) },
                         slate_support::stderr(),
                         c" '%c' ".as_ptr() as *mut c_char,
@@ -3660,7 +3687,7 @@ fn compress_block(
                 }
                 #[cfg(all(any(target_env = "musl", target_os = "macos"), feature = "zlib-debug"))]
                 {
-                    Tracecv__2!(
+                    Tracecv!(
                         unsafe { slate_support::isgraph(lc) },
                         slate_support::stderr(),
                         c" '%c' ".as_ptr() as *mut c_char,
@@ -3704,7 +3731,7 @@ fn compress_block(
                     }
                     #[cfg(not(feature = "zlib-debug"))]
                     {
-                        send_bits__2!(s, lc, extra);
+                        send_bits!(s, lc, extra);
                     }
                 }
                 dist = dist.wrapping_sub(1); // dist is now the match distance - 1
@@ -3728,7 +3755,7 @@ fn compress_block(
                     }
                     #[cfg(not(feature = "zlib-debug"))]
                     {
-                        send_bits__2!(s, dist as i32, extra);
+                        send_bits!(s, dist as i32, extra);
                     }
                 }
             }
