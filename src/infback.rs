@@ -29,7 +29,6 @@ unsafe extern "C" {
 
 use core::ffi::c_char;
 use core::ffi::c_ulong;
-#[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
 use slate_support::size_t;
 
 #[repr(C)]
@@ -149,36 +148,12 @@ extern "C-unwind" fn inflateBackInit_(
     version: *const c_char,
     stream_size: i32,
 ) -> i32 {
-    #[cfg(any(
-        target_arch = "x86_64",
-        target_arch = "x86",
-        target_os = "macos",
-        windows
-    ))]
+    if version.is_null()
+        || ((unsafe { *version.add(0) }) as i32)
+            != ((unsafe { *(c"1.3.2.1-motley".as_ptr() as *mut c_char).add(0) }) as i32)
+        || stream_size != (std::mem::size_of::<z_stream_s>() as i32)
     {
-        if version.is_null()
-            || ((unsafe { *version.add(0) }) as i32)
-                != ((unsafe { *(c"1.3.2.1-motley".as_ptr() as *mut c_char).add(0) }) as i32)
-            || stream_size != (std::mem::size_of::<z_stream_s>() as i32)
-        {
-            return -6;
-        }
-    }
-    #[cfg(not(any(
-        target_arch = "x86_64",
-        target_arch = "x86",
-        target_os = "macos",
-        windows
-    )))]
-    {
-        if version.is_null()
-            || (((unsafe { *version.add(0) }) as u32) as i32)
-                != (((unsafe { *(c"1.3.2.1-motley".as_ptr() as *mut c_char).add(0) }) as u32)
-                    as i32)
-            || stream_size != (std::mem::size_of::<z_stream_s>() as i32)
-        {
-            return -6;
-        }
+        return -6;
     }
     if strm.is_null() || window.is_null() || windowBits < 8 || windowBits > 15 {
         return -2;
@@ -210,16 +185,9 @@ extern "C-unwind" fn inflateBackInit_(
             };
         }
     }
-    #[cfg(all(target_pointer_width = "64", unix))]
     let state: *mut inflate_state =
-        ZALLOC__2!(strm, 1i32, std::mem::size_of::<inflate_state>() as c_ulong)
+        ZALLOC__2!(strm, 1i32, std::mem::size_of::<inflate_state>() as size_t)
             as *mut inflate_state;
-    #[cfg(target_pointer_width = "32")]
-    let state: *mut inflate_state =
-        ZALLOC__4!(strm, 1i32, std::mem::size_of::<inflate_state>() as u32) as *mut inflate_state;
-    #[cfg(all(target_pointer_width = "64", windows))]
-    let state: *mut inflate_state =
-        ZALLOC__2!(strm, 1i32, std::mem::size_of::<inflate_state>() as u64) as *mut inflate_state;
     if state.is_null() {
         return -4;
     }
@@ -524,25 +492,13 @@ copy = have;
 if copy > left {
 copy = left;
 }
-#[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+#[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
 {
-std::ptr::copy_nonoverlapping(((next as *const ()) as *const core::ffi::c_void) as *const u8, ((put as *mut ()) as *mut core::ffi::c_void) as *mut u8, ((copy as c_ulong) as usize) as usize);
+std::ptr::copy_nonoverlapping(((next as *const ()) as *const core::ffi::c_void) as *const u8, ((put as *mut ()) as *mut core::ffi::c_void) as *mut u8, ((copy as size_t) as usize) as usize);
 }
-#[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+#[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
 {
-std::ptr::copy_nonoverlapping(((next as *const ()) as *const core::ffi::c_void) as *const u8, ((put as *mut ()) as *mut core::ffi::c_void) as *mut u8, (copy as usize) as usize);
-}
-#[cfg(target_os = "macos")]
-{
-std::ptr::copy_nonoverlapping(next as *const u8, put as *mut u8, (copy as c_ulong) as usize);
-}
-#[cfg(all(target_pointer_width = "64", windows))]
-{
-std::ptr::copy_nonoverlapping(((next as *const ()) as *const core::ffi::c_void) as *const u8, ((put as *mut ()) as *mut core::ffi::c_void) as *mut u8, ((copy as u64) as usize) as usize);
-}
-#[cfg(all(target_arch = "arm", windows))]
-{
-std::ptr::copy_nonoverlapping(next as *const u8, put as *mut u8, copy as usize);
+std::ptr::copy_nonoverlapping(next as *const u8, put as *mut u8, (copy as size_t) as usize);
 }
 have = have.wrapping_sub(copy);
 let __v151: *mut u8 = next;
@@ -637,13 +593,13 @@ break;
 }
 let __v123: u32 = (*state).have;
 (*state).have = __v123.wrapping_add(1);
-*((*state).lens.as_mut_ptr() as *mut u16).offset(((order.0[__v123 as usize] as u32) as i32) as isize) = BITS!(3i32, hold) as u16;
+*((*state).lens.as_mut_ptr() as *mut u16).offset((order.0[__v123 as usize] as i32) as isize) = BITS!(3i32, hold) as u16;
 DROPBITS!(3i32, hold, bits);
 }
 while (*state).have < 19 {
 let __v120: u32 = (*state).have;
 (*state).have = __v120.wrapping_add(1);
-*((*state).lens.as_mut_ptr() as *mut u16).offset(((order.0[__v120 as usize] as u32) as i32) as isize) = 0;
+*((*state).lens.as_mut_ptr() as *mut u16).offset((order.0[__v120 as usize] as i32) as isize) = 0;
 }
 (*state).next = (*state).codes.as_mut_ptr() as *mut __SlateRecord_inftrees_h_28;
 (*state).lencode = (*state).next as *const __SlateRecord_inftrees_h_28;
@@ -689,15 +645,15 @@ continue '__loop_135;
 }
 }
 }
-if (((*__slate_slot_175).val as u32) as i32) < 16 {
+if ((*__slate_slot_175).val as i32) < 16 {
 DROPBITS__2!((*__slate_slot_175).bits, hold, bits);
 let __v76: u32 = (*state).have;
 (*state).have = __v76.wrapping_add(1);
 *((*state).lens.as_mut_ptr() as *mut u16).add(__v76 as usize) = (*__slate_slot_175).val;
 } else {
-if (((*__slate_slot_175).val as u32) as i32) == 16 {
+if ((*__slate_slot_175).val as i32) == 16 {
 '__loop_105: loop {
-if bits < (((((*__slate_slot_175).bits as u32) as i32) + 2) as u32) {
+if bits < ((((*__slate_slot_175).bits as i32) + 2) as u32) {
 loop {
 if have == 0 {
 have = r#in.unwrap()(in_desc, std::ptr::addr_of_mut!(next));
@@ -731,9 +687,9 @@ copy = 3u32.wrapping_add(BITS!(2i32, hold));
 DROPBITS!(2i32, hold, bits);
 }
 } else {
-if (((*__slate_slot_175).val as u32) as i32) == 17 {
+if ((*__slate_slot_175).val as i32) == 17 {
 '__loop_113: loop {
-if bits < (((((*__slate_slot_175).bits as u32) as i32) + 3) as u32) {
+if bits < ((((*__slate_slot_175).bits as i32) + 3) as u32) {
 loop {
 if have == 0 {
 have = r#in.unwrap()(in_desc, std::ptr::addr_of_mut!(next));
@@ -764,7 +720,7 @@ copy = 3u32.wrapping_add(BITS!(3i32, hold));
 DROPBITS!(3i32, hold, bits);
 } else {
 '__loop_121: loop {
-if bits < (((((*__slate_slot_175).bits as u32) as i32) + 7) as u32) {
+if bits < ((((*__slate_slot_175).bits as i32) + 7) as u32) {
 loop {
 if have == 0 {
 have = r#in.unwrap()(in_desc, std::ptr::addr_of_mut!(next));
@@ -827,7 +783,7 @@ if ((*state).mode as u32) == 16209 {
 continue '__loop_203;
 } else {
 // check for end-of-block code (better have one)
-if ((*((*state).lens.as_mut_ptr() as *mut u16).add(256) as u32) as i32) == 0 {
+if (*((*state).lens.as_mut_ptr() as *mut u16).add(256) as i32) == 0 {
 (*strm).msg = c"invalid code -- missing end-of-block".as_ptr() as *mut c_char;
 (*state).mode = 16209;
 continue '__loop_203;
@@ -901,13 +857,13 @@ break;
 }
 let __v4: u32 = (*state).have;
 (*state).have = __v4.wrapping_add(1);
-*((*state).lens.as_mut_ptr() as *mut u16).offset(((order.0[__v4 as usize] as u32) as i32) as isize) = BITS!(3i32, hold) as u16;
+*((*state).lens.as_mut_ptr() as *mut u16).offset((order.0[__v4 as usize] as i32) as isize) = BITS!(3i32, hold) as u16;
 DROPBITS!(3i32, hold, bits);
 }
 while (*state).have < 19 {
 let __v6: u32 = (*state).have;
 (*state).have = __v6.wrapping_add(1);
-*((*state).lens.as_mut_ptr() as *mut u16).offset(((order.0[__v6 as usize] as u32) as i32) as isize) = 0;
+*((*state).lens.as_mut_ptr() as *mut u16).offset((order.0[__v6 as usize] as i32) as isize) = 0;
 }
 (*state).next = (*state).codes.as_mut_ptr() as *mut __SlateRecord_inftrees_h_28;
 (*state).lencode = (*state).next as *const __SlateRecord_inftrees_h_28;
@@ -953,15 +909,15 @@ continue '__loop_10;
 }
 }
 }
-if (((*__slate_slot_175).val as u32) as i32) < 16 {
+if ((*__slate_slot_175).val as i32) < 16 {
 DROPBITS__2!((*__slate_slot_175).bits, hold, bits);
 let __v14: u32 = (*state).have;
 (*state).have = __v14.wrapping_add(1);
 *((*state).lens.as_mut_ptr() as *mut u16).add(__v14 as usize) = (*__slate_slot_175).val;
 } else {
-if (((*__slate_slot_175).val as u32) as i32) == 16 {
+if ((*__slate_slot_175).val as i32) == 16 {
 '__loop_15: loop {
-if bits < (((((*__slate_slot_175).bits as u32) as i32) + 2) as u32) {
+if bits < ((((*__slate_slot_175).bits as i32) + 2) as u32) {
 loop {
 if have == 0 {
 have = r#in.unwrap()(in_desc, std::ptr::addr_of_mut!(next));
@@ -995,9 +951,9 @@ copy = 3u32.wrapping_add(BITS!(2i32, hold));
 DROPBITS!(2i32, hold, bits);
 }
 } else {
-if (((*__slate_slot_175).val as u32) as i32) == 17 {
+if ((*__slate_slot_175).val as i32) == 17 {
 '__loop_17: loop {
-if bits < (((((*__slate_slot_175).bits as u32) as i32) + 3) as u32) {
+if bits < ((((*__slate_slot_175).bits as i32) + 3) as u32) {
 loop {
 if have == 0 {
 have = r#in.unwrap()(in_desc, std::ptr::addr_of_mut!(next));
@@ -1028,7 +984,7 @@ copy = 3u32.wrapping_add(BITS!(3i32, hold));
 DROPBITS!(3i32, hold, bits);
 } else {
 '__loop_19: loop {
-if bits < (((((*__slate_slot_175).bits as u32) as i32) + 7) as u32) {
+if bits < ((((*__slate_slot_175).bits as i32) + 7) as u32) {
 loop {
 if have == 0 {
 have = r#in.unwrap()(in_desc, std::ptr::addr_of_mut!(next));
@@ -1091,7 +1047,7 @@ if ((*state).mode as u32) == 16209 {
 continue '__loop_203;
 } else {
 // check for end-of-block code (better have one)
-if ((*((*state).lens.as_mut_ptr() as *mut u16).add(256) as u32) as i32) == 0 {
+if (*((*state).lens.as_mut_ptr() as *mut u16).add(256) as i32) == 0 {
 (*strm).msg = c"invalid code -- missing end-of-block".as_ptr() as *mut c_char;
 (*state).mode = 16209;
 continue '__loop_203;
@@ -1175,11 +1131,11 @@ continue '__loop_83;
 }
 }
 }
-if (*__slate_slot_175).op != 0 && (((*__slate_slot_175).op as u32) as i32) & 240 == 0 {
+if (*__slate_slot_175).op != 0 && ((*__slate_slot_175).op as i32) & 240 == 0 {
 *__slate_slot_174 = *__slate_slot_175;
 '__loop_75: loop {
-*__slate_slot_175 = *unsafe { (*state).lencode }.offset(((((*__slate_slot_174).val as u32) as i32) as u32).wrapping_add(BITS!((((*__slate_slot_174).bits as u32) as i32) + (((*__slate_slot_174).op as u32) as i32), hold) >> (((*__slate_slot_174).bits as u32) as i32)) as isize);
-if (((((*__slate_slot_174).bits as u32) as i32) + (((*__slate_slot_175).bits as u32) as i32)) as u32) <= bits {
+*__slate_slot_175 = *unsafe { (*state).lencode }.offset((((*__slate_slot_174).val as i32) as u32).wrapping_add(BITS!(((*__slate_slot_174).bits as i32) + ((*__slate_slot_174).op as i32), hold) >> ((*__slate_slot_174).bits as i32)) as isize);
+if ((((*__slate_slot_174).bits as i32) + ((*__slate_slot_175).bits as i32)) as u32) <= bits {
 break;
 } else {
 loop {
@@ -1207,10 +1163,10 @@ DROPBITS__2!((*__slate_slot_174).bits, hold, bits);
 DROPBITS__2!((*__slate_slot_175).bits, hold, bits);
 (*state).length = (*__slate_slot_175).val as u32;
 // process literal
-if (((*__slate_slot_175).op as u32) as i32) == 0 {
+if ((*__slate_slot_175).op as i32) == 0 {
 #[cfg(feature = "zlib-debug")]
 {
-Tracevv__2!(slate_support::stderr(), if (((*__slate_slot_175).val as u32) as i32) >= 32 && (((*__slate_slot_175).val as u32) as i32) < 127 { c"inflate:         literal '%c'\n".as_ptr() as *mut c_char } else { c"inflate:         literal 0x%02x\n".as_ptr() as *mut c_char }, (*__slate_slot_175).val);
+Tracevv__2!(slate_support::stderr(), if ((*__slate_slot_175).val as i32) >= 32 && ((*__slate_slot_175).val as i32) < 127 { c"inflate:         literal '%c'\n".as_ptr() as *mut c_char } else { c"inflate:         literal 0x%02x\n".as_ptr() as *mut c_char }, (*__slate_slot_175).val);
 }
 loop {
 if left == 0 {
@@ -1232,7 +1188,7 @@ left = left.wrapping_sub(1);
 (*state).mode = 16200;
 } else {
 // process end of block
-if (((*__slate_slot_175).op as u32) as i32) & 32 != 0 {
+if ((*__slate_slot_175).op as i32) & 32 != 0 {
 #[cfg(feature = "zlib-debug")]
 {
 Tracevv__3!(slate_support::stderr(), c"inflate:         end of block\n".as_ptr() as *mut c_char);
@@ -1240,7 +1196,7 @@ Tracevv__3!(slate_support::stderr(), c"inflate:         end of block\n".as_ptr()
 (*state).mode = 16191;
 } else {
 // invalid code
-if (((*__slate_slot_175).op as u32) as i32) & 64 != 0 {
+if ((*__slate_slot_175).op as i32) & 64 != 0 {
 (*strm).msg = c"invalid literal/length code".as_ptr() as *mut c_char;
 (*state).mode = 16209;
 } else {
@@ -1308,11 +1264,11 @@ continue '__loop_47;
 }
 }
 }
-if (((*__slate_slot_175).op as u32) as i32) & 240 == 0 {
+if ((*__slate_slot_175).op as i32) & 240 == 0 {
 *__slate_slot_174 = *__slate_slot_175;
 '__loop_39: loop {
-*__slate_slot_175 = *unsafe { (*state).distcode }.offset(((((*__slate_slot_174).val as u32) as i32) as u32).wrapping_add(BITS!((((*__slate_slot_174).bits as u32) as i32) + (((*__slate_slot_174).op as u32) as i32), hold) >> (((*__slate_slot_174).bits as u32) as i32)) as isize);
-if (((((*__slate_slot_174).bits as u32) as i32) + (((*__slate_slot_175).bits as u32) as i32)) as u32) <= bits {
+*__slate_slot_175 = *unsafe { (*state).distcode }.offset((((*__slate_slot_174).val as i32) as u32).wrapping_add(BITS!(((*__slate_slot_174).bits as i32) + ((*__slate_slot_174).op as i32), hold) >> ((*__slate_slot_174).bits as i32)) as isize);
+if ((((*__slate_slot_174).bits as i32) + ((*__slate_slot_175).bits as i32)) as u32) <= bits {
 break;
 } else {
 loop {
@@ -1338,7 +1294,7 @@ continue '__loop_39;
 DROPBITS__2!((*__slate_slot_174).bits, hold, bits);
 }
 DROPBITS__2!((*__slate_slot_175).bits, hold, bits);
-if (((*__slate_slot_175).op as u32) as i32) & 64 != 0 {
+if ((*__slate_slot_175).op as i32) & 64 != 0 {
 (*strm).msg = c"invalid distance code".as_ptr() as *mut c_char;
 (*state).mode = 16209;
 } else {

@@ -20,6 +20,21 @@ macro_rules! Tracecv {
     };
 }
 
+#[cfg(all(
+    not(any(target_os = "linux", target_os = "macos")),
+    feature = "zlib-debug"
+))]
+macro_rules! Tracecv {
+    ($c:expr, $x__0:expr, $x__1:expr, $x__2:expr) => {
+        let __v: bool = (unsafe { z_verbose }) > 1 && ($c) != 0;
+        if __v {
+            let _ = std::io::Write::flush(&mut std::io::stdout());
+            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char, $x__2) };
+            unsafe { fflush(std::ptr::null_mut()) };
+        }
+    };
+}
+
 #[cfg(feature = "zlib-debug")]
 macro_rules! Tracecv__2 {
     ($c:expr, $x__0:expr, $x__1:expr, $x__2:expr, $x__3:expr, $x__4:expr, $x__5:expr, $x__6:expr) => {
@@ -32,25 +47,10 @@ macro_rules! Tracecv__2 {
                     $x__2,
                     $x__3,
                     $x__4,
-                    (($x__5) as u32) as i32,
+                    ($x__5) as i32,
                     $x__6,
                 )
             };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
-#[cfg(all(
-    not(any(target_os = "linux", target_os = "macos")),
-    feature = "zlib-debug"
-))]
-macro_rules! Tracecv__3 {
-    ($c:expr, $x__0:expr, $x__1:expr, $x__2:expr) => {
-        let __v: bool = (unsafe { z_verbose }) > 1 && ($c) != 0;
-        if __v {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char, $x__2) };
             unsafe { fflush(std::ptr::null_mut()) };
         }
     };
@@ -79,24 +79,22 @@ macro_rules! Tracev__4 {
 }
 
 #[cfg(feature = "zlib-debug")]
-macro_rules! Tracev__3 {
-    ($x__0:expr, $x__1:expr, $x__2:expr, $x__3:expr) => {
+macro_rules! Tracev__5 {
+    ($x__0:expr, $x__1:expr, $x__2:expr) => {
         if (unsafe { z_verbose }) > 0 {
             let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char, $x__2, $x__3) };
+            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char, ($x__2) as i32) };
             unsafe { fflush(std::ptr::null_mut()) };
         }
     };
 }
 
 #[cfg(feature = "zlib-debug")]
-macro_rules! Tracev__5 {
-    ($x__0:expr, $x__1:expr, $x__2:expr) => {
+macro_rules! Tracev__3 {
+    ($x__0:expr, $x__1:expr, $x__2:expr, $x__3:expr) => {
         if (unsafe { z_verbose }) > 0 {
             let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe {
-                slate_support::fprintf($x__0, ($x__1) as *const c_char, (($x__2) as u32) as i32)
-            };
+            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char, $x__2, $x__3) };
             unsafe { fflush(std::ptr::null_mut()) };
         }
     };
@@ -112,7 +110,7 @@ macro_rules! Tracev__6 {
                     $x__0,
                     ($x__1) as *const c_char,
                     $x__2,
-                    (($x__3) as u32) as i32,
+                    ($x__3) as i32,
                     $x__4,
                 )
             };
@@ -135,9 +133,9 @@ macro_rules! Tracevv__4 {
 macro_rules! d_code {
     ($dist:expr) => {
         if ($dist) < 256 {
-            ((unsafe { _dist_code.0[($dist) as usize] }) as u32) as i32
+            (unsafe { _dist_code.0[($dist) as usize] }) as i32
         } else {
-            ((unsafe { _dist_code.0[256u32.wrapping_add(($dist) >> 7i32) as usize] }) as u32) as i32
+            (unsafe { _dist_code.0[256u32.wrapping_add(($dist) >> 7i32) as usize] }) as i32
         }
     };
 }
@@ -160,85 +158,27 @@ macro_rules! pqremove {
 
 macro_rules! put_short {
     ($s:expr, $w:expr) => {
-        put_byte!($s, ((((($w) as u32) as i32) & 255) as i8) as u8);
-        put_byte!($s, (((((($w) as u16) as u32) as i32) >> 8i32) as i8) as u8);
-    };
-}
-
-#[cfg(feature = "zlib-debug")]
-macro_rules! send_code__3 {
-    ($s:expr, $c:expr, $tree:expr) => {
-        if (unsafe { z_verbose }) > 2 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf(slate_support::stderr(), c"\ncd %3d ".as_ptr(), $c) };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-        send_bits(
-            $s,
-            ((unsafe { (*$tree.offset(($c) as isize)).fc.code }) as u32) as i32,
-            ((unsafe { (*$tree.offset(($c) as isize)).dl.len }) as u32) as i32,
-        );
-    };
-}
-
-#[cfg(feature = "zlib-debug")]
-macro_rules! send_code {
-    ($s:expr, $c:expr, $tree:expr) => {
-        if (unsafe { z_verbose }) > 2 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf(slate_support::stderr(), c"\ncd %3d ".as_ptr(), $c) };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-        send_bits(
-            $s,
-            ((unsafe {
-                (*($tree.as_mut_ptr() as *mut ct_data_s).offset(($c) as isize))
-                    .fc
-                    .code
-            }) as u32) as i32,
-            ((unsafe {
-                (*($tree.as_mut_ptr() as *mut ct_data_s).offset(($c) as isize))
-                    .dl
-                    .len
-            }) as u32) as i32,
-        );
-    };
-}
-
-#[cfg(feature = "zlib-debug")]
-macro_rules! send_code__6 {
-    ($s:expr, $c:expr, $tree:expr) => {
-        if (unsafe { z_verbose }) > 2 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf(slate_support::stderr(), c"\ncd %3d ".as_ptr(), $c) };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-        send_bits(
-            $s,
-            ((unsafe { $tree[($c) as usize].fc.code }) as u32) as i32,
-            ((unsafe { $tree[($c) as usize].dl.len }) as u32) as i32,
-        );
+        put_byte!($s, ((($w) as i32) & 255) as u8);
+        put_byte!($s, (((($w) as u16) as i32) >> 8i32) as u8);
     };
 }
 
 #[cfg(not(feature = "zlib-debug"))]
 macro_rules! send_bits {
     ($s:expr, $value:expr, $length:expr) => {
-        let len: i32 = $length;
+        let len: i32 = ($length) as i32;
         if (unsafe { (*$s).bi_valid }) > 16 - len {
             let val: i32 = ($value) as i32;
             let __v: *mut internal_state = $s;
             let __v2: u16 = unsafe { (*__v).bi_buf };
-            let __v3: u16 = ((((__v2 as u32) as i32)
-                | ((((val as i16) as u16) as u32) as i32) << unsafe { (*$s).bi_valid })
-                as i16) as u16;
+            let __v3: u16 =
+                ((__v2 as i32) | ((val as u16) as i32) << unsafe { (*$s).bi_valid }) as u16;
             unsafe {
                 (*__v).bi_buf = __v3;
             }
             put_short!($s, unsafe { (*$s).bi_buf });
             unsafe {
-                (*$s).bi_buf = ((((((val as i16) as u16) as u32) as i32) >> 16 - (*$s).bi_valid)
-                    as i16) as u16;
+                (*$s).bi_buf = (((val as u16) as i32) >> 16 - (*$s).bi_valid) as u16;
             }
             let __v4: *mut internal_state = $s;
             unsafe {
@@ -247,9 +187,8 @@ macro_rules! send_bits {
         } else {
             let __v7: *mut internal_state = $s;
             let __v8: u16 = unsafe { (*__v7).bi_buf };
-            let __v9: u16 = ((((__v8 as u32) as i32)
-                | (((($value) as u16) as u32) as i32) << unsafe { (*$s).bi_valid })
-                as i16) as u16;
+            let __v9: u16 =
+                ((__v8 as i32) | ((($value) as u16) as i32) << unsafe { (*$s).bi_valid }) as u16;
             unsafe {
                 (*__v7).bi_buf = __v9;
             }
@@ -264,21 +203,19 @@ macro_rules! send_bits {
 #[cfg(not(feature = "zlib-debug"))]
 macro_rules! send_bits__2 {
     ($s:expr, $value:expr, $length:expr) => {
-        let len: i32 = (($length) as u32) as i32;
+        let len: i32 = $length;
         if (unsafe { (*$s).bi_valid }) > 16 - len {
             let val: i32 = ($value) as i32;
             let __v: *mut internal_state = $s;
             let __v2: u16 = unsafe { (*__v).bi_buf };
-            let __v3: u16 = ((((__v2 as u32) as i32)
-                | ((((val as i16) as u16) as u32) as i32) << unsafe { (*$s).bi_valid })
-                as i16) as u16;
+            let __v3: u16 =
+                ((__v2 as i32) | ((val as u16) as i32) << unsafe { (*$s).bi_valid }) as u16;
             unsafe {
                 (*__v).bi_buf = __v3;
             }
             put_short!($s, unsafe { (*$s).bi_buf });
             unsafe {
-                (*$s).bi_buf = ((((((val as i16) as u16) as u32) as i32) >> 16 - (*$s).bi_valid)
-                    as i16) as u16;
+                (*$s).bi_buf = (((val as u16) as i32) >> 16 - (*$s).bi_valid) as u16;
             }
             let __v4: *mut internal_state = $s;
             unsafe {
@@ -287,9 +224,8 @@ macro_rules! send_bits__2 {
         } else {
             let __v7: *mut internal_state = $s;
             let __v8: u16 = unsafe { (*__v7).bi_buf };
-            let __v9: u16 = ((((__v8 as u32) as i32)
-                | (((($value) as u16) as u32) as i32) << unsafe { (*$s).bi_valid })
-                as i16) as u16;
+            let __v9: u16 =
+                ((__v8 as i32) | ((($value) as u16) as i32) << unsafe { (*$s).bi_valid }) as u16;
             unsafe {
                 (*__v7).bi_buf = __v9;
             }
@@ -302,29 +238,9 @@ macro_rules! send_bits__2 {
 }
 
 #[cfg(not(feature = "zlib-debug"))]
-macro_rules! send_code__5 {
+macro_rules! send_code {
     ($s:expr, $c:expr, $tree:expr) => {
-        send_bits__2!($s, unsafe { $tree[($c) as usize].fc.code }, unsafe {
-            $tree[($c) as usize].dl.len
-        });
-    };
-}
-
-#[cfg(not(feature = "zlib-debug"))]
-macro_rules! send_code__4 {
-    ($s:expr, $c:expr, $tree:expr) => {
-        send_bits__2!(
-            $s,
-            unsafe { (*$tree.offset(($c) as isize)).fc.code },
-            unsafe { (*$tree.offset(($c) as isize)).dl.len }
-        );
-    };
-}
-
-#[cfg(not(feature = "zlib-debug"))]
-macro_rules! send_code__2 {
-    ($s:expr, $c:expr, $tree:expr) => {
-        send_bits__2!(
+        send_bits!(
             $s,
             unsafe {
                 (*($tree.as_mut_ptr() as *mut ct_data_s).offset(($c) as isize))
@@ -340,16 +256,90 @@ macro_rules! send_code__2 {
     };
 }
 
+#[cfg(feature = "zlib-debug")]
+macro_rules! send_code {
+    ($s:expr, $c:expr, $tree:expr) => {
+        if (unsafe { z_verbose }) > 2 {
+            let _ = std::io::Write::flush(&mut std::io::stdout());
+            unsafe { slate_support::fprintf(slate_support::stderr(), c"\ncd %3d ".as_ptr(), $c) };
+            unsafe { fflush(std::ptr::null_mut()) };
+        }
+        send_bits(
+            $s,
+            (unsafe { (*$tree.offset(($c) as isize)).fc.code }) as i32,
+            (unsafe { (*$tree.offset(($c) as isize)).dl.len }) as i32,
+        );
+    };
+}
+
+#[cfg(not(feature = "zlib-debug"))]
+macro_rules! send_code__3 {
+    ($s:expr, $c:expr, $tree:expr) => {
+        send_bits!(
+            $s,
+            unsafe { (*$tree.offset(($c) as isize)).fc.code },
+            unsafe { (*$tree.offset(($c) as isize)).dl.len }
+        );
+    };
+}
+
+#[cfg(feature = "zlib-debug")]
+macro_rules! send_code__3 {
+    ($s:expr, $c:expr, $tree:expr) => {
+        if (unsafe { z_verbose }) > 2 {
+            let _ = std::io::Write::flush(&mut std::io::stdout());
+            unsafe { slate_support::fprintf(slate_support::stderr(), c"\ncd %3d ".as_ptr(), $c) };
+            unsafe { fflush(std::ptr::null_mut()) };
+        }
+        send_bits(
+            $s,
+            (unsafe { $tree[($c) as usize].fc.code }) as i32,
+            (unsafe { $tree[($c) as usize].dl.len }) as i32,
+        );
+    };
+}
+
+#[cfg(not(feature = "zlib-debug"))]
+macro_rules! send_code__2 {
+    ($s:expr, $c:expr, $tree:expr) => {
+        send_bits!($s, unsafe { $tree[($c) as usize].fc.code }, unsafe {
+            $tree[($c) as usize].dl.len
+        });
+    };
+}
+
+#[cfg(feature = "zlib-debug")]
+macro_rules! send_code__2 {
+    ($s:expr, $c:expr, $tree:expr) => {
+        if (unsafe { z_verbose }) > 2 {
+            let _ = std::io::Write::flush(&mut std::io::stdout());
+            unsafe { slate_support::fprintf(slate_support::stderr(), c"\ncd %3d ".as_ptr(), $c) };
+            unsafe { fflush(std::ptr::null_mut()) };
+        }
+        send_bits(
+            $s,
+            (unsafe {
+                (*($tree.as_mut_ptr() as *mut ct_data_s).offset(($c) as isize))
+                    .fc
+                    .code
+            }) as i32,
+            (unsafe {
+                (*($tree.as_mut_ptr() as *mut ct_data_s).offset(($c) as isize))
+                    .dl
+                    .len
+            }) as i32,
+        );
+    };
+}
+
 macro_rules! smaller {
     ($tree:expr, $n:expr, $m:expr, $depth:expr) => {
-        (((unsafe { (*$tree.offset(($n) as isize)).fc.freq }) as u32) as i32)
-            < (((unsafe { (*$tree.offset(($m) as isize)).fc.freq }) as u32) as i32)
-            || (((unsafe { (*$tree.offset(($n) as isize)).fc.freq }) as u32) as i32)
-                == (((unsafe { (*$tree.offset(($m) as isize)).fc.freq }) as u32) as i32)
-                && (((unsafe { *($depth.as_mut_ptr() as *mut u8).offset(($n) as isize) }) as u32)
-                    as i32)
-                    <= (((unsafe { *($depth.as_mut_ptr() as *mut u8).offset(($m) as isize) })
-                        as u32) as i32)
+        ((unsafe { (*$tree.offset(($n) as isize)).fc.freq }) as i32)
+            < ((unsafe { (*$tree.offset(($m) as isize)).fc.freq }) as i32)
+            || ((unsafe { (*$tree.offset(($n) as isize)).fc.freq }) as i32)
+                == ((unsafe { (*$tree.offset(($m) as isize)).fc.freq }) as i32)
+                && ((unsafe { *($depth.as_mut_ptr() as *mut u8).offset(($n) as isize) }) as i32)
+                    <= ((unsafe { *($depth.as_mut_ptr() as *mut u8).offset(($m) as isize) }) as i32)
     };
 }
 
@@ -368,7 +358,6 @@ unsafe extern "C" {
 use core::ffi::c_char;
 use core::ffi::c_long;
 use core::ffi::c_ulong;
-#[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
 use slate_support::size_t;
 
 #[repr(C)]
@@ -2036,7 +2025,7 @@ fn bi_flush(s: *mut internal_state) {
         if (unsafe { (*s).bi_valid }) >= 8 {
             put_byte!(s, (unsafe { (*s).bi_buf }) as u8);
             unsafe {
-                (*s).bi_buf = (((((*s).bi_buf as u32) as i32) >> 8i32) as i16) as u16;
+                (*s).bi_buf = (((*s).bi_buf as i32) >> 8i32) as u16;
             }
             unsafe {
                 (*s).bi_valid = (*s).bi_valid - 8;
@@ -2085,16 +2074,16 @@ fn gen_codes(tree: *mut ct_data_s, max_code: i32, bl_count: *mut u16) {
     let mut bits: i32 = 1; // bit index
     let mut n: i32 = 0; // code index
     while bits <= 15 {
-        code = code.wrapping_add(
-            (((unsafe { *bl_count.offset((bits - 1) as isize) }) as u32) as i32) as u32,
-        ) << 1i32;
+        code = code
+            .wrapping_add(((unsafe { *bl_count.offset((bits - 1) as isize) }) as i32) as u32)
+            << 1i32;
         next_code.0[bits as usize] = code as u16;
         bits += 1;
     }
     #[cfg(feature = "zlib-debug")]
     {
         Assert!(
-            code.wrapping_add((((unsafe { *bl_count.add(15) }) as u32) as i32) as u32)
+            code.wrapping_add(((unsafe { *bl_count.add(15) }) as i32) as u32)
                 .wrapping_sub(1)
                 == 32767u32,
             c"inconsistent bit counts".as_ptr() as *mut c_char
@@ -2106,14 +2095,14 @@ fn gen_codes(tree: *mut ct_data_s, max_code: i32, bl_count: *mut u16) {
         );
     }
     while n <= max_code {
-        let len: i32 = ((unsafe { (*tree.offset(n as isize)).dl.len }) as u32) as i32;
+        let len: i32 = (unsafe { (*tree.offset(n as isize)).dl.len }) as i32;
         if len != 0 {
             // Now reverse the bits
             let __v4: *mut u16 =
                 unsafe { (next_code.0.as_mut_ptr() as *mut u16).offset(len as isize) };
             let __v5: u16 = unsafe { *__v4 };
             unsafe {
-                *__v4 = ((((__v5 as u32) as i32) + 1) as i16) as u16;
+                *__v4 = ((__v5 as i32) + 1) as u16;
             }
             unsafe {
                 (*tree.offset(n as isize)).fc.code = bi_reverse(__v5 as u32, len) as u16;
@@ -2133,7 +2122,7 @@ fn gen_codes(tree: *mut ct_data_s, max_code: i32, bl_count: *mut u16) {
                     },
                     len,
                     unsafe { (*tree.offset(n as isize)).fc.code },
-                    ((next_code.0[len as usize] as u32) as i32) - 1
+                    (next_code.0[len as usize] as i32) - 1
                 );
             }
             #[cfg(all(not(target_env = "gnu"), feature = "zlib-debug"))]
@@ -2151,7 +2140,7 @@ fn gen_codes(tree: *mut ct_data_s, max_code: i32, bl_count: *mut u16) {
                     },
                     len,
                     unsafe { (*tree.offset(n as isize)).fc.code },
-                    ((next_code.0[len as usize] as u32) as i32) - 1
+                    (next_code.0[len as usize] as i32) - 1
                 );
             }
         }
@@ -2182,23 +2171,18 @@ fn send_bits(s: *mut internal_state, value: i32, length: i32) {
     // unused bits in value.
     if (unsafe { (*s).bi_valid }) > 16 - length {
         unsafe {
-            (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                | ((((value as i16) as u16) as u32) as i32) << (*s).bi_valid)
-                as i16) as u16;
+            (*s).bi_buf = (((*s).bi_buf as i32) | ((value as u16) as i32) << (*s).bi_valid) as u16;
         }
         put_short!(s, unsafe { (*s).bi_buf });
         unsafe {
-            (*s).bi_buf =
-                ((((((value as i16) as u16) as u32) as i32) >> 16 - (*s).bi_valid) as i16) as u16;
+            (*s).bi_buf = (((value as u16) as i32) >> 16 - (*s).bi_valid) as u16;
         }
         unsafe {
             (*s).bi_valid = (*s).bi_valid + (length - 16);
         }
     } else {
         unsafe {
-            (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                | ((((value as i16) as u16) as u32) as i32) << (*s).bi_valid)
-                as i16) as u16;
+            (*s).bi_buf = (((*s).bi_buf as i32) | ((value as u16) as i32) << (*s).bi_valid) as u16;
         }
         unsafe {
             (*s).bi_valid = (*s).bi_valid + length;
@@ -2399,18 +2383,18 @@ fn gen_bitlen(s: *mut internal_state, desc: *mut tree_desc_s) {
     h = (unsafe { (*s).heap_max }) + 1;
     while h < 2 * (256 + 1 + 29) + 1 {
         n = unsafe { *((*s).heap.as_mut_ptr() as *mut i32).offset(h as isize) };
-        bits = (((unsafe {
-            (*tree.offset((((*tree.offset(n as isize)).dl.dad as u32) as i32) as isize))
+        bits = ((unsafe {
+            (*tree.offset(((*tree.offset(n as isize)).dl.dad as i32) as isize))
                 .dl
                 .len
-        }) as u32) as i32)
+        }) as i32)
             + 1;
         if bits > max_length {
             bits = max_length;
             overflow += 1;
         }
         unsafe {
-            (*tree.offset(n as isize)).dl.len = (bits as i16) as u16;
+            (*tree.offset(n as isize)).dl.len = bits as u16;
         }
         // We overwrite tree[n].Dad which is no longer needed
         if n <= max_code {
@@ -2418,7 +2402,7 @@ fn gen_bitlen(s: *mut internal_state, desc: *mut tree_desc_s) {
             let __v6: *mut u16 =
                 unsafe { ((*s).bl_count.as_mut_ptr() as *mut u16).offset(bits as isize) };
             unsafe {
-                *__v6 = ((((*__v6 as u32) as i32) + 1) as i16) as u16;
+                *__v6 = ((*__v6 as i32) + 1) as u16;
             }
             xbits = 0;
             if n >= base {
@@ -2434,8 +2418,7 @@ fn gen_bitlen(s: *mut internal_state, desc: *mut tree_desc_s) {
                 let __v13: c_ulong = unsafe { (*s).static_len };
                 unsafe {
                     (*s).static_len = __v13.wrapping_add((f as c_ulong).wrapping_mul(
-                        (((((*stree.offset(n as isize)).dl.len as u32) as i32) + xbits) as u32)
-                            as c_ulong,
+                        ((((*stree.offset(n as isize)).dl.len as i32) + xbits) as u32) as c_ulong,
                     ));
                 }
             }
@@ -2456,8 +2439,7 @@ fn gen_bitlen(s: *mut internal_state, desc: *mut tree_desc_s) {
     // Find the first bit length which could increase:
     loop {
         bits = max_length - 1;
-        while (((unsafe { *((*s).bl_count.as_mut_ptr() as *mut u16).offset(bits as isize) }) as u32)
-            as i32)
+        while ((unsafe { *((*s).bl_count.as_mut_ptr() as *mut u16).offset(bits as isize) }) as i32)
             == 0
         {
             bits -= 1;
@@ -2465,19 +2447,19 @@ fn gen_bitlen(s: *mut internal_state, desc: *mut tree_desc_s) {
         let __v20: *mut u16 =
             unsafe { ((*s).bl_count.as_mut_ptr() as *mut u16).offset(bits as isize) };
         unsafe {
-            *__v20 = ((((*__v20 as u32) as i32) - 1) as i16) as u16;
+            *__v20 = ((*__v20 as i32) - 1) as u16;
         }
         // move one leaf down the tree
         let __v23: *mut u16 =
             unsafe { ((*s).bl_count.as_mut_ptr() as *mut u16).offset((bits + 1) as isize) };
         unsafe {
-            *__v23 = ((((*__v23 as u32) as i32) + 2) as i16) as u16;
+            *__v23 = ((*__v23 as i32) + 2) as u16;
         }
         // move one overflow item as its brother
         let __v26: *mut u16 =
             unsafe { ((*s).bl_count.as_mut_ptr() as *mut u16).offset(max_length as isize) };
         unsafe {
-            *__v26 = ((((*__v26 as u32) as i32) - 1) as i16) as u16;
+            *__v26 = ((*__v26 as i32) - 1) as u16;
         }
         // The brother of the overflow item also moves one step up,
         // but this does not affect bl_count[max_length]
@@ -2492,8 +2474,7 @@ fn gen_bitlen(s: *mut internal_state, desc: *mut tree_desc_s) {
     // from 'ar' written by Haruhiko Okumura.)
     bits = max_length;
     while bits != 0 {
-        n = ((unsafe { *((*s).bl_count.as_mut_ptr() as *mut u16).offset(bits as isize) }) as u32)
-            as i32;
+        n = (unsafe { *((*s).bl_count.as_mut_ptr() as *mut u16).offset(bits as isize) }) as i32;
         while n != 0 {
             let __v33: i32 = h - 1;
             h = __v33;
@@ -2514,16 +2495,14 @@ fn gen_bitlen(s: *mut internal_state, desc: *mut tree_desc_s) {
                     unsafe {
                         (*s).opt_len = __v36.wrapping_add(
                             (bits as c_ulong)
-                                .wrapping_sub(
-                                    (((*tree.offset(m as isize)).dl.len as u32) as i32) as c_ulong,
-                                )
+                                .wrapping_sub(((*tree.offset(m as isize)).dl.len as i32) as c_ulong)
                                 .wrapping_mul(
-                                    (((*tree.offset(m as isize)).fc.freq as u32) as i32) as c_ulong,
+                                    ((*tree.offset(m as isize)).fc.freq as i32) as c_ulong,
                                 ),
                         );
                     }
                     unsafe {
-                        (*tree.offset(m as isize)).dl.len = (bits as i16) as u16;
+                        (*tree.offset(m as isize)).dl.len = bits as u16;
                     }
                 }
                 n -= 1;
@@ -2557,7 +2536,7 @@ fn build_tree(s: *mut internal_state, desc: *mut tree_desc_s) {
         (*s).heap_max = 2 * (256 + 1 + 29) + 1;
     }
     while n < elems {
-        if (((unsafe { (*tree.offset(n as isize)).fc.freq }) as u32) as i32) != 0 {
+        if ((unsafe { (*tree.offset(n as isize)).fc.freq }) as i32) != 0 {
             let __v1: i32 = n;
             max_code = __v1;
             let __v4: i32 = (unsafe { (*s).heap_len }) + 1;
@@ -2611,9 +2590,8 @@ fn build_tree(s: *mut internal_state, desc: *mut tree_desc_s) {
         if !stree.is_null() {
             let __v19: c_ulong = unsafe { (*s).static_len };
             unsafe {
-                (*s).static_len = __v19.wrapping_sub(
-                    (((*stree.offset(node as isize)).dl.len as u32) as i32) as c_ulong,
-                );
+                (*s).static_len =
+                    __v19.wrapping_sub(((*stree.offset(node as isize)).dl.len as i32) as c_ulong);
             }
         }
         // node is 0 or 1 so it does not have extra bits
@@ -2652,22 +2630,21 @@ fn build_tree(s: *mut internal_state, desc: *mut tree_desc_s) {
         }
         // Create a new node father of n and m
         unsafe {
-            (*tree.offset(node as isize)).fc.freq = (((((*tree.offset(n as isize)).fc.freq as u32)
-                as i32)
-                + (((*tree.offset(m as isize)).fc.freq as u32) as i32))
-                as i16) as u16;
+            (*tree.offset(node as isize)).fc.freq = (((*tree.offset(n as isize)).fc.freq as i32)
+                + ((*tree.offset(m as isize)).fc.freq as i32))
+                as u16;
         }
         unsafe {
             *((*s).depth.as_mut_ptr() as *mut u8).offset(node as isize) =
-                (((if ((*((*s).depth.as_mut_ptr() as *mut u8).offset(n as isize) as u32) as i32)
-                    >= ((*((*s).depth.as_mut_ptr() as *mut u8).offset(m as isize) as u32) as i32)
+                ((if (*((*s).depth.as_mut_ptr() as *mut u8).offset(n as isize) as i32)
+                    >= (*((*s).depth.as_mut_ptr() as *mut u8).offset(m as isize) as i32)
                 {
-                    (*((*s).depth.as_mut_ptr() as *mut u8).offset(n as isize) as u32) as i32
+                    *((*s).depth.as_mut_ptr() as *mut u8).offset(n as isize) as i32
                 } else {
-                    (*((*s).depth.as_mut_ptr() as *mut u8).offset(m as isize) as u32) as i32
-                }) + 1) as i8) as u8;
+                    *((*s).depth.as_mut_ptr() as *mut u8).offset(m as isize) as i32
+                }) + 1) as u8;
         }
-        let __v34: u16 = (node as i16) as u16;
+        let __v34: u16 = node as u16;
         unsafe {
             (*tree.offset(m as isize)).dl.dad = __v34;
         }
@@ -2708,7 +2685,7 @@ fn scan_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
     let mut n: i32 = 0; // iterates over all tree elements
     let mut prevlen: i32 = -1; // last emitted length
     let mut curlen: i32 = 0; // length of current code
-    let mut nextlen: i32 = ((unsafe { (*tree.add(0)).dl.len }) as u32) as i32; // length of next code
+    let mut nextlen: i32 = (unsafe { (*tree.add(0)).dl.len }) as i32; // length of next code
     let mut count: i32 = 0; // repeat count of the current code
     let mut max_count: i32 = 7; // max repeat count
     let mut min_count: i32 = 4; // min repeat count
@@ -2717,13 +2694,13 @@ fn scan_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
         min_count = 3;
     }
     unsafe {
-        (*tree.offset((max_code + 1) as isize)).dl.len = 65535u16;
+        (*tree.offset((max_code + 1) as isize)).dl.len = 65535;
     }
     // guard
     while n <= max_code {
         '__slate_continue_2: {
             curlen = nextlen;
-            nextlen = ((unsafe { (*tree.offset((n + 1) as isize)).dl.len }) as u32) as i32;
+            nextlen = (unsafe { (*tree.offset((n + 1) as isize)).dl.len }) as i32;
             let __v1: i32 = count + 1;
             count = __v1;
             if __v1 < max_count && curlen == nextlen {
@@ -2734,9 +2711,8 @@ fn scan_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
                         ((*s).bl_tree.as_mut_ptr() as *mut ct_data_s).offset(curlen as isize)
                     };
                     unsafe {
-                        (*__v3).fc.freq = (((((*__v3).fc.freq as u32) as i32)
-                            + ((((count as i16) as u16) as u32) as i32))
-                            as i16) as u16;
+                        (*__v3).fc.freq =
+                            (((*__v3).fc.freq as i32) + ((count as u16) as i32)) as u16;
                     }
                 } else {
                     if curlen != 0 {
@@ -2746,30 +2722,26 @@ fn scan_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
                                     .offset(curlen as isize)
                             };
                             unsafe {
-                                (*__v6).fc.freq =
-                                    (((((*__v6).fc.freq as u32) as i32) + 1) as i16) as u16;
+                                (*__v6).fc.freq = (((*__v6).fc.freq as i32) + 1) as u16;
                             }
                         }
                         let __v9: *mut ct_data_s =
                             unsafe { ((*s).bl_tree.as_mut_ptr() as *mut ct_data_s).add(16) };
                         unsafe {
-                            (*__v9).fc.freq =
-                                (((((*__v9).fc.freq as u32) as i32) + 1) as i16) as u16;
+                            (*__v9).fc.freq = (((*__v9).fc.freq as i32) + 1) as u16;
                         }
                     } else {
                         if count <= 10 {
                             let __v12: *mut ct_data_s =
                                 unsafe { ((*s).bl_tree.as_mut_ptr() as *mut ct_data_s).add(17) };
                             unsafe {
-                                (*__v12).fc.freq =
-                                    (((((*__v12).fc.freq as u32) as i32) + 1) as i16) as u16;
+                                (*__v12).fc.freq = (((*__v12).fc.freq as i32) + 1) as u16;
                             }
                         } else {
                             let __v15: *mut ct_data_s =
                                 unsafe { ((*s).bl_tree.as_mut_ptr() as *mut ct_data_s).add(18) };
                             unsafe {
-                                (*__v15).fc.freq =
-                                    (((((*__v15).fc.freq as u32) as i32) + 1) as i16) as u16;
+                                (*__v15).fc.freq = (((*__v15).fc.freq as i32) + 1) as u16;
                             }
                         }
                     }
@@ -2800,7 +2772,7 @@ fn send_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
     let mut n: i32 = 0; // iterates over all tree elements
     let mut prevlen: i32 = -1; // last emitted length
     let mut curlen: i32 = 0; // length of current code
-    let mut nextlen: i32 = ((unsafe { (*tree.add(0)).dl.len }) as u32) as i32; // length of next code
+    let mut nextlen: i32 = (unsafe { (*tree.add(0)).dl.len }) as i32; // length of next code
     let mut count: i32 = 0; // repeat count of the current code
     let mut max_count: i32 = 7; // max repeat count
     let mut min_count: i32 = 4; // min repeat count
@@ -2814,7 +2786,7 @@ fn send_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
     while n <= max_code {
         '__slate_continue_2: {
             curlen = nextlen;
-            nextlen = ((unsafe { (*tree.offset((n + 1) as isize)).dl.len }) as u32) as i32;
+            nextlen = (unsafe { (*tree.offset((n + 1) as isize)).dl.len }) as i32;
             let __v1: i32 = count + 1;
             count = __v1;
             if __v1 < max_count && curlen == nextlen {
@@ -2824,11 +2796,11 @@ fn send_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
                     loop {
                         #[cfg(not(feature = "zlib-debug"))]
                         {
-                            send_code__2!(s, curlen, (*s).bl_tree);
+                            send_code!(s, curlen, (*s).bl_tree);
                         }
                         #[cfg(feature = "zlib-debug")]
                         {
-                            send_code!(s, curlen, (*s).bl_tree);
+                            send_code__2!(s, curlen, (*s).bl_tree);
                         }
                         let __v23: i32 = count - 1;
                         count = __v23;
@@ -2841,17 +2813,17 @@ fn send_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
                         if curlen != prevlen {
                             #[cfg(not(feature = "zlib-debug"))]
                             {
-                                send_code__2!(s, curlen, (*s).bl_tree);
+                                send_code!(s, curlen, (*s).bl_tree);
                             }
                             #[cfg(feature = "zlib-debug")]
                             {
-                                send_code!(s, curlen, (*s).bl_tree);
+                                send_code__2!(s, curlen, (*s).bl_tree);
                             }
                             count -= 1;
                         }
                         #[cfg(not(feature = "zlib-debug"))]
                         {
-                            send_code__2!(s, 16i32, (*s).bl_tree);
+                            send_code!(s, 16i32, (*s).bl_tree);
                         }
                         #[cfg(not(feature = "zlib-debug"))]
                         let len: i32 = 2;
@@ -2860,27 +2832,22 @@ fn send_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
                             if (unsafe { (*s).bi_valid }) > 16 - len {
                                 let val: i32 = count - 3;
                                 unsafe {
-                                    (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                                        | ((((val as i16) as u16) as u32) as i32) << (*s).bi_valid)
-                                        as i16)
+                                    (*s).bi_buf = (((*s).bi_buf as i32)
+                                        | ((val as u16) as i32) << (*s).bi_valid)
                                         as u16;
                                 }
                                 put_short!(s, unsafe { (*s).bi_buf });
                                 unsafe {
-                                    (*s).bi_buf = ((((((val as i16) as u16) as u32) as i32)
-                                        >> 16 - (*s).bi_valid)
-                                        as i16)
-                                        as u16;
+                                    (*s).bi_buf =
+                                        (((val as u16) as i32) >> 16 - (*s).bi_valid) as u16;
                                 }
                                 unsafe {
                                     (*s).bi_valid = (*s).bi_valid + (len - 16);
                                 }
                             } else {
                                 unsafe {
-                                    (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                                        | (((((count - 3) as i16) as u16) as u32) as i32)
-                                            << (*s).bi_valid)
-                                        as i16)
+                                    (*s).bi_buf = (((*s).bi_buf as i32)
+                                        | (((count - 3) as u16) as i32) << (*s).bi_valid)
                                         as u16;
                                 }
                                 unsafe {
@@ -2891,14 +2858,14 @@ fn send_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
                         #[cfg(feature = "zlib-debug")]
                         {
                             Assert!(count >= 3 && count <= 6, c" 3_6?".as_ptr() as *mut c_char);
-                            send_code!(s, 16i32, (*s).bl_tree);
+                            send_code__2!(s, 16i32, (*s).bl_tree);
                             send_bits(s, count - 3, 2i32);
                         }
                     } else {
                         if count <= 10 {
                             #[cfg(not(feature = "zlib-debug"))]
                             {
-                                send_code__2!(s, 17i32, (*s).bl_tree);
+                                send_code!(s, 17i32, (*s).bl_tree);
                             }
                             #[cfg(not(feature = "zlib-debug"))]
                             let len: i32 = 3;
@@ -2907,28 +2874,22 @@ fn send_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
                                 if (unsafe { (*s).bi_valid }) > 16 - len {
                                     let val: i32 = count - 3;
                                     unsafe {
-                                        (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                                            | ((((val as i16) as u16) as u32) as i32)
-                                                << (*s).bi_valid)
-                                            as i16)
+                                        (*s).bi_buf = (((*s).bi_buf as i32)
+                                            | ((val as u16) as i32) << (*s).bi_valid)
                                             as u16;
                                     }
                                     put_short!(s, unsafe { (*s).bi_buf });
                                     unsafe {
-                                        (*s).bi_buf = ((((((val as i16) as u16) as u32) as i32)
-                                            >> 16 - (*s).bi_valid)
-                                            as i16)
-                                            as u16;
+                                        (*s).bi_buf =
+                                            (((val as u16) as i32) >> 16 - (*s).bi_valid) as u16;
                                     }
                                     unsafe {
                                         (*s).bi_valid = (*s).bi_valid + (len - 16);
                                     }
                                 } else {
                                     unsafe {
-                                        (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                                            | (((((count - 3) as i16) as u16) as u32) as i32)
-                                                << (*s).bi_valid)
-                                            as i16)
+                                        (*s).bi_buf = (((*s).bi_buf as i32)
+                                            | (((count - 3) as u16) as i32) << (*s).bi_valid)
                                             as u16;
                                     }
                                     unsafe {
@@ -2938,13 +2899,13 @@ fn send_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
                             }
                             #[cfg(feature = "zlib-debug")]
                             {
-                                send_code!(s, 17i32, (*s).bl_tree);
+                                send_code__2!(s, 17i32, (*s).bl_tree);
                                 send_bits(s, count - 3, 3i32);
                             }
                         } else {
                             #[cfg(not(feature = "zlib-debug"))]
                             {
-                                send_code__2!(s, 18i32, (*s).bl_tree);
+                                send_code!(s, 18i32, (*s).bl_tree);
                             }
                             #[cfg(not(feature = "zlib-debug"))]
                             let len: i32 = 7;
@@ -2953,28 +2914,22 @@ fn send_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
                                 if (unsafe { (*s).bi_valid }) > 16 - len {
                                     let val: i32 = count - 11;
                                     unsafe {
-                                        (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                                            | ((((val as i16) as u16) as u32) as i32)
-                                                << (*s).bi_valid)
-                                            as i16)
+                                        (*s).bi_buf = (((*s).bi_buf as i32)
+                                            | ((val as u16) as i32) << (*s).bi_valid)
                                             as u16;
                                     }
                                     put_short!(s, unsafe { (*s).bi_buf });
                                     unsafe {
-                                        (*s).bi_buf = ((((((val as i16) as u16) as u32) as i32)
-                                            >> 16 - (*s).bi_valid)
-                                            as i16)
-                                            as u16;
+                                        (*s).bi_buf =
+                                            (((val as u16) as i32) >> 16 - (*s).bi_valid) as u16;
                                     }
                                     unsafe {
                                         (*s).bi_valid = (*s).bi_valid + (len - 16);
                                     }
                                 } else {
                                     unsafe {
-                                        (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                                            | (((((count - 11) as i16) as u16) as u32) as i32)
-                                                << (*s).bi_valid)
-                                            as i16)
+                                        (*s).bi_buf = (((*s).bi_buf as i32)
+                                            | (((count - 11) as u16) as i32) << (*s).bi_valid)
                                             as u16;
                                     }
                                     unsafe {
@@ -2984,7 +2939,7 @@ fn send_tree(s: *mut internal_state, tree: *mut ct_data_s, max_code: i32) {
                             }
                             #[cfg(feature = "zlib-debug")]
                             {
-                                send_code!(s, 18i32, (*s).bl_tree);
+                                send_code__2!(s, 18i32, (*s).bl_tree);
                                 send_bits(s, count - 11, 7i32);
                             }
                         }
@@ -3033,12 +2988,12 @@ fn build_bl_tree(s: *mut internal_state) -> i32 {
     // opt_len now includes the length of the tree representations, except the
     // lengths of the bit lengths codes and the 5 + 5 + 4 bits for the counts.
     while max_blindex >= 3 {
-        if (((unsafe {
+        if ((unsafe {
             (*((*s).bl_tree.as_mut_ptr() as *mut ct_data_s)
-                .offset(((bl_order.0[max_blindex as usize] as u32) as i32) as isize))
+                .offset((bl_order.0[max_blindex as usize] as i32) as isize))
             .dl
             .len
-        }) as u32) as i32)
+        }) as i32)
             != 0
         {
             break;
@@ -3079,23 +3034,21 @@ fn send_all_trees(s: *mut internal_state, lcodes: i32, dcodes: i32, blcodes: i32
             if (unsafe { (*s).bi_valid }) > 16 - len {
                 let val: i32 = lcodes - 257;
                 unsafe {
-                    (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                        | ((((val as i16) as u16) as u32) as i32) << (*s).bi_valid)
-                        as i16) as u16;
+                    (*s).bi_buf =
+                        (((*s).bi_buf as i32) | ((val as u16) as i32) << (*s).bi_valid) as u16;
                 }
                 put_short!(s, unsafe { (*s).bi_buf });
                 unsafe {
-                    (*s).bi_buf = ((((((val as i16) as u16) as u32) as i32) >> 16 - (*s).bi_valid)
-                        as i16) as u16;
+                    (*s).bi_buf = (((val as u16) as i32) >> 16 - (*s).bi_valid) as u16;
                 }
                 unsafe {
                     (*s).bi_valid = (*s).bi_valid + (len - 16);
                 }
             } else {
                 unsafe {
-                    (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                        | (((((lcodes - 257) as i16) as u16) as u32) as i32) << (*s).bi_valid)
-                        as i16) as u16;
+                    (*s).bi_buf = (((*s).bi_buf as i32)
+                        | (((lcodes - 257) as u16) as i32) << (*s).bi_valid)
+                        as u16;
                 }
                 unsafe {
                     (*s).bi_valid = (*s).bi_valid + len;
@@ -3107,23 +3060,21 @@ fn send_all_trees(s: *mut internal_state, lcodes: i32, dcodes: i32, blcodes: i32
             if (unsafe { (*s).bi_valid }) > 16 - len {
                 let val: i32 = dcodes - 1;
                 unsafe {
-                    (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                        | ((((val as i16) as u16) as u32) as i32) << (*s).bi_valid)
-                        as i16) as u16;
+                    (*s).bi_buf =
+                        (((*s).bi_buf as i32) | ((val as u16) as i32) << (*s).bi_valid) as u16;
                 }
                 put_short!(s, unsafe { (*s).bi_buf });
                 unsafe {
-                    (*s).bi_buf = ((((((val as i16) as u16) as u32) as i32) >> 16 - (*s).bi_valid)
-                        as i16) as u16;
+                    (*s).bi_buf = (((val as u16) as i32) >> 16 - (*s).bi_valid) as u16;
                 }
                 unsafe {
                     (*s).bi_valid = (*s).bi_valid + (len - 16);
                 }
             } else {
                 unsafe {
-                    (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                        | (((((dcodes - 1) as i16) as u16) as u32) as i32) << (*s).bi_valid)
-                        as i16) as u16;
+                    (*s).bi_buf = (((*s).bi_buf as i32)
+                        | (((dcodes - 1) as u16) as i32) << (*s).bi_valid)
+                        as u16;
                 }
                 unsafe {
                     (*s).bi_valid = (*s).bi_valid + len;
@@ -3138,23 +3089,21 @@ fn send_all_trees(s: *mut internal_state, lcodes: i32, dcodes: i32, blcodes: i32
         if (unsafe { (*s).bi_valid }) > 16 - len {
             let val: i32 = blcodes - 4;
             unsafe {
-                (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                    | ((((val as i16) as u16) as u32) as i32) << (*s).bi_valid)
-                    as i16) as u16;
+                (*s).bi_buf =
+                    (((*s).bi_buf as i32) | ((val as u16) as i32) << (*s).bi_valid) as u16;
             }
             put_short!(s, unsafe { (*s).bi_buf });
             unsafe {
-                (*s).bi_buf =
-                    ((((((val as i16) as u16) as u32) as i32) >> 16 - (*s).bi_valid) as i16) as u16;
+                (*s).bi_buf = (((val as u16) as i32) >> 16 - (*s).bi_valid) as u16;
             }
             unsafe {
                 (*s).bi_valid = (*s).bi_valid + (len - 16);
             }
         } else {
             unsafe {
-                (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                    | (((((blcodes - 4) as i16) as u16) as u32) as i32) << (*s).bi_valid)
-                    as i16) as u16;
+                (*s).bi_buf = (((*s).bi_buf as i32)
+                    | (((blcodes - 4) as u16) as i32) << (*s).bi_valid)
+                    as u16;
             }
             unsafe {
                 (*s).bi_valid = (*s).bi_valid + len;
@@ -3183,11 +3132,11 @@ fn send_all_trees(s: *mut internal_state, lcodes: i32, dcodes: i32, blcodes: i32
     for rank in 0..blcodes {
         #[cfg(not(feature = "zlib-debug"))]
         {
-            send_bits!(
+            send_bits__2!(
                 s,
                 unsafe {
                     (*((*s).bl_tree.as_mut_ptr() as *mut ct_data_s)
-                        .offset(((bl_order.0[rank as usize] as u32) as i32) as isize))
+                        .offset((bl_order.0[rank as usize] as i32) as isize))
                     .dl
                     .len
                 },
@@ -3203,12 +3152,12 @@ fn send_all_trees(s: *mut internal_state, lcodes: i32, dcodes: i32, blcodes: i32
             );
             send_bits(
                 s,
-                ((unsafe {
+                (unsafe {
                     (*((*s).bl_tree.as_mut_ptr() as *mut ct_data_s)
-                        .offset(((bl_order.0[rank as usize] as u32) as i32) as isize))
+                        .offset((bl_order.0[rank as usize] as i32) as isize))
                     .dl
                     .len
-                }) as u32) as i32,
+                }) as i32,
                 3i32,
             );
         }
@@ -3264,23 +3213,21 @@ extern "C-unwind" fn _tr_stored_block(
         if (unsafe { (*s).bi_valid }) > 16 - len {
             let val: i32 = 0i32 + last;
             unsafe {
-                (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                    | ((((val as i16) as u16) as u32) as i32) << (*s).bi_valid)
-                    as i16) as u16;
+                (*s).bi_buf =
+                    (((*s).bi_buf as i32) | ((val as u16) as i32) << (*s).bi_valid) as u16;
             }
             put_short!(s, unsafe { (*s).bi_buf });
             unsafe {
-                (*s).bi_buf =
-                    ((((((val as i16) as u16) as u32) as i32) >> 16 - (*s).bi_valid) as i16) as u16;
+                (*s).bi_buf = (((val as u16) as i32) >> 16 - (*s).bi_valid) as u16;
             }
             unsafe {
                 (*s).bi_valid = (*s).bi_valid + (len - 16);
             }
         } else {
             unsafe {
-                (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                    | (((((0i32 + last) as i16) as u16) as u32) as i32) << (*s).bi_valid)
-                    as i16) as u16;
+                (*s).bi_buf = (((*s).bi_buf as i32)
+                    | (((0i32 + last) as u16) as i32) << (*s).bi_valid)
+                    as u16;
             }
             unsafe {
                 (*s).bi_valid = (*s).bi_valid + len;
@@ -3295,58 +3242,25 @@ extern "C-unwind" fn _tr_stored_block(
     put_short!(s, stored_len as u16);
     put_short!(s, !stored_len as u16);
     if stored_len != 0 {
-        #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+        #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
                     ((buf as *const ()) as *const core::ffi::c_void) as *const u8,
                     ((unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
                         as *mut core::ffi::c_void) as *mut u8,
-                    (stored_len as usize) as usize,
+                    ((stored_len as size_t) as usize) as usize,
                 )
             };
         }
-        #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-        {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    ((buf as *const ()) as *const core::ffi::c_void) as *const u8,
-                    ((unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
-                        as *mut core::ffi::c_void) as *mut u8,
-                    ((stored_len as u32) as usize) as usize,
-                )
-            };
-        }
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
                     buf as *const u8,
                     (unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
                         as *mut u8,
-                    stored_len as usize,
-                )
-            };
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    ((buf as *const ()) as *const core::ffi::c_void) as *const u8,
-                    ((unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
-                        as *mut core::ffi::c_void) as *mut u8,
-                    ((stored_len as u64) as usize) as usize,
-                )
-            };
-        }
-        #[cfg(all(target_arch = "arm", windows))]
-        {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    buf as *const u8,
-                    (unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
-                        as *mut u8,
-                    (stored_len as u32) as usize,
+                    (stored_len as size_t) as usize,
                 )
             };
         }
@@ -3417,33 +3331,30 @@ extern "C-unwind" fn _tr_align(s: *mut internal_state) {
         if (unsafe { (*s).bi_valid }) > 16 - len {
             let val: i32 = 2i32;
             unsafe {
-                (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                    | ((((val as i16) as u16) as u32) as i32) << (*s).bi_valid)
-                    as i16) as u16;
+                (*s).bi_buf =
+                    (((*s).bi_buf as i32) | ((val as u16) as i32) << (*s).bi_valid) as u16;
             }
             put_short!(s, unsafe { (*s).bi_buf });
             unsafe {
-                (*s).bi_buf =
-                    ((((((val as i16) as u16) as u32) as i32) >> 16 - (*s).bi_valid) as i16) as u16;
+                (*s).bi_buf = (((val as u16) as i32) >> 16 - (*s).bi_valid) as u16;
             }
             unsafe {
                 (*s).bi_valid = (*s).bi_valid + (len - 16);
             }
         } else {
             unsafe {
-                (*s).bi_buf =
-                    (((((*s).bi_buf as u32) as i32) | 2i32 << (*s).bi_valid) as i16) as u16;
+                (*s).bi_buf = (((*s).bi_buf as i32) | 2i32 << (*s).bi_valid) as u16;
             }
             unsafe {
                 (*s).bi_valid = (*s).bi_valid + len;
             }
         }
-        send_code__5!(s, 256i32, static_ltree.0);
+        send_code__2!(s, 256i32, static_ltree.0);
     }
     #[cfg(feature = "zlib-debug")]
     {
         send_bits(s, 2i32, 3i32);
-        send_code__6!(s, 256i32, static_ltree.0);
+        send_code__3!(s, 256i32, static_ltree.0);
     }
     #[cfg(feature = "zlib-debug")]
     let __v1: c_ulong = unsafe { (*s).compressed_len };
@@ -3474,8 +3385,8 @@ fn compress_block(
             #[cfg(not(feature = "lit-mem"))]
             {
                 sx = __v0.wrapping_add(1);
-                dist = ((((unsafe { *unsafe { (*s).sym_buf }.add(__v0 as usize) }) as u32) as i32)
-                    & 255) as u32;
+                dist = (((unsafe { *unsafe { (*s).sym_buf }.add(__v0 as usize) }) as i32) & 255)
+                    as u32;
             }
             #[cfg(not(feature = "lit-mem"))]
             let __v2: u32 = sx;
@@ -3484,8 +3395,7 @@ fn compress_block(
                 sx = __v2.wrapping_add(1);
             }
             #[cfg(not(feature = "lit-mem"))]
-            let __v4: u32 = (((((unsafe { *unsafe { (*s).sym_buf }.add(__v2 as usize) }) as u32)
-                as i32)
+            let __v4: u32 = ((((unsafe { *unsafe { (*s).sym_buf }.add(__v2 as usize) }) as i32)
                 & 255) as u32)
                 << 8i32;
             #[cfg(not(feature = "lit-mem"))]
@@ -3500,16 +3410,16 @@ fn compress_block(
             sx = __v7.wrapping_add(1);
             #[cfg(not(feature = "lit-mem"))]
             {
-                lc = ((unsafe { *unsafe { (*s).sym_buf }.add(__v7 as usize) }) as u32) as i32;
+                lc = (unsafe { *unsafe { (*s).sym_buf }.add(__v7 as usize) }) as i32;
             }
             #[cfg(feature = "lit-mem")]
             {
-                lc = ((unsafe { *unsafe { (*s).l_buf }.add(__v7 as usize) }) as u32) as i32;
+                lc = (unsafe { *unsafe { (*s).l_buf }.add(__v7 as usize) }) as i32;
             }
             if dist == 0 {
                 #[cfg(feature = "zlib-debug")]
                 {
-                    send_code__3!(s, lc, ltree);
+                    send_code!(s, lc, ltree);
                 }
                 #[cfg(all(target_env = "gnu", feature = "zlib-debug"))]
                 {
@@ -3520,7 +3430,7 @@ fn compress_block(
                         lc
                     );
                 }
-                #[cfg(all(any(target_env = "musl", target_os = "macos"), feature = "zlib-debug"))]
+                #[cfg(all(not(target_env = "gnu"), feature = "zlib-debug"))]
                 {
                     Tracecv!(
                         unsafe { slate_support::isgraph(lc) },
@@ -3529,32 +3439,20 @@ fn compress_block(
                         lc
                     );
                 }
-                #[cfg(all(
-                    not(any(target_os = "linux", target_os = "macos")),
-                    feature = "zlib-debug"
-                ))]
-                {
-                    Tracecv__3!(
-                        unsafe { slate_support::isgraph(lc) },
-                        slate_support::stderr(),
-                        c" '%c' ".as_ptr() as *mut c_char,
-                        lc
-                    );
-                }
                 #[cfg(not(feature = "zlib-debug"))]
                 {
-                    send_code__4!(s, lc, ltree);
+                    send_code__3!(s, lc, ltree);
                 }
             } else {
                 // Here, lc is the match length - MIN_MATCH
                 code = (unsafe { _length_code.0[lc as usize] }) as u32;
                 #[cfg(feature = "zlib-debug")]
                 {
-                    send_code__3!(s, code.wrapping_add(256).wrapping_add(1), ltree);
+                    send_code!(s, code.wrapping_add(256).wrapping_add(1), ltree);
                 }
                 #[cfg(not(feature = "zlib-debug"))]
                 {
-                    send_code__4!(s, code.wrapping_add(256).wrapping_add(1), ltree);
+                    send_code__3!(s, code.wrapping_add(256).wrapping_add(1), ltree);
                 }
                 // send length code
                 extra = unsafe { extra_lbits.0[code as usize] };
@@ -3566,7 +3464,7 @@ fn compress_block(
                     }
                     #[cfg(not(feature = "zlib-debug"))]
                     {
-                        send_bits!(s, lc, extra);
+                        send_bits__2!(s, lc, extra);
                     }
                 }
                 dist = dist.wrapping_sub(1); // dist is now the match distance - 1
@@ -3574,11 +3472,11 @@ fn compress_block(
                 #[cfg(feature = "zlib-debug")]
                 {
                     Assert!(code < 30, c"bad d_code".as_ptr() as *mut c_char);
-                    send_code__3!(s, code, dtree);
+                    send_code!(s, code, dtree);
                 }
                 #[cfg(not(feature = "zlib-debug"))]
                 {
-                    send_code__4!(s, code, dtree);
+                    send_code__3!(s, code, dtree);
                 }
                 // send the distance code
                 extra = unsafe { extra_dbits.0[code as usize] };
@@ -3590,7 +3488,7 @@ fn compress_block(
                     }
                     #[cfg(not(feature = "zlib-debug"))]
                     {
-                        send_bits!(s, dist as i32, extra);
+                        send_bits__2!(s, dist as i32, extra);
                     }
                 }
             }
@@ -3620,11 +3518,11 @@ fn compress_block(
     }
     #[cfg(feature = "zlib-debug")]
     {
-        send_code__3!(s, 256i32, ltree);
+        send_code!(s, 256i32, ltree);
     }
     #[cfg(not(feature = "zlib-debug"))]
     {
-        send_code__4!(s, 256i32, ltree);
+        send_code__3!(s, 256i32, ltree);
     }
 }
 
@@ -3648,11 +3546,11 @@ fn detect_data_type(s: *mut internal_state) -> i32 {
     let mut n: i32 = 0;
     while n <= 31 {
         if block_mask & 1 != 0
-            && (((unsafe {
+            && ((unsafe {
                 (*((*s).dyn_ltree.as_mut_ptr() as *mut ct_data_s).offset(n as isize))
                     .fc
                     .freq
-            }) as u32) as i32)
+            }) as i32)
                 != 0
         {
             return 0;
@@ -3661,34 +3559,34 @@ fn detect_data_type(s: *mut internal_state) -> i32 {
         block_mask >>= 1i32;
     }
     // Check for textual ("allow-listed") bytes.
-    if (((unsafe {
+    if ((unsafe {
         (*((*s).dyn_ltree.as_mut_ptr() as *mut ct_data_s).add(9))
             .fc
             .freq
-    }) as u32) as i32)
+    }) as i32)
         != 0
-        || (((unsafe {
+        || ((unsafe {
             (*((*s).dyn_ltree.as_mut_ptr() as *mut ct_data_s).add(10))
                 .fc
                 .freq
-        }) as u32) as i32)
+        }) as i32)
             != 0
-        || (((unsafe {
+        || ((unsafe {
             (*((*s).dyn_ltree.as_mut_ptr() as *mut ct_data_s).add(13))
                 .fc
                 .freq
-        }) as u32) as i32)
+        }) as i32)
             != 0
     {
         return 1;
     }
     n = 32;
     while n < 256 {
-        if (((unsafe {
+        if ((unsafe {
             (*((*s).dyn_ltree.as_mut_ptr() as *mut ct_data_s).offset(n as isize))
                 .fc
                 .freq
-        }) as u32) as i32)
+        }) as i32)
             != 0
         {
             return 1;
@@ -3792,24 +3690,21 @@ extern "C-unwind" fn _tr_flush_block(
                 if (unsafe { (*s).bi_valid }) > 16 - len {
                     let val: i32 = 2i32 + last;
                     unsafe {
-                        (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                            | ((((val as i16) as u16) as u32) as i32) << (*s).bi_valid)
-                            as i16) as u16;
+                        (*s).bi_buf =
+                            (((*s).bi_buf as i32) | ((val as u16) as i32) << (*s).bi_valid) as u16;
                     }
                     put_short!(s, unsafe { (*s).bi_buf });
                     unsafe {
-                        (*s).bi_buf = ((((((val as i16) as u16) as u32) as i32)
-                            >> 16 - (*s).bi_valid) as i16)
-                            as u16;
+                        (*s).bi_buf = (((val as u16) as i32) >> 16 - (*s).bi_valid) as u16;
                     }
                     unsafe {
                         (*s).bi_valid = (*s).bi_valid + (len - 16);
                     }
                 } else {
                     unsafe {
-                        (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                            | (((((2i32 + last) as i16) as u16) as u32) as i32) << (*s).bi_valid)
-                            as i16) as u16;
+                        (*s).bi_buf = (((*s).bi_buf as i32)
+                            | (((2i32 + last) as u16) as i32) << (*s).bi_valid)
+                            as u16;
                     }
                     unsafe {
                         (*s).bi_valid = (*s).bi_valid + len;
@@ -3842,24 +3737,21 @@ extern "C-unwind" fn _tr_flush_block(
                 if (unsafe { (*s).bi_valid }) > 16 - len {
                     let val: i32 = 4i32 + last;
                     unsafe {
-                        (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                            | ((((val as i16) as u16) as u32) as i32) << (*s).bi_valid)
-                            as i16) as u16;
+                        (*s).bi_buf =
+                            (((*s).bi_buf as i32) | ((val as u16) as i32) << (*s).bi_valid) as u16;
                     }
                     put_short!(s, unsafe { (*s).bi_buf });
                     unsafe {
-                        (*s).bi_buf = ((((((val as i16) as u16) as u32) as i32)
-                            >> 16 - (*s).bi_valid) as i16)
-                            as u16;
+                        (*s).bi_buf = (((val as u16) as i32) >> 16 - (*s).bi_valid) as u16;
                     }
                     unsafe {
                         (*s).bi_valid = (*s).bi_valid + (len - 16);
                     }
                 } else {
                     unsafe {
-                        (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                            | (((((4i32 + last) as i16) as u16) as u32) as i32) << (*s).bi_valid)
-                            as i16) as u16;
+                        (*s).bi_buf = (((*s).bi_buf as i32)
+                            | (((4i32 + last) as u16) as i32) << (*s).bi_valid)
+                            as u16;
                     }
                     unsafe {
                         (*s).bi_valid = (*s).bi_valid + len;
@@ -3977,7 +3869,7 @@ extern "C-unwind" fn _tr_tally(s: *mut internal_state, mut dist: u32, lc: u32) -
         let __v9: *mut ct_data_s =
             unsafe { ((*s).dyn_ltree.as_mut_ptr() as *mut ct_data_s).add(lc as usize) };
         unsafe {
-            (*__v9).fc.freq = (((((*__v9).fc.freq as u32) as i32) + 1) as i16) as u16;
+            (*__v9).fc.freq = (((*__v9).fc.freq as i32) + 1) as u16;
         }
     } else {
         let __v13: u32 = unsafe { (*s).matches };
@@ -3989,24 +3881,24 @@ extern "C-unwind" fn _tr_tally(s: *mut internal_state, mut dist: u32, lc: u32) -
         #[cfg(feature = "zlib-debug")]
         {
             Assert!(
-                (((dist as u16) as u32) as i32) < (((MAX_DIST!(s) as u16) as u32) as i32)
-                    && (((lc as u16) as u32) as i32) <= 255i32
-                    && ((((d_code!(dist) as i16) as u16) as u32) as i32) < 30,
+                ((dist as u16) as i32) < ((MAX_DIST!(s) as u16) as i32)
+                    && ((lc as u16) as i32) <= 255i32
+                    && ((d_code!(dist) as u16) as i32) < 30,
                 c"_tr_tally: bad match".as_ptr() as *mut c_char
             );
         }
         let __v17: *mut ct_data_s = unsafe {
             ((*s).dyn_ltree.as_mut_ptr() as *mut ct_data_s)
-                .offset((((_length_code.0[lc as usize] as u32) as i32) + 256 + 1) as isize)
+                .offset(((_length_code.0[lc as usize] as i32) + 256 + 1) as isize)
         };
         unsafe {
-            (*__v17).fc.freq = (((((*__v17).fc.freq as u32) as i32) + 1) as i16) as u16;
+            (*__v17).fc.freq = (((*__v17).fc.freq as i32) + 1) as u16;
         }
         let __v20: *mut ct_data_s = unsafe {
             ((*s).dyn_dtree.as_mut_ptr() as *mut ct_data_s).offset(d_code!(dist) as isize)
         };
         unsafe {
-            (*__v20).fc.freq = (((((*__v20).fc.freq as u32) as i32) + 1) as i16) as u16;
+            (*__v20).fc.freq = (((*__v20).fc.freq as i32) + 1) as u16;
         }
     }
     ((unsafe { (*s).sym_next }) == unsafe { (*s).sym_end }) as i32

@@ -1,39 +1,21 @@
 //! gzlib.c -- zlib functions common to reading and writing gzip files
 //! Copyright (C) 2004-2026 Mark Adler
 //! For conditions of distribution and use, see copyright notice in zlib.h
-#[cfg(all(target_pointer_width = "32", windows))]
-macro_rules! GT_OFF__6 {
+#[cfg(unix)]
+macro_rules! GT_OFF {
     ($x:expr) => {{
-        let __v: bool = (std::mem::size_of::<i32>() as u32) == (std::mem::size_of::<i64>() as u32)
+        let __v: bool = (std::mem::size_of::<i32>() as size_t)
+            == (std::mem::size_of::<off_t>() as size_t)
             && ($x) > gz_intmax();
         __v
     }};
 }
 
-#[cfg(all(target_pointer_width = "64", windows))]
-macro_rules! GT_OFF__7 {
+#[cfg(windows)]
+macro_rules! GT_OFF {
     ($x:expr) => {{
-        let __v: bool = (std::mem::size_of::<i32>() as u64) == (std::mem::size_of::<i64>() as u64)
-            && ($x) > gz_intmax();
-        __v
-    }};
-}
-
-#[cfg(all(target_pointer_width = "32", unix))]
-macro_rules! GT_OFF__8 {
-    ($x:expr) => {{
-        let __v: bool = (std::mem::size_of::<i32>() as u32)
-            == (std::mem::size_of::<off_t>() as u32)
-            && ($x) > gz_intmax();
-        __v
-    }};
-}
-
-#[cfg(all(target_pointer_width = "64", unix))]
-macro_rules! GT_OFF__5 {
-    ($x:expr) => {{
-        let __v: bool = (std::mem::size_of::<i32>() as c_ulong)
-            == (std::mem::size_of::<off_t>() as c_ulong)
+        let __v: bool = (std::mem::size_of::<i32>() as size_t)
+            == (std::mem::size_of::<i64>() as size_t)
             && ($x) > gz_intmax();
         __v
     }};
@@ -229,16 +211,15 @@ unsafe extern "C-unwind" fn snprintf(
             *std::ptr::addr_of_mut!(_ArgList) =
                 core::mem::transmute::<core::ffi::VaList<'_>, *mut i8>(__va_args.clone());
         }
-        _Result = vsnprintf(_Buffer, _BufferCount as u64, _Format, _ArgList);
     }
     #[cfg(target_arch = "x86")]
     {
         _ArgList = unsafe {
             (std::ptr::addr_of!(_Format) as *mut c_char).offset(
-                ((std::mem::size_of::<*const c_char>() as u32)
-                    .wrapping_add(std::mem::size_of::<i32>() as u32)
+                ((std::mem::size_of::<*const c_char>() as size_t)
+                    .wrapping_add(std::mem::size_of::<i32>() as size_t)
                     .wrapping_sub(1)
-                    & !(std::mem::size_of::<i32>() as u32).wrapping_sub(1))
+                    & !(std::mem::size_of::<i32>() as size_t).wrapping_sub(1))
                     as isize,
             )
         };
@@ -247,17 +228,14 @@ unsafe extern "C-unwind" fn snprintf(
     {
         _ArgList = unsafe {
             (std::ptr::addr_of!(_Format) as *mut c_char).offset(
-                ((std::mem::size_of::<*const c_char>() as u32)
+                ((std::mem::size_of::<*const c_char>() as size_t)
                     .wrapping_add(4)
                     .wrapping_sub(1)
-                    & 4294967292u32) as isize,
+                    & (4294967292 as size_t)) as isize,
             )
         };
     }
-    #[cfg(target_pointer_width = "32")]
-    {
-        _Result = vsnprintf(_Buffer, _BufferCount as u32, _Format, _ArgList);
-    }
+    _Result = vsnprintf(_Buffer, _BufferCount, _Format, _ArgList);
     _ArgList = std::ptr::null_mut::<c_char>();
     _Result
 }
@@ -371,10 +349,10 @@ unsafe extern "C-unwind" fn sprintf(
     {
         _ArgList = unsafe {
             (std::ptr::addr_of!(_Format) as *mut c_char).offset(
-                ((std::mem::size_of::<*const c_char>() as u32)
-                    .wrapping_add(std::mem::size_of::<i32>() as u32)
+                ((std::mem::size_of::<*const c_char>() as size_t)
+                    .wrapping_add(std::mem::size_of::<i32>() as size_t)
                     .wrapping_sub(1)
-                    & !(std::mem::size_of::<i32>() as u32).wrapping_sub(1))
+                    & !(std::mem::size_of::<i32>() as size_t).wrapping_sub(1))
                     as isize,
             )
         };
@@ -383,10 +361,10 @@ unsafe extern "C-unwind" fn sprintf(
     {
         _ArgList = unsafe {
             (std::ptr::addr_of!(_Format) as *mut c_char).offset(
-                ((std::mem::size_of::<*const c_char>() as u32)
+                ((std::mem::size_of::<*const c_char>() as size_t)
                     .wrapping_add(4)
                     .wrapping_sub(1)
-                    & 4294967292u32) as isize,
+                    & (4294967292 as size_t)) as isize,
             )
         };
     }
@@ -471,28 +449,21 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
         return std::ptr::null_mut::<gzFile_s>();
     }
     // allocate gzFile structure to return
-    #[cfg(all(target_pointer_width = "64", windows))]
-    let state: *mut __SlateRecord_gzguts_h_203 = (unsafe {
-        malloc((std::mem::size_of::<__SlateRecord_gzguts_h_203>() as u64) as usize) as *mut ()
-    }) as *mut __SlateRecord_gzguts_h_203;
-    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-    let state: *mut __SlateRecord_gzguts_h_203 = (unsafe {
-        malloc((std::mem::size_of::<__SlateRecord_gzguts_h_203>() as u32) as usize) as *mut ()
-    }) as *mut __SlateRecord_gzguts_h_203;
-    #[cfg(all(target_arch = "arm", windows))]
-    let state: *mut __SlateRecord_gzguts_h_203 =
-        (unsafe { malloc(std::mem::size_of::<__SlateRecord_gzguts_h_203>() as u32) })
-            as *mut __SlateRecord_gzguts_h_203;
     #[cfg(any(
-        all(target_os = "linux", target_pointer_width = "64"),
-        target_os = "freebsd"
+        target_os = "linux",
+        target_os = "freebsd",
+        all(not(target_arch = "arm"), windows)
     ))]
     let state: *mut __SlateRecord_gzguts_h_203 = (unsafe {
-        malloc((std::mem::size_of::<__SlateRecord_gzguts_h_203>() as c_ulong) as usize) as *mut ()
+        malloc((std::mem::size_of::<__SlateRecord_gzguts_h_203>() as size_t) as usize) as *mut ()
     }) as *mut __SlateRecord_gzguts_h_203;
-    #[cfg(any(target_os = "macos", target_os = "android"))]
+    #[cfg(any(
+        target_os = "macos",
+        target_os = "android",
+        all(target_arch = "arm", windows)
+    ))]
     let state: *mut __SlateRecord_gzguts_h_203 =
-        (unsafe { malloc(std::mem::size_of::<__SlateRecord_gzguts_h_203>() as c_ulong) })
+        (unsafe { malloc(std::mem::size_of::<__SlateRecord_gzguts_h_203>() as size_t) })
             as *mut __SlateRecord_gzguts_h_203;
     if state.is_null() {
         return std::ptr::null_mut::<gzFile_s>();
@@ -527,399 +498,241 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
         (*state).direct = 0;
     }
     while (unsafe { *mode }) != 0 {
-        #[cfg(any(
-            target_arch = "x86_64",
-            target_arch = "x86",
-            target_os = "macos",
-            windows
-        ))]
-        {
-            if ((unsafe { *mode }) as i32) >= 48 && ((unsafe { *mode }) as i32) <= 57 {
-                unsafe {
-                    (*state).level = (*mode as i32) - 48;
-                }
-            } else {
-                '__slate_break_0: {
-                    #[cfg(all(windows, not(feature = "no-gzcompress")))]
-                    {
-                        match (unsafe { *mode }) as i32 {
-                            114 => unsafe {
-                                (*state).mode = 7247;
-                            },
-                            119 => unsafe {
-                                (*state).mode = 31153;
-                            },
-                            97 => unsafe {
-                                (*state).mode = 1;
-                            },
-                            43 => {
-                                #[cfg(not(target_arch = "arm"))]
-                                {
-                                    unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
-                                }
-                                #[cfg(target_arch = "arm")]
-                                {
-                                    unsafe { free(state as *mut ()) };
-                                }
-                                // can't read and write at the same time
-                                return std::ptr::null_mut::<gzFile_s>();
-                            }
-                            98 => {
-                                break '__slate_break_0; // ignore -- will request binary anyway
-                            }
-                            120 => {
-                                exclusive = 1;
-                            }
-                            102 => unsafe {
-                                (*state).strategy = 1;
-                            },
-                            104 => unsafe {
-                                (*state).strategy = 2;
-                            },
-                            82 => unsafe {
-                                (*state).strategy = 3;
-                            },
-                            70 => unsafe {
-                                (*state).strategy = 4;
-                            },
-                            71 => unsafe {
-                                (*state).direct = -1;
-                            },
-                            84 => unsafe {
-                                (*state).direct = 1;
-                            },
-                            _ => {
-                                // could consider as an error, but just ignore
-                            }
-                        }
-                    }
-                    #[cfg(all(unix, not(feature = "no-gzcompress")))]
-                    {
-                        match (unsafe { *mode }) as i32 {
-                            114 => unsafe {
-                                (*state).mode = 7247;
-                            },
-                            119 => unsafe {
-                                (*state).mode = 31153;
-                            },
-                            97 => unsafe {
-                                (*state).mode = 1;
-                            },
-                            43 => {
-                                #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-                                {
-                                    unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
-                                }
-                                #[cfg(any(target_os = "macos", target_os = "android"))]
-                                {
-                                    unsafe { free(state as *mut ()) };
-                                }
-                                // can't read and write at the same time
-                                return std::ptr::null_mut::<gzFile_s>();
-                            }
-                            98 => {
-                                break '__slate_break_0; // ignore -- will request binary anyway
-                            }
-                            101 => {
-                                #[cfg(not(target_env = "gnu"))]
-                                let __v2: i32 = oflag | (slate_support::O_CLOEXEC as i32);
-                                #[cfg(not(target_env = "gnu"))]
-                                {
-                                    oflag = __v2;
-                                }
-                                #[cfg(target_env = "gnu")]
-                                {
-                                    oflag |= 524288;
-                                }
-                            }
-                            120 => {
-                                exclusive = 1;
-                            }
-                            102 => unsafe {
-                                (*state).strategy = 1;
-                            },
-                            104 => unsafe {
-                                (*state).strategy = 2;
-                            },
-                            82 => unsafe {
-                                (*state).strategy = 3;
-                            },
-                            70 => unsafe {
-                                (*state).strategy = 4;
-                            },
-                            71 => unsafe {
-                                (*state).direct = -1;
-                            },
-                            78 => {
-                                let __v4: i32 = oflag | (slate_support::O_NONBLOCK as i32);
-                                oflag = __v4;
-                            }
-                            84 => unsafe {
-                                (*state).direct = 1;
-                            },
-                            _ => {
-                                // could consider as an error, but just ignore
-                            }
-                        }
-                    }
-                    #[cfg(all(windows, feature = "no-gzcompress"))]
-                    {
-                        match (unsafe { *mode }) as i32 {
-                            114 => unsafe {
-                                (*state).mode = 7247;
-                            },
-                            43 => {
-                                #[cfg(not(target_arch = "arm"))]
-                                {
-                                    unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
-                                }
-                                #[cfg(target_arch = "arm")]
-                                {
-                                    unsafe { free(state as *mut ()) };
-                                }
-                                // can't read and write at the same time
-                                return std::ptr::null_mut::<gzFile_s>();
-                            }
-                            98 => {
-                                break '__slate_break_0; // ignore -- will request binary anyway
-                            }
-                            120 => {
-                                exclusive = 1;
-                            }
-                            102 => unsafe {
-                                (*state).strategy = 1;
-                            },
-                            104 => unsafe {
-                                (*state).strategy = 2;
-                            },
-                            82 => unsafe {
-                                (*state).strategy = 3;
-                            },
-                            70 => unsafe {
-                                (*state).strategy = 4;
-                            },
-                            71 => unsafe {
-                                (*state).direct = -1;
-                            },
-                            84 => unsafe {
-                                (*state).direct = 1;
-                            },
-                            _ => {
-                                // could consider as an error, but just ignore
-                            }
-                        }
-                    }
-                    #[cfg(all(unix, feature = "no-gzcompress"))]
-                    {
-                        match (unsafe { *mode }) as i32 {
-                            114 => unsafe {
-                                (*state).mode = 7247;
-                            },
-                            43 => {
-                                #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-                                {
-                                    unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
-                                }
-                                #[cfg(any(target_os = "macos", target_os = "android"))]
-                                {
-                                    unsafe { free(state as *mut ()) };
-                                }
-                                // can't read and write at the same time
-                                return std::ptr::null_mut::<gzFile_s>();
-                            }
-                            98 => {
-                                break '__slate_break_0; // ignore -- will request binary anyway
-                            }
-                            101 => {
-                                #[cfg(not(target_env = "gnu"))]
-                                let __v6: i32 = oflag | (slate_support::O_CLOEXEC as i32);
-                                #[cfg(not(target_env = "gnu"))]
-                                {
-                                    oflag = __v6;
-                                }
-                                #[cfg(target_env = "gnu")]
-                                {
-                                    oflag |= 524288;
-                                }
-                            }
-                            120 => {
-                                exclusive = 1;
-                            }
-                            102 => unsafe {
-                                (*state).strategy = 1;
-                            },
-                            104 => unsafe {
-                                (*state).strategy = 2;
-                            },
-                            82 => unsafe {
-                                (*state).strategy = 3;
-                            },
-                            70 => unsafe {
-                                (*state).strategy = 4;
-                            },
-                            71 => unsafe {
-                                (*state).direct = -1;
-                            },
-                            78 => {
-                                let __v7: i32 = oflag | (slate_support::O_NONBLOCK as i32);
-                                oflag = __v7;
-                            }
-                            84 => unsafe {
-                                (*state).direct = 1;
-                            },
-                            _ => {
-                                // could consider as an error, but just ignore
-                            }
-                        }
-                    }
-                }
+        if ((unsafe { *mode }) as i32) >= 48 && ((unsafe { *mode }) as i32) <= 57 {
+            unsafe {
+                (*state).level = (*mode as i32) - 48;
             }
-        }
-        #[cfg(not(any(
-            target_arch = "x86_64",
-            target_arch = "x86",
-            target_os = "macos",
-            windows
-        )))]
-        {
-            if (((unsafe { *mode }) as u32) as i32) >= 48
-                && (((unsafe { *mode }) as u32) as i32) <= 57
-            {
-                unsafe {
-                    (*state).level = ((*mode as u32) as i32) - 48;
-                }
-            } else {
-                '__slate_break_1: {
-                    #[cfg(not(feature = "no-gzcompress"))]
-                    {
-                        match ((unsafe { *mode }) as u32) as i32 {
-                            114 => unsafe {
-                                (*state).mode = 7247;
-                            },
-                            119 => unsafe {
-                                (*state).mode = 31153;
-                            },
-                            97 => unsafe {
-                                (*state).mode = 1;
-                            },
-                            43 => {
-                                #[cfg(not(target_os = "android"))]
-                                {
-                                    unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
-                                }
-                                #[cfg(target_os = "android")]
-                                {
-                                    unsafe { free(state as *mut ()) };
-                                }
-                                // can't read and write at the same time
-                                return std::ptr::null_mut::<gzFile_s>();
+        } else {
+            '__slate_break_0: {
+                #[cfg(all(windows, not(feature = "no-gzcompress")))]
+                {
+                    match (unsafe { *mode }) as i32 {
+                        114 => unsafe {
+                            (*state).mode = 7247;
+                        },
+                        119 => unsafe {
+                            (*state).mode = 31153;
+                        },
+                        97 => unsafe {
+                            (*state).mode = 1;
+                        },
+                        43 => {
+                            #[cfg(not(target_arch = "arm"))]
+                            {
+                                unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
                             }
-                            98 => {
-                                break '__slate_break_1; // ignore -- will request binary anyway
+                            #[cfg(target_arch = "arm")]
+                            {
+                                unsafe { free(state as *mut ()) };
                             }
-                            101 => {
-                                #[cfg(not(target_env = "gnu"))]
-                                let __v3: i32 = oflag | (slate_support::O_CLOEXEC as i32);
-                                #[cfg(not(target_env = "gnu"))]
-                                {
-                                    oflag = __v3;
-                                }
-                                #[cfg(target_env = "gnu")]
-                                {
-                                    oflag |= 524288;
-                                }
-                            }
-                            120 => {
-                                exclusive = 1;
-                            }
-                            102 => unsafe {
-                                (*state).strategy = 1;
-                            },
-                            104 => unsafe {
-                                (*state).strategy = 2;
-                            },
-                            82 => unsafe {
-                                (*state).strategy = 3;
-                            },
-                            70 => unsafe {
-                                (*state).strategy = 4;
-                            },
-                            71 => unsafe {
-                                (*state).direct = -1;
-                            },
-                            78 => {
-                                let __v5: i32 = oflag | (slate_support::O_NONBLOCK as i32);
-                                oflag = __v5;
-                            }
-                            84 => unsafe {
-                                (*state).direct = 1;
-                            },
-                            _ => {
-                                // could consider as an error, but just ignore
-                            }
+                            // can't read and write at the same time
+                            return std::ptr::null_mut::<gzFile_s>();
+                        }
+                        98 => {
+                            break '__slate_break_0; // ignore -- will request binary anyway
+                        }
+                        120 => {
+                            exclusive = 1;
+                        }
+                        102 => unsafe {
+                            (*state).strategy = 1;
+                        },
+                        104 => unsafe {
+                            (*state).strategy = 2;
+                        },
+                        82 => unsafe {
+                            (*state).strategy = 3;
+                        },
+                        70 => unsafe {
+                            (*state).strategy = 4;
+                        },
+                        71 => unsafe {
+                            (*state).direct = -1;
+                        },
+                        84 => unsafe {
+                            (*state).direct = 1;
+                        },
+                        _ => {
+                            // could consider as an error, but just ignore
                         }
                     }
-                    #[cfg(feature = "no-gzcompress")]
-                    {
-                        match ((unsafe { *mode }) as u32) as i32 {
-                            114 => unsafe {
-                                (*state).mode = 7247;
-                            },
-                            43 => {
-                                #[cfg(not(target_os = "android"))]
-                                {
-                                    unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
-                                }
-                                #[cfg(target_os = "android")]
-                                {
-                                    unsafe { free(state as *mut ()) };
-                                }
-                                // can't read and write at the same time
-                                return std::ptr::null_mut::<gzFile_s>();
+                }
+                #[cfg(all(unix, not(feature = "no-gzcompress")))]
+                {
+                    match (unsafe { *mode }) as i32 {
+                        114 => unsafe {
+                            (*state).mode = 7247;
+                        },
+                        119 => unsafe {
+                            (*state).mode = 31153;
+                        },
+                        97 => unsafe {
+                            (*state).mode = 1;
+                        },
+                        43 => {
+                            #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+                            {
+                                unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
                             }
-                            98 => {
-                                break '__slate_break_1; // ignore -- will request binary anyway
+                            #[cfg(any(target_os = "macos", target_os = "android"))]
+                            {
+                                unsafe { free(state as *mut ()) };
                             }
-                            101 => {
-                                #[cfg(not(target_env = "gnu"))]
-                                let __v8: i32 = oflag | (slate_support::O_CLOEXEC as i32);
-                                #[cfg(not(target_env = "gnu"))]
-                                {
-                                    oflag = __v8;
-                                }
-                                #[cfg(target_env = "gnu")]
-                                {
-                                    oflag |= 524288;
-                                }
+                            // can't read and write at the same time
+                            return std::ptr::null_mut::<gzFile_s>();
+                        }
+                        98 => {
+                            break '__slate_break_0; // ignore -- will request binary anyway
+                        }
+                        101 => {
+                            #[cfg(not(target_env = "gnu"))]
+                            let __v2: i32 = oflag | (slate_support::O_CLOEXEC as i32);
+                            #[cfg(not(target_env = "gnu"))]
+                            {
+                                oflag = __v2;
                             }
-                            120 => {
-                                exclusive = 1;
+                            #[cfg(target_env = "gnu")]
+                            {
+                                oflag |= 524288;
                             }
-                            102 => unsafe {
-                                (*state).strategy = 1;
-                            },
-                            104 => unsafe {
-                                (*state).strategy = 2;
-                            },
-                            82 => unsafe {
-                                (*state).strategy = 3;
-                            },
-                            70 => unsafe {
-                                (*state).strategy = 4;
-                            },
-                            71 => unsafe {
-                                (*state).direct = -1;
-                            },
-                            78 => {
-                                let __v10: i32 = oflag | (slate_support::O_NONBLOCK as i32);
-                                oflag = __v10;
+                        }
+                        120 => {
+                            exclusive = 1;
+                        }
+                        102 => unsafe {
+                            (*state).strategy = 1;
+                        },
+                        104 => unsafe {
+                            (*state).strategy = 2;
+                        },
+                        82 => unsafe {
+                            (*state).strategy = 3;
+                        },
+                        70 => unsafe {
+                            (*state).strategy = 4;
+                        },
+                        71 => unsafe {
+                            (*state).direct = -1;
+                        },
+                        78 => {
+                            let __v4: i32 = oflag | (slate_support::O_NONBLOCK as i32);
+                            oflag = __v4;
+                        }
+                        84 => unsafe {
+                            (*state).direct = 1;
+                        },
+                        _ => {
+                            // could consider as an error, but just ignore
+                        }
+                    }
+                }
+                #[cfg(all(windows, feature = "no-gzcompress"))]
+                {
+                    match (unsafe { *mode }) as i32 {
+                        114 => unsafe {
+                            (*state).mode = 7247;
+                        },
+                        43 => {
+                            #[cfg(not(target_arch = "arm"))]
+                            {
+                                unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
                             }
-                            84 => unsafe {
-                                (*state).direct = 1;
-                            },
-                            _ => {
-                                // could consider as an error, but just ignore
+                            #[cfg(target_arch = "arm")]
+                            {
+                                unsafe { free(state as *mut ()) };
                             }
+                            // can't read and write at the same time
+                            return std::ptr::null_mut::<gzFile_s>();
+                        }
+                        98 => {
+                            break '__slate_break_0; // ignore -- will request binary anyway
+                        }
+                        120 => {
+                            exclusive = 1;
+                        }
+                        102 => unsafe {
+                            (*state).strategy = 1;
+                        },
+                        104 => unsafe {
+                            (*state).strategy = 2;
+                        },
+                        82 => unsafe {
+                            (*state).strategy = 3;
+                        },
+                        70 => unsafe {
+                            (*state).strategy = 4;
+                        },
+                        71 => unsafe {
+                            (*state).direct = -1;
+                        },
+                        84 => unsafe {
+                            (*state).direct = 1;
+                        },
+                        _ => {
+                            // could consider as an error, but just ignore
+                        }
+                    }
+                }
+                #[cfg(all(unix, feature = "no-gzcompress"))]
+                {
+                    match (unsafe { *mode }) as i32 {
+                        114 => unsafe {
+                            (*state).mode = 7247;
+                        },
+                        43 => {
+                            #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+                            {
+                                unsafe { free((state as *mut ()) as *mut core::ffi::c_void) };
+                            }
+                            #[cfg(any(target_os = "macos", target_os = "android"))]
+                            {
+                                unsafe { free(state as *mut ()) };
+                            }
+                            // can't read and write at the same time
+                            return std::ptr::null_mut::<gzFile_s>();
+                        }
+                        98 => {
+                            break '__slate_break_0; // ignore -- will request binary anyway
+                        }
+                        101 => {
+                            #[cfg(not(target_env = "gnu"))]
+                            let __v3: i32 = oflag | (slate_support::O_CLOEXEC as i32);
+                            #[cfg(not(target_env = "gnu"))]
+                            {
+                                oflag = __v3;
+                            }
+                            #[cfg(target_env = "gnu")]
+                            {
+                                oflag |= 524288;
+                            }
+                        }
+                        120 => {
+                            exclusive = 1;
+                        }
+                        102 => unsafe {
+                            (*state).strategy = 1;
+                        },
+                        104 => unsafe {
+                            (*state).strategy = 2;
+                        },
+                        82 => unsafe {
+                            (*state).strategy = 3;
+                        },
+                        70 => unsafe {
+                            (*state).strategy = 4;
+                        },
+                        71 => unsafe {
+                            (*state).direct = -1;
+                        },
+                        78 => {
+                            let __v5: i32 = oflag | (slate_support::O_NONBLOCK as i32);
+                            oflag = __v5;
+                        }
+                        84 => unsafe {
+                            (*state).direct = 1;
+                        },
+                        _ => {
+                            // could consider as an error, but just ignore
                         }
                     }
                 }
@@ -1038,62 +851,46 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
         } else {
             #[cfg(target_pointer_width = "64")]
             {
-                len =
-                    (unsafe { strlen((path as *const c_char) as *const core::ffi::c_char) as u64 })
-                        as size_t;
+                len = unsafe { strlen((path as *const c_char) as *const core::ffi::c_char) as u64 };
             }
             #[cfg(target_arch = "x86")]
             {
-                len =
-                    (unsafe { strlen((path as *const c_char) as *const core::ffi::c_char) as u32 })
-                        as size_t;
+                len = unsafe { strlen((path as *const c_char) as *const core::ffi::c_char) as u32 };
             }
             #[cfg(target_arch = "arm")]
             {
-                len = (unsafe { strlen(path as *const c_char) }) as size_t;
+                len = unsafe { strlen(path as *const c_char) };
             }
         }
     }
     #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
     {
-        len = (unsafe { strlen((path as *const c_char) as *const core::ffi::c_char) as c_ulong })
-            as size_t;
+        len = unsafe { strlen((path as *const c_char) as *const core::ffi::c_char) as c_ulong };
     }
     #[cfg(target_os = "macos")]
     {
-        len = (unsafe { strlen(path as *const c_char) }) as size_t;
+        len = unsafe { strlen(path as *const c_char) };
     }
     #[cfg(all(target_pointer_width = "32", unix))]
     {
-        len = (unsafe { strlen((path as *const c_char) as *const core::ffi::c_char) as u32 })
-            as size_t;
+        len = unsafe { strlen((path as *const c_char) as *const core::ffi::c_char) as u32 };
     }
     unsafe {
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            (*state).path =
-                (malloc((len.wrapping_add(1) as u64) as usize) as *mut ()) as *mut c_char;
-        }
-        #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-        {
-            (*state).path =
-                (malloc((len as u32).wrapping_add(1) as usize) as *mut ()) as *mut c_char;
-        }
-        #[cfg(all(target_arch = "arm", windows))]
-        {
-            (*state).path = malloc((len as u32).wrapping_add(1)) as *mut c_char;
-        }
         #[cfg(any(
-            all(target_os = "linux", target_pointer_width = "64"),
-            target_os = "freebsd"
+            target_os = "linux",
+            target_os = "freebsd",
+            all(not(target_arch = "arm"), windows)
         ))]
         {
-            (*state).path =
-                (malloc((len.wrapping_add(1) as c_ulong) as usize) as *mut ()) as *mut c_char;
+            (*state).path = (malloc(len.wrapping_add(1) as usize) as *mut ()) as *mut c_char;
         }
-        #[cfg(any(target_os = "macos", target_os = "android"))]
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "android",
+            all(target_arch = "arm", windows)
+        ))]
         {
-            (*state).path = malloc(len.wrapping_add(1) as c_ulong) as *mut c_char;
+            (*state).path = malloc(len.wrapping_add(1)) as *mut c_char;
         }
     }
     if unsafe { (*state).path }.is_null() {
@@ -1135,19 +932,13 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
                         wcstombs(
                             (*state).path as *mut core::ffi::c_char,
                             (path as *const wchar_t) as *const u16,
-                            ((len as u32).wrapping_add(1) as size_t) as usize,
+                            len.wrapping_add(1) as usize,
                         ) as u32
                     };
                 }
                 #[cfg(target_arch = "arm")]
                 {
-                    unsafe {
-                        wcstombs(
-                            (*state).path,
-                            path as *const wchar_t,
-                            (len as u32).wrapping_add(1) as size_t,
-                        )
-                    };
+                    unsafe { wcstombs((*state).path, path as *const wchar_t, len.wrapping_add(1)) };
                 }
             } else {
                 unsafe {
@@ -1155,12 +946,12 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
                 }
             }
         } else {
-            #[cfg(all(target_pointer_width = "64", not(feature = "no-vsnprintf")))]
+            #[cfg(not(feature = "no-vsnprintf"))]
             {
                 unsafe {
                     snprintf(
                         (*state).path,
-                        len.wrapping_add(1) as u64,
+                        len.wrapping_add(1),
                         c"%s".as_ptr(),
                         path as *const c_char,
                     )
@@ -1175,34 +966,18 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
                     ) as *mut c_char
                 };
             }
-            #[cfg(all(target_pointer_width = "32", not(feature = "no-vsnprintf")))]
-            {
-                unsafe {
-                    snprintf(
-                        (*state).path,
-                        (len as u32).wrapping_add(1),
-                        c"%s".as_ptr(),
-                        path as *const c_char,
-                    )
-                };
-            }
             #[cfg(all(target_arch = "arm", feature = "no-vsnprintf"))]
             {
                 unsafe { strcpy((*state).path, path as *const c_char) };
             }
         }
     }
-    #[cfg(all(
-        not(target_os = "macos"),
-        target_pointer_width = "64",
-        unix,
-        not(feature = "no-vsnprintf")
-    ))]
+    #[cfg(all(not(target_os = "macos"), unix, not(feature = "no-vsnprintf")))]
     {
         unsafe {
             snprintf(
                 (*state).path as *mut core::ffi::c_char,
-                (len.wrapping_add(1) as c_ulong) as usize,
+                len.wrapping_add(1) as usize,
                 c"%s".as_ptr() as *const core::ffi::c_char,
                 path as *const c_char,
             ) as i32
@@ -1222,7 +997,7 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
         unsafe {
             snprintf(
                 (*state).path,
-                len.wrapping_add(1) as c_ulong,
+                len.wrapping_add(1),
                 c"%s".as_ptr(),
                 path as *const c_char,
             )
@@ -1231,17 +1006,6 @@ fn gz_open(path: *const (), fd: i32, mut mode: *const c_char) -> *mut gzFile_s {
     #[cfg(all(target_os = "macos", feature = "no-vsnprintf"))]
     {
         unsafe { strcpy((*state).path, path as *const c_char) };
-    }
-    #[cfg(all(target_pointer_width = "32", unix, not(feature = "no-vsnprintf")))]
-    {
-        unsafe {
-            snprintf(
-                (*state).path as *mut core::ffi::c_char,
-                (len as u32).wrapping_add(1) as usize,
-                c"%s".as_ptr() as *const core::ffi::c_char,
-                path as *const c_char,
-            ) as i32
-        };
     }
     // compute the flags for open()
     #[cfg(windows)]
@@ -1582,35 +1346,27 @@ extern "C-unwind" fn gzdopen(fd: i32, mode: *const c_char) -> *mut gzFile_s {
         true
     } else {
         #[cfg(any(
-            all(target_os = "linux", target_pointer_width = "64"),
-            target_os = "freebsd"
+            target_os = "linux",
+            target_os = "freebsd",
+            all(not(target_arch = "arm"), windows)
         ))]
-        let __v1: *mut c_char =
-            (unsafe {
-                malloc((7 as c_ulong).wrapping_add(
-                    (3 as c_ulong).wrapping_mul(std::mem::size_of::<i32>() as c_ulong),
-                ) as usize) as *mut ()
-            }) as *mut c_char;
-        #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
         let __v1: *mut c_char = (unsafe {
-            malloc(7u32.wrapping_add(3u32.wrapping_mul(std::mem::size_of::<i32>() as u32)) as usize)
-                as *mut ()
+            malloc(
+                (7 as size_t)
+                    .wrapping_add((3 as size_t).wrapping_mul(std::mem::size_of::<i32>() as size_t))
+                    as usize,
+            ) as *mut ()
         }) as *mut c_char;
-        #[cfg(any(target_os = "macos", target_os = "android"))]
-        let __v1: *mut c_char =
-            (unsafe {
-                malloc((7 as c_ulong).wrapping_add(
-                    (3 as c_ulong).wrapping_mul(std::mem::size_of::<i32>() as c_ulong),
-                ))
-            }) as *mut c_char;
-        #[cfg(all(target_pointer_width = "64", windows))]
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "android",
+            all(target_arch = "arm", windows)
+        ))]
         let __v1: *mut c_char = (unsafe {
-            malloc(7u64.wrapping_add(3u64.wrapping_mul(std::mem::size_of::<i32>() as u64)) as usize)
-                as *mut ()
-        }) as *mut c_char;
-        #[cfg(all(target_arch = "arm", windows))]
-        let __v1: *mut c_char = (unsafe {
-            malloc(7u32.wrapping_add(3u32.wrapping_mul(std::mem::size_of::<i32>() as u32)))
+            malloc(
+                (7 as size_t)
+                    .wrapping_add((3 as size_t).wrapping_mul(std::mem::size_of::<i32>() as size_t)),
+            )
         }) as *mut c_char;
         path = __v1;
         __v1.is_null()
@@ -1636,30 +1392,14 @@ extern "C-unwind" fn gzdopen(fd: i32, mode: *const c_char) -> *mut gzFile_s {
     {
         unsafe { sprintf(path, c"<fd:%d>".as_ptr(), fd) };
     }
-    #[cfg(all(
-        not(target_os = "macos"),
-        target_pointer_width = "64",
-        unix,
-        not(feature = "no-vsnprintf")
-    ))]
+    #[cfg(all(not(target_os = "macos"), unix, not(feature = "no-vsnprintf")))]
     {
         unsafe {
             snprintf(
                 path as *mut core::ffi::c_char,
-                (7 as c_ulong).wrapping_add(
-                    (3 as c_ulong).wrapping_mul(std::mem::size_of::<i32>() as c_ulong),
-                ) as usize,
-                c"<fd:%d>".as_ptr() as *const core::ffi::c_char,
-                fd,
-            ) as i32
-        };
-    }
-    #[cfg(all(target_pointer_width = "32", unix, not(feature = "no-vsnprintf")))]
-    {
-        unsafe {
-            snprintf(
-                path as *mut core::ffi::c_char,
-                7u32.wrapping_add(3u32.wrapping_mul(std::mem::size_of::<i32>() as u32)) as usize,
+                (7 as size_t)
+                    .wrapping_add((3 as size_t).wrapping_mul(std::mem::size_of::<i32>() as size_t))
+                    as usize,
                 c"<fd:%d>".as_ptr() as *const core::ffi::c_char,
                 fd,
             ) as i32
@@ -1670,31 +1410,20 @@ extern "C-unwind" fn gzdopen(fd: i32, mode: *const c_char) -> *mut gzFile_s {
         unsafe {
             snprintf(
                 path,
-                (7 as c_ulong).wrapping_add(
-                    (3 as c_ulong).wrapping_mul(std::mem::size_of::<i32>() as c_ulong),
-                ),
+                (7 as size_t)
+                    .wrapping_add((3 as size_t).wrapping_mul(std::mem::size_of::<i32>() as size_t)),
                 c"<fd:%d>".as_ptr(),
                 fd,
             )
         };
     }
-    #[cfg(all(target_pointer_width = "64", windows, not(feature = "no-vsnprintf")))]
+    #[cfg(all(windows, not(feature = "no-vsnprintf")))]
     {
         unsafe {
             snprintf(
                 path,
-                7u64.wrapping_add(3u64.wrapping_mul(std::mem::size_of::<i32>() as u64)),
-                c"<fd:%d>".as_ptr(),
-                fd,
-            )
-        };
-    }
-    #[cfg(all(target_pointer_width = "32", windows, not(feature = "no-vsnprintf")))]
-    {
-        unsafe {
-            snprintf(
-                path,
-                7u32.wrapping_add(3u32.wrapping_mul(std::mem::size_of::<i32>() as u32)),
+                (7 as size_t)
+                    .wrapping_add((3 as size_t).wrapping_mul(std::mem::size_of::<i32>() as size_t)),
                 c"<fd:%d>".as_ptr(),
                 fd,
             )
@@ -2059,20 +1788,14 @@ extern "C-unwind" fn gzseek64(
             ret = unsafe {
                 _lseeki64(
                     (*state).fd,
-                    offset - (((*state).x.have as u64) as i64),
+                    offset - ((*state).x.have as i64),
                     slate_support::windows::Win32::Media::Multimedia::SEEK_CUR as i32,
                 )
             };
         }
         #[cfg(all(target_arch = "arm", windows))]
         {
-            ret = unsafe {
-                _lseeki64(
-                    (*state).fd,
-                    offset - (((*state).x.have as u64) as i64),
-                    1i32,
-                )
-            };
+            ret = unsafe { _lseeki64((*state).fd, offset - ((*state).x.have as i64), 1i32) };
         }
         if ret == -1 {
             return -1;
@@ -2116,19 +1839,9 @@ extern "C-unwind" fn gzseek64(
     }
     // if reading, skip what's in output buffer (one less gzgetc() check)
     if (unsafe { (*state).mode }) == 7247 {
-        #[cfg(all(target_pointer_width = "64", unix))]
+        #[cfg(unix)]
         {
-            n = if GT_OFF__5!(unsafe { (*state).x.have })
-                || ((unsafe { (*state).x.have }) as off_t) > offset
-            {
-                (offset as i32) as u32
-            } else {
-                unsafe { (*state).x.have }
-            };
-        }
-        #[cfg(all(target_pointer_width = "32", unix))]
-        {
-            n = if GT_OFF__8!(unsafe { (*state).x.have })
+            n = if GT_OFF!(unsafe { (*state).x.have })
                 || ((unsafe { (*state).x.have }) as off_t) > offset
             {
                 offset as u32
@@ -2136,22 +1849,12 @@ extern "C-unwind" fn gzseek64(
                 unsafe { (*state).x.have }
             };
         }
-        #[cfg(all(target_pointer_width = "64", windows))]
+        #[cfg(windows)]
         {
-            n = if GT_OFF__7!(unsafe { (*state).x.have })
-                || (((unsafe { (*state).x.have }) as u64) as i64) > offset
+            n = if GT_OFF!(unsafe { (*state).x.have })
+                || ((unsafe { (*state).x.have }) as i64) > offset
             {
-                (offset as i32) as u32
-            } else {
-                unsafe { (*state).x.have }
-            };
-        }
-        #[cfg(all(target_pointer_width = "32", windows))]
-        {
-            n = if GT_OFF__6!(unsafe { (*state).x.have })
-                || (((unsafe { (*state).x.have }) as u64) as i64) > offset
-            {
-                (offset as i32) as u32
+                offset as u32
             } else {
                 unsafe { (*state).x.have }
             };
@@ -2175,7 +1878,7 @@ extern "C-unwind" fn gzseek64(
             }
             #[cfg(windows)]
             {
-                (*state).x.pos = (*state).x.pos + ((n as u64) as i64);
+                (*state).x.pos = (*state).x.pos + (n as i64);
             }
         }
         #[cfg(all(target_pointer_width = "64", unix))]
@@ -2188,7 +1891,7 @@ extern "C-unwind" fn gzseek64(
         }
         #[cfg(windows)]
         {
-            offset -= (n as u64) as i64;
+            offset -= n as i64;
         }
     }
     // request skip (if not zero)
@@ -2358,8 +2061,8 @@ extern "C-unwind" fn gzoffset64(file: *mut gzFile_s) -> __SlateRet_gzoffset64 {
         }
         #[cfg(windows)]
         {
-            offset -= ((unsafe { (*(file as *mut __SlateRecord_gzguts_h_203)).strm.avail_in })
-                as u64) as i64;
+            offset -=
+                (unsafe { (*(file as *mut __SlateRecord_gzguts_h_203)).strm.avail_in }) as i64;
         }
     }
     // reading

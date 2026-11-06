@@ -7566,7 +7566,7 @@ extern "C-unwind" fn crc32_z(mut crc: c_ulong, mut buf: *const u8, mut len: size
                 buf = unsafe { __v2.add(1) };
                 crc = crc >> 8i32
                     ^ ((unsafe {
-                        crc_table.0[((crc ^ (((*__v2 as u32) as i32) as c_ulong)) & 255) as usize]
+                        crc_table.0[((crc ^ ((*__v2 as i32) as c_ulong)) & 255) as usize]
                     }) as c_ulong);
             }
             // Compute the CRC on as many N z_word_t blocks as are available.
@@ -7712,9 +7712,9 @@ extern "C-unwind" fn crc32_z(mut crc: c_ulong, mut buf: *const u8, mut len: size
             buf = words as *const u8;
         }
     }
-    #[cfg(target_pointer_width = "32")]
+    #[cfg(any(target_pointer_width = "32", windows))]
     {
-        if (len as u32) >= 23u32 {
+        if len >= (23 as size_t) {
             let mut blks: size_t = 0;
             let mut words: *const u32 = unsafe { std::mem::zeroed() };
             // Do endian check at execution time instead of compile time, since ARM
@@ -7724,19 +7724,18 @@ extern "C-unwind" fn crc32_z(mut crc: c_ulong, mut buf: *const u8, mut len: size
             let mut endian: u32 = 1;
             let mut k: i32 = 0;
             // Compute the CRC up to a z_word_t boundary.
-            while len != 0 && ((buf as size_t) as u32) & 3u32 != 0 {
-                len = (len as u32).wrapping_sub(1) as size_t;
+            while len != 0 && (buf as size_t) & (3 as size_t) != 0 {
+                len = len.wrapping_sub(1);
                 let __v1: *const u8 = buf;
                 buf = unsafe { __v1.add(1) };
                 crc = crc >> 8i32
                     ^ ((unsafe {
-                        crc_table.0[((crc ^ (((*__v1 as u32) as i32) as c_ulong)) & 255) as usize]
+                        crc_table.0[((crc ^ ((*__v1 as i32) as c_ulong)) & 255) as usize]
                     }) as c_ulong);
             }
             // Compute the CRC on as many N z_word_t blocks as are available.
-            blks = ((len as u32) / 20u32) as size_t;
-            len =
-                (len as u32).wrapping_sub((blks as u32).wrapping_mul(5).wrapping_mul(4)) as size_t;
+            blks = len / (20 as size_t);
+            len = len.wrapping_sub(blks.wrapping_mul(5).wrapping_mul(4));
             words = buf as *const u32;
             if (unsafe { *(std::ptr::addr_of_mut!(endian) as *mut u8) }) != 0 {
                 // Little endian.
@@ -7755,7 +7754,7 @@ extern "C-unwind" fn crc32_z(mut crc: c_ulong, mut buf: *const u8, mut len: size
                 // Process the first blks-1 blocks, computing the CRCs on each braid
                 // independently.
                 loop {
-                    let __v3: size_t = (blks as u32).wrapping_sub(1) as size_t;
+                    let __v3: size_t = blks.wrapping_sub(1);
                     blks = __v3;
                     if __v3 == 0 {
                         break;
@@ -7826,7 +7825,7 @@ extern "C-unwind" fn crc32_z(mut crc: c_ulong, mut buf: *const u8, mut len: size
                 // Process the first blks-1 blocks, computing the CRCs on each braid
                 // independently.
                 loop {
-                    let __v6: size_t = (blks as u32).wrapping_sub(1) as size_t;
+                    let __v6: size_t = blks.wrapping_sub(1);
                     blks = __v6;
                     if __v6 == 0 {
                         break;
@@ -7881,292 +7880,59 @@ extern "C-unwind" fn crc32_z(mut crc: c_ulong, mut buf: *const u8, mut len: size
             buf = words as *const u8;
         }
     }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        if len >= (23 as size_t) {
-            let mut blks: size_t = 0;
-            let mut words: *const u32 = unsafe { std::mem::zeroed() };
-            // Do endian check at execution time instead of compile time, since ARM
-            // processors can change the endianness at execution time. If the
-            // compiler knows what the endianness will be, it can optimize out the
-            // check and the unused branch.
-            let mut endian: u32 = 1;
-            let mut k: i32 = 0;
-            // Compute the CRC up to a z_word_t boundary.
-            while len != 0 && (buf as size_t) & (3 as size_t) != 0 {
-                len = len.wrapping_sub(1);
-                let __v18: *const u8 = buf;
-                buf = unsafe { __v18.add(1) };
-                crc = crc >> 8i32
-                    ^ ((unsafe {
-                        crc_table.0[((crc ^ (((*__v18 as u32) as i32) as c_ulong)) & 255) as usize]
-                    }) as c_ulong);
-            }
-            // Compute the CRC on as many N z_word_t blocks as are available.
-            blks = len / (20 as size_t);
-            len = len.wrapping_sub(blks.wrapping_mul(5).wrapping_mul(4));
-            words = buf as *const u32;
-            if (unsafe { *(std::ptr::addr_of_mut!(endian) as *mut u8) }) != 0 {
-                // Little endian.
-                let mut crc0: u32 = 0;
-                let mut word0: u32 = 0;
-                let mut crc1: u32 = 0;
-                let mut word1: u32 = 0;
-                let mut crc2: u32 = 0;
-                let mut word2: u32 = 0;
-                let mut crc3: u32 = 0;
-                let mut word3: u32 = 0;
-                let mut crc4: u32 = 0;
-                let mut word4: u32 = 0;
-                // Initialize the CRC for each braid.
-                crc0 = crc as u32;
-                // Process the first blks-1 blocks, computing the CRCs on each braid
-                // independently.
-                loop {
-                    let __v19: size_t = blks.wrapping_sub(1);
-                    blks = __v19;
-                    if __v19 == 0 {
-                        break;
-                    }
-                    // Load the word for each braid into registers.
-                    word0 = crc0 ^ unsafe { *words.add(0) };
-                    word1 = crc1 ^ unsafe { *words.add(1) };
-                    word2 = crc2 ^ unsafe { *words.add(2) };
-                    word3 = crc3 ^ unsafe { *words.add(3) };
-                    word4 = crc4 ^ unsafe { *words.add(4) };
-                    let __v20: *const u32 = words;
-                    words = unsafe { __v20.add(5) };
-                    // Compute and update the CRC for each word. The loop should
-                    // get unrolled.
-                    crc0 = unsafe { crc_braid_table.0[0][(word0 & 255) as usize] };
-                    crc1 = unsafe { crc_braid_table.0[0][(word1 & 255) as usize] };
-                    crc2 = unsafe { crc_braid_table.0[0][(word2 & 255) as usize] };
-                    crc3 = unsafe { crc_braid_table.0[0][(word3 & 255) as usize] };
-                    crc4 = unsafe { crc_braid_table.0[0][(word4 & 255) as usize] };
-                    k = 1;
-                    while k < 4 {
-                        crc0 ^= unsafe {
-                            crc_braid_table.0[k as usize][(word0 >> (k << 3i32) & 255) as usize]
-                        };
-                        crc1 ^= unsafe {
-                            crc_braid_table.0[k as usize][(word1 >> (k << 3i32) & 255) as usize]
-                        };
-                        crc2 ^= unsafe {
-                            crc_braid_table.0[k as usize][(word2 >> (k << 3i32) & 255) as usize]
-                        };
-                        crc3 ^= unsafe {
-                            crc_braid_table.0[k as usize][(word3 >> (k << 3i32) & 255) as usize]
-                        };
-                        crc4 ^= unsafe {
-                            crc_braid_table.0[k as usize][(word4 >> (k << 3i32) & 255) as usize]
-                        };
-                        k += 1;
-                    }
-                }
-                // Process the last block, combining the CRCs of the N braids at the
-                // same time.
-                crc = crc_word(crc0 ^ unsafe { *words.add(0) }) as c_ulong;
-                crc = crc_word((((crc1 ^ unsafe { *words.add(1) }) as c_ulong) ^ crc) as u32)
-                    as c_ulong;
-                crc = crc_word((((crc2 ^ unsafe { *words.add(2) }) as c_ulong) ^ crc) as u32)
-                    as c_ulong;
-                crc = crc_word((((crc3 ^ unsafe { *words.add(3) }) as c_ulong) ^ crc) as u32)
-                    as c_ulong;
-                crc = crc_word((((crc4 ^ unsafe { *words.add(4) }) as c_ulong) ^ crc) as u32)
-                    as c_ulong;
-                let __v21: *const u32 = words;
-                words = unsafe { __v21.add(5) };
-            } else {
-                // Big endian.
-                let mut crc0: u32 = 0;
-                let mut word0: u32 = 0;
-                let mut comb: u32 = 0;
-                let mut crc1: u32 = 0;
-                let mut word1: u32 = 0;
-                let mut crc2: u32 = 0;
-                let mut word2: u32 = 0;
-                let mut crc3: u32 = 0;
-                let mut word3: u32 = 0;
-                let mut crc4: u32 = 0;
-                let mut word4: u32 = 0;
-                // Initialize the CRC for each braid.
-                crc0 = byte_swap(crc as u32);
-                // Process the first blks-1 blocks, computing the CRCs on each braid
-                // independently.
-                loop {
-                    let __v22: size_t = blks.wrapping_sub(1);
-                    blks = __v22;
-                    if __v22 == 0 {
-                        break;
-                    }
-                    // Load the word for each braid into registers.
-                    word0 = crc0 ^ unsafe { *words.add(0) };
-                    word1 = crc1 ^ unsafe { *words.add(1) };
-                    word2 = crc2 ^ unsafe { *words.add(2) };
-                    word3 = crc3 ^ unsafe { *words.add(3) };
-                    word4 = crc4 ^ unsafe { *words.add(4) };
-                    let __v24: *const u32 = words;
-                    words = unsafe { __v24.add(5) };
-                    // Compute and update the CRC for each word. The loop should
-                    // get unrolled.
-                    crc0 = unsafe { crc_braid_big_table.0[0][(word0 & 255) as usize] };
-                    crc1 = unsafe { crc_braid_big_table.0[0][(word1 & 255) as usize] };
-                    crc2 = unsafe { crc_braid_big_table.0[0][(word2 & 255) as usize] };
-                    crc3 = unsafe { crc_braid_big_table.0[0][(word3 & 255) as usize] };
-                    crc4 = unsafe { crc_braid_big_table.0[0][(word4 & 255) as usize] };
-                    k = 1;
-                    while k < 4 {
-                        crc0 ^= unsafe {
-                            crc_braid_big_table.0[k as usize][(word0 >> (k << 3i32) & 255) as usize]
-                        };
-                        crc1 ^= unsafe {
-                            crc_braid_big_table.0[k as usize][(word1 >> (k << 3i32) & 255) as usize]
-                        };
-                        crc2 ^= unsafe {
-                            crc_braid_big_table.0[k as usize][(word2 >> (k << 3i32) & 255) as usize]
-                        };
-                        crc3 ^= unsafe {
-                            crc_braid_big_table.0[k as usize][(word3 >> (k << 3i32) & 255) as usize]
-                        };
-                        crc4 ^= unsafe {
-                            crc_braid_big_table.0[k as usize][(word4 >> (k << 3i32) & 255) as usize]
-                        };
-                        k += 1;
-                    }
-                }
-                // Process the last block, combining the CRCs of the N braids at the
-                // same time.
-                comb = crc_word_big(crc0 ^ unsafe { *words.add(0) });
-                comb = crc_word_big(crc1 ^ unsafe { *words.add(1) } ^ comb);
-                comb = crc_word_big(crc2 ^ unsafe { *words.add(2) } ^ comb);
-                comb = crc_word_big(crc3 ^ unsafe { *words.add(3) } ^ comb);
-                comb = crc_word_big(crc4 ^ unsafe { *words.add(4) } ^ comb);
-                let __v26: *const u32 = words;
-                words = unsafe { __v26.add(5) };
-                crc = byte_swap(comb) as c_ulong;
-            }
-            // Update the pointer to the remaining bytes to process.
-            buf = words as *const u8;
-        }
-    }
-    #[cfg(any(
-        target_arch = "x86_64",
-        all(not(target_os = "macos"), target_arch = "aarch64")
-    ))]
+    #[cfg(any(target_arch = "x86_64", not(target_os = "macos")))]
     {
         while len >= 8 {
             len = len.wrapping_sub(8);
             let __v49: *const u8 = buf;
             buf = unsafe { __v49.add(1) };
             crc = crc >> 8i32
-                ^ ((unsafe {
-                    crc_table.0[((crc ^ (((*__v49 as u32) as i32) as c_ulong)) & 255) as usize]
-                }) as c_ulong);
+                ^ ((unsafe { crc_table.0[((crc ^ ((*__v49 as i32) as c_ulong)) & 255) as usize] })
+                    as c_ulong);
             let __v51: *const u8 = buf;
             buf = unsafe { __v51.add(1) };
             crc = crc >> 8i32
-                ^ ((unsafe {
-                    crc_table.0[((crc ^ (((*__v51 as u32) as i32) as c_ulong)) & 255) as usize]
-                }) as c_ulong);
+                ^ ((unsafe { crc_table.0[((crc ^ ((*__v51 as i32) as c_ulong)) & 255) as usize] })
+                    as c_ulong);
             let __v53: *const u8 = buf;
             buf = unsafe { __v53.add(1) };
             crc = crc >> 8i32
-                ^ ((unsafe {
-                    crc_table.0[((crc ^ (((*__v53 as u32) as i32) as c_ulong)) & 255) as usize]
-                }) as c_ulong);
+                ^ ((unsafe { crc_table.0[((crc ^ ((*__v53 as i32) as c_ulong)) & 255) as usize] })
+                    as c_ulong);
             let __v55: *const u8 = buf;
             buf = unsafe { __v55.add(1) };
             crc = crc >> 8i32
-                ^ ((unsafe {
-                    crc_table.0[((crc ^ (((*__v55 as u32) as i32) as c_ulong)) & 255) as usize]
-                }) as c_ulong);
+                ^ ((unsafe { crc_table.0[((crc ^ ((*__v55 as i32) as c_ulong)) & 255) as usize] })
+                    as c_ulong);
             let __v57: *const u8 = buf;
             buf = unsafe { __v57.add(1) };
             crc = crc >> 8i32
-                ^ ((unsafe {
-                    crc_table.0[((crc ^ (((*__v57 as u32) as i32) as c_ulong)) & 255) as usize]
-                }) as c_ulong);
+                ^ ((unsafe { crc_table.0[((crc ^ ((*__v57 as i32) as c_ulong)) & 255) as usize] })
+                    as c_ulong);
             let __v59: *const u8 = buf;
             buf = unsafe { __v59.add(1) };
             crc = crc >> 8i32
-                ^ ((unsafe {
-                    crc_table.0[((crc ^ (((*__v59 as u32) as i32) as c_ulong)) & 255) as usize]
-                }) as c_ulong);
+                ^ ((unsafe { crc_table.0[((crc ^ ((*__v59 as i32) as c_ulong)) & 255) as usize] })
+                    as c_ulong);
             let __v61: *const u8 = buf;
             buf = unsafe { __v61.add(1) };
             crc = crc >> 8i32
-                ^ ((unsafe {
-                    crc_table.0[((crc ^ (((*__v61 as u32) as i32) as c_ulong)) & 255) as usize]
-                }) as c_ulong);
+                ^ ((unsafe { crc_table.0[((crc ^ ((*__v61 as i32) as c_ulong)) & 255) as usize] })
+                    as c_ulong);
             let __v63: *const u8 = buf;
             buf = unsafe { __v63.add(1) };
             crc = crc >> 8i32
-                ^ ((unsafe {
-                    crc_table.0[((crc ^ (((*__v63 as u32) as i32) as c_ulong)) & 255) as usize]
-                }) as c_ulong);
-        }
-    }
-    #[cfg(target_pointer_width = "32")]
-    {
-        while (len as u32) >= 8 {
-            len = (len as u32).wrapping_sub(8) as size_t;
-            let __v10: *const u8 = buf;
-            buf = unsafe { __v10.add(1) };
-            crc = crc >> 8i32
-                ^ ((unsafe {
-                    crc_table.0[((crc ^ (((*__v10 as u32) as i32) as c_ulong)) & 255) as usize]
-                }) as c_ulong);
-            let __v11: *const u8 = buf;
-            buf = unsafe { __v11.add(1) };
-            crc = crc >> 8i32
-                ^ ((unsafe {
-                    crc_table.0[((crc ^ (((*__v11 as u32) as i32) as c_ulong)) & 255) as usize]
-                }) as c_ulong);
-            let __v12: *const u8 = buf;
-            buf = unsafe { __v12.add(1) };
-            crc = crc >> 8i32
-                ^ ((unsafe {
-                    crc_table.0[((crc ^ (((*__v12 as u32) as i32) as c_ulong)) & 255) as usize]
-                }) as c_ulong);
-            let __v13: *const u8 = buf;
-            buf = unsafe { __v13.add(1) };
-            crc = crc >> 8i32
-                ^ ((unsafe {
-                    crc_table.0[((crc ^ (((*__v13 as u32) as i32) as c_ulong)) & 255) as usize]
-                }) as c_ulong);
-            let __v14: *const u8 = buf;
-            buf = unsafe { __v14.add(1) };
-            crc = crc >> 8i32
-                ^ ((unsafe {
-                    crc_table.0[((crc ^ (((*__v14 as u32) as i32) as c_ulong)) & 255) as usize]
-                }) as c_ulong);
-            let __v15: *const u8 = buf;
-            buf = unsafe { __v15.add(1) };
-            crc = crc >> 8i32
-                ^ ((unsafe {
-                    crc_table.0[((crc ^ (((*__v15 as u32) as i32) as c_ulong)) & 255) as usize]
-                }) as c_ulong);
-            let __v16: *const u8 = buf;
-            buf = unsafe { __v16.add(1) };
-            crc = crc >> 8i32
-                ^ ((unsafe {
-                    crc_table.0[((crc ^ (((*__v16 as u32) as i32) as c_ulong)) & 255) as usize]
-                }) as c_ulong);
-            let __v17: *const u8 = buf;
-            buf = unsafe { __v17.add(1) };
-            crc = crc >> 8i32
-                ^ ((unsafe {
-                    crc_table.0[((crc ^ (((*__v17 as u32) as i32) as c_ulong)) & 255) as usize]
-                }) as c_ulong);
+                ^ ((unsafe { crc_table.0[((crc ^ ((*__v63 as i32) as c_ulong)) & 255) as usize] })
+                    as c_ulong);
         }
     }
     #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
     {
         while len != 0 && (buf as size_t) & 7 != 0 {
             len = len.wrapping_sub(1);
-            let __v28: *const u8 = buf;
-            buf = unsafe { __v28.add(1) };
-            val = (unsafe { *__v28 }) as c_ulong;
+            let __v10: *const u8 = buf;
+            buf = unsafe { __v10.add(1) };
+            val = (unsafe { *__v10 }) as c_ulong;
             unsafe {
                 let __t0: u64;
                 core::arch::asm!("crc32b {0:w}, {0:w}, {1:w}", inlateout(reg) crc as u64 => __t0, in(reg) val as u64, options(nostack, preserves_flags));
@@ -8201,8 +7967,8 @@ extern "C-unwind" fn crc32_z(mut crc: c_ulong, mut buf: *const u8, mut len: size
                 }
                 i = i.wrapping_add(1);
             }
-            let __v29: *const c_ulong = word;
-            word = unsafe { __v29.offset(11970i32 as isize) };
+            let __v11: *const c_ulong = word;
+            word = unsafe { __v11.offset(11970i32 as isize) };
             num = num.wrapping_sub((11970 as size_t));
             crc = multmodp((2701999372 as c_ulong), crc) ^ crc1;
             crc = multmodp((2701999372 as c_ulong), crc) ^ crc2;
@@ -8234,10 +8000,10 @@ extern "C-unwind" fn crc32_z(mut crc: c_ulong, mut buf: *const u8, mut len: size
                 }
                 i = i.wrapping_add(1);
             }
-            let __v30: *const c_ulong = word;
-            word = unsafe { __v30.offset((3 as size_t).wrapping_mul(last) as isize) };
+            let __v18: *const c_ulong = word;
+            word = unsafe { __v18.offset((3 as size_t).wrapping_mul(last) as isize) };
             num = num.wrapping_sub((3 as size_t).wrapping_mul(last));
-            val = x2nmodp(((last as u32) as i32) as off_t, 6u32);
+            val = x2nmodp((last as i32) as off_t, 6u32);
             crc = multmodp(val, crc) ^ crc1;
             crc = multmodp(val, crc) ^ crc2;
         }
@@ -8253,29 +8019,21 @@ extern "C-unwind" fn crc32_z(mut crc: c_ulong, mut buf: *const u8, mut len: size
         }
     }
     #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
-    let __v31: *const c_ulong = word;
+    let __v12: *const c_ulong = word;
     #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
     {
-        word = unsafe { __v31.add(num as usize) };
+        word = unsafe { __v12.add(num as usize) };
         buf = word as *const u8;
     }
     while len != 0 {
-        #[cfg(target_pointer_width = "64")]
-        {
-            len = len.wrapping_sub(1);
-        }
-        #[cfg(target_pointer_width = "32")]
-        {
-            len = (len as u32).wrapping_sub(1) as size_t;
-        }
+        len = len.wrapping_sub(1);
         let __v68: *const u8 = buf;
         buf = unsafe { __v68.add(1) };
         #[cfg(any(target_arch = "x86_64", not(target_os = "macos")))]
         {
             crc = crc >> 8i32
-                ^ ((unsafe {
-                    crc_table.0[((crc ^ (((*__v68 as u32) as i32) as c_ulong)) & 255) as usize]
-                }) as c_ulong);
+                ^ ((unsafe { crc_table.0[((crc ^ ((*__v68 as i32) as c_ulong)) & 255) as usize] })
+                    as c_ulong);
         }
         #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
         {

@@ -1,7 +1,30 @@
 //! deflate.c -- compress data using the deflation algorithm
 //! Copyright (C) 1995-2026 Jean-loup Gailly and Mark Adler
 //! For conditions of distribution and use, see copyright notice in zlib.h
-#[cfg(all(target_arch = "arm", windows))]
+#[cfg(target_pointer_width = "64")]
+macro_rules! CLEAR_HASH {
+    ($s:expr) => {
+        loop {
+            unsafe {
+                *unsafe { (*$s).head }
+                    .offset(unsafe { (*$s).hash_size }.wrapping_sub(1) as isize) = 0;
+            }
+            zmemzero!(
+                unsafe { (*$s).head },
+                (unsafe { (*$s).hash_size }.wrapping_sub(1) as size_t)
+                    .wrapping_mul(std::mem::size_of::<u16>() as size_t)
+            );
+            unsafe {
+                (*$s).slid = 0;
+            }
+            if true {
+                break;
+            }
+        }
+    };
+}
+
+#[cfg(target_pointer_width = "32")]
 macro_rules! CLEAR_HASH {
     ($s:expr) => {
         loop {
@@ -14,99 +37,6 @@ macro_rules! CLEAR_HASH {
                 unsafe { (*$s).hash_size }
                     .wrapping_sub(1)
                     .wrapping_mul(std::mem::size_of::<u16>() as u32)
-            );
-            unsafe {
-                (*$s).slid = 0;
-            }
-            if true {
-                break;
-            }
-        }
-    };
-}
-
-#[cfg(all(target_pointer_width = "64", windows))]
-macro_rules! CLEAR_HASH__4 {
-    ($s:expr) => {
-        loop {
-            unsafe {
-                *unsafe { (*$s).head }
-                    .offset(unsafe { (*$s).hash_size }.wrapping_sub(1) as isize) = 0;
-            }
-            zmemzero!(
-                unsafe { (*$s).head },
-                (unsafe { (*$s).hash_size }.wrapping_sub(1) as u64)
-                    .wrapping_mul(std::mem::size_of::<u16>() as u64)
-            );
-            unsafe {
-                (*$s).slid = 0;
-            }
-            if true {
-                break;
-            }
-        }
-    };
-}
-
-#[cfg(target_os = "macos")]
-macro_rules! CLEAR_HASH__5 {
-    ($s:expr) => {
-        loop {
-            unsafe {
-                *unsafe { (*$s).head }
-                    .offset(unsafe { (*$s).hash_size }.wrapping_sub(1) as isize) = 0;
-            }
-            zmemzero__2!(
-                unsafe { (*$s).head },
-                (unsafe { (*$s).hash_size }.wrapping_sub(1) as c_ulong)
-                    .wrapping_mul(std::mem::size_of::<u16>() as c_ulong)
-            );
-            unsafe {
-                (*$s).slid = 0;
-            }
-            if true {
-                break;
-            }
-        }
-    };
-}
-
-#[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-macro_rules! CLEAR_HASH__2 {
-    ($s:expr) => {
-        loop {
-            unsafe {
-                *unsafe { (*$s).head }
-                    .offset(unsafe { (*$s).hash_size }.wrapping_sub(1) as isize) = 0;
-            }
-            zmemzero!(
-                unsafe { (*$s).head },
-                unsafe { (*$s).hash_size }
-                    .wrapping_sub(1)
-                    .wrapping_mul(std::mem::size_of::<u16>() as u32)
-            );
-            unsafe {
-                (*$s).slid = 0;
-            }
-            if true {
-                break;
-            }
-        }
-    };
-}
-
-#[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
-macro_rules! CLEAR_HASH__3 {
-    ($s:expr) => {
-        loop {
-            unsafe {
-                *unsafe { (*$s).head }
-                    .offset(unsafe { (*$s).hash_size }.wrapping_sub(1) as isize) = 0;
-            }
-            zmemzero!(
-                unsafe { (*$s).head },
-                (unsafe { (*$s).hash_size }.wrapping_sub(1) as c_ulong)
-                    .wrapping_mul(std::mem::size_of::<u16>() as c_ulong)
             );
             unsafe {
                 (*$s).slid = 0;
@@ -139,114 +69,14 @@ macro_rules! ERR_RETURN {
     }};
 }
 
-#[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
-macro_rules! FLUSH_BLOCK_ONLY__4 {
-    ($s:expr, $last:expr) => {
-        unsafe {
-            _tr_flush_block(
-                $s,
-                if (*$s).block_start >= 0 {
-                    unsafe { (*$s).window }.add(((*$s).block_start as u32) as usize) as *mut c_char
-                } else {
-                    std::ptr::null_mut::<c_char>()
-                },
-                (((*$s).strstart as c_long) - (*$s).block_start) as c_ulong,
-                $last,
-            )
-        };
-        unsafe {
-            (*$s).block_start = (*$s).strstart as c_long;
-        }
-        flush_pending(unsafe { (*$s).strm });
-        Tracev!(slate_support::stderr(), c"[FLUSH]".as_ptr() as *mut c_char);
-    };
-}
-
-#[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
-macro_rules! FLUSH_BLOCK__4 {
-    ($s:expr, $last:expr) => {{
-        FLUSH_BLOCK_ONLY__4!($s, $last);
-        if (unsafe { (*(*$s).strm).avail_out }) == 0 {
-            return (if ($last) != 0 { 2i32 } else { 0i32 }) as u32;
-        }
-    }};
-}
-
-#[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
-macro_rules! FLUSH_BLOCK_ONLY__2 {
-    ($s:expr, $last:expr) => {
-        unsafe {
-            _tr_flush_block(
-                $s,
-                if (*$s).block_start >= 0 {
-                    unsafe { (*$s).window }.add(((*$s).block_start as u32) as usize) as *mut c_char
-                } else {
-                    std::ptr::null_mut::<c_char>()
-                },
-                (((*$s).strstart as c_long) - (*$s).block_start) as c_ulong,
-                $last,
-            )
-        };
-        unsafe {
-            (*$s).block_start = (*$s).strstart as c_long;
-        }
-        flush_pending(unsafe { (*$s).strm });
-    };
-}
-
-#[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
-macro_rules! FLUSH_BLOCK__2 {
-    ($s:expr, $last:expr) => {{
-        FLUSH_BLOCK_ONLY__2!($s, $last);
-        if (unsafe { (*(*$s).strm).avail_out }) == 0 {
-            return (if ($last) != 0 { 2i32 } else { 0i32 }) as u32;
-        }
-    }};
-}
-
-#[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
-macro_rules! FLUSH_BLOCK_ONLY__3 {
-    ($s:expr, $last:expr) => {
-        unsafe {
-            _tr_flush_block(
-                $s,
-                if (*$s).block_start >= 0 {
-                    unsafe { (*$s).window }.add((((*$s).block_start as i32) as u32) as usize)
-                        as *mut c_char
-                } else {
-                    std::ptr::null_mut::<c_char>()
-                },
-                (((*$s).strstart as c_long) - (*$s).block_start) as c_ulong,
-                $last,
-            )
-        };
-        unsafe {
-            (*$s).block_start = (*$s).strstart as c_long;
-        }
-        flush_pending(unsafe { (*$s).strm });
-        Tracev!(slate_support::stderr(), c"[FLUSH]".as_ptr() as *mut c_char);
-    };
-}
-
-#[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
-macro_rules! FLUSH_BLOCK__3 {
-    ($s:expr, $last:expr) => {{
-        FLUSH_BLOCK_ONLY__3!($s, $last);
-        if (unsafe { (*(*$s).strm).avail_out }) == 0 {
-            return (if ($last) != 0 { 2i32 } else { 0i32 }) as u32;
-        }
-    }};
-}
-
-#[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
+#[cfg(not(feature = "zlib-debug"))]
 macro_rules! FLUSH_BLOCK_ONLY {
     ($s:expr, $last:expr) => {
         unsafe {
             _tr_flush_block(
                 $s,
                 if (*$s).block_start >= 0 {
-                    unsafe { (*$s).window }.add((((*$s).block_start as i32) as u32) as usize)
-                        as *mut c_char
+                    unsafe { (*$s).window }.add(((*$s).block_start as u32) as usize) as *mut c_char
                 } else {
                     std::ptr::null_mut::<c_char>()
                 },
@@ -261,7 +91,29 @@ macro_rules! FLUSH_BLOCK_ONLY {
     };
 }
 
-#[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
+#[cfg(feature = "zlib-debug")]
+macro_rules! FLUSH_BLOCK_ONLY {
+    ($s:expr, $last:expr) => {
+        unsafe {
+            _tr_flush_block(
+                $s,
+                if (*$s).block_start >= 0 {
+                    unsafe { (*$s).window }.add(((*$s).block_start as u32) as usize) as *mut c_char
+                } else {
+                    std::ptr::null_mut::<c_char>()
+                },
+                (((*$s).strstart as c_long) - (*$s).block_start) as c_ulong,
+                $last,
+            )
+        };
+        unsafe {
+            (*$s).block_start = (*$s).strstart as c_long;
+        }
+        flush_pending(unsafe { (*$s).strm });
+        Tracev!(slate_support::stderr(), c"[FLUSH]".as_ptr() as *mut c_char);
+    };
+}
+
 macro_rules! FLUSH_BLOCK {
     ($s:expr, $last:expr) => {{
         FLUSH_BLOCK_ONLY!($s, $last);
@@ -291,21 +143,6 @@ macro_rules! HCRC_UPDATE {
     };
 }
 
-#[cfg(feature = "fastest")]
-macro_rules! INSERT_STRING__2 {
-    ($s:expr, $str:expr, $match_head:expr) => {
-        UPDATE_HASH__2!($s, (*$s).ins_h, unsafe {
-            *unsafe { (*$s).window }.offset($str.wrapping_add(2u32) as isize)
-        });
-        let __v: u32 = (unsafe { *unsafe { (*$s).head }.offset((*$s).ins_h as isize) }) as u32;
-        $match_head = __v;
-        let __v2: u16 = ($str) as u16;
-        unsafe {
-            *unsafe { (*$s).head }.offset((*$s).ins_h as isize) = __v2;
-        }
-    };
-}
-
 #[cfg(not(feature = "fastest"))]
 macro_rules! INSERT_STRING {
     ($s:expr, $str:expr, $match_head:expr) => {
@@ -321,6 +158,21 @@ macro_rules! INSERT_STRING {
         let __v3: u16 = ($str) as u16;
         unsafe {
             *unsafe { (*$s).head }.offset((*$s).ins_h as isize) = __v3;
+        }
+    };
+}
+
+#[cfg(feature = "fastest")]
+macro_rules! INSERT_STRING {
+    ($s:expr, $str:expr, $match_head:expr) => {
+        UPDATE_HASH__2!($s, (*$s).ins_h, unsafe {
+            *unsafe { (*$s).window }.offset($str.wrapping_add(2u32) as isize)
+        });
+        let __v: u32 = (unsafe { *unsafe { (*$s).head }.offset((*$s).ins_h as isize) }) as u32;
+        $match_head = __v;
+        let __v2: u16 = ($str) as u16;
+        unsafe {
+            *unsafe { (*$s).head }.offset((*$s).ins_h as isize) = __v2;
         }
     };
 }
@@ -372,111 +224,20 @@ macro_rules! TRY_FREE__2 {
 macro_rules! UPDATE_HASH {
     ($s:expr, $h:expr, $c:expr) => {
         unsafe {
-            $h = (($h) << (*$s).hash_shift ^ (((($c) as u32) as i32) as u32)) & (*$s).hash_mask;
+            $h = (($h) << (*$s).hash_shift ^ ((($c) as i32) as u32)) & (*$s).hash_mask;
         }
     };
 }
 
 macro_rules! UPDATE_HASH__2 {
     ($s:expr, $h:expr, $c:expr) => {{
-        let __v: u32 = ((unsafe { $h }) << unsafe { (*$s).hash_shift }
-            ^ (((($c) as u32) as i32) as u32))
+        let __v: u32 = ((unsafe { $h }) << unsafe { (*$s).hash_shift } ^ ((($c) as i32) as u32))
             & unsafe { (*$s).hash_mask };
         unsafe {
             $h = __v;
         }
         __v
     }};
-}
-
-macro_rules! ZALLOC {
-    ($strm:expr, $items:expr, $size:expr) => {
-        unsafe { unsafe { (*$strm).zalloc }.unwrap()((*$strm).opaque, $items, ($size) as u32) }
-    };
-}
-
-#[cfg(feature = "zlib-debug")]
-macro_rules! _tr_tally_dist__4 {
-    ($s:expr, $distance:expr, $length:expr, $flush:expr) => {
-        $flush = unsafe { _tr_tally($s, ($distance) as u32, $length) };
-    };
-}
-
-#[cfg(feature = "zlib-debug")]
-macro_rules! _tr_tally_dist__3 {
-    ($s:expr, $distance:expr, $length:expr, $flush:expr) => {
-        $flush = unsafe { _tr_tally($s, $distance, $length) };
-    };
-}
-
-#[cfg(feature = "zlib-debug")]
-macro_rules! _tr_tally_lit__2 {
-    ($s:expr, $c:expr, $flush:expr) => {
-        $flush = unsafe { _tr_tally($s, 0u32, ($c) as u32) };
-    };
-}
-
-#[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
-macro_rules! _tr_tally_dist__2 {
-    ($s:expr, $distance:expr, $length:expr, $flush:expr) => {
-        let len: u8 = ($length) as u8;
-        let mut dist: u16 = ($distance) as u16;
-        unsafe {
-            *unsafe { (*$s).d_buf }.offset((*$s).sym_next as isize) = dist;
-        }
-        let __v: *mut internal_state = $s;
-        let __v2: u32 = unsafe { (*__v).sym_next };
-        unsafe {
-            (*__v).sym_next = __v2.wrapping_add(1);
-        }
-        unsafe {
-            *unsafe { (*$s).l_buf }.add(__v2 as usize) = len;
-        }
-        dist = ((((dist as u32) as i32) - 1) as i16) as u16;
-        let __v6: *mut ct_data_s = unsafe {
-            ((*$s).dyn_ltree.as_mut_ptr() as *mut ct_data_s).offset(
-                (((*(std::ptr::addr_of!(_length_code) as *const u8)
-                    .offset(((len as u32) as i32) as isize) as u32) as i32)
-                    + 256
-                    + 1) as isize,
-            )
-        };
-        unsafe {
-            (*__v6).fc.freq = (((((*__v6).fc.freq as u32) as i32) + 1) as i16) as u16;
-        }
-        let __v9: *mut ct_data_s = unsafe {
-            ((*$s).dyn_dtree.as_mut_ptr() as *mut ct_data_s).offset(d_code__2!(dist) as isize)
-        };
-        unsafe {
-            (*__v9).fc.freq = (((((*__v9).fc.freq as u32) as i32) + 1) as i16) as u16;
-        }
-        $flush = ((unsafe { (*$s).sym_next }) == unsafe { (*$s).sym_end }) as i32;
-    };
-}
-
-#[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
-macro_rules! _tr_tally_lit {
-    ($s:expr, $c:expr, $flush:expr) => {
-        let cc: u8 = $c;
-        unsafe {
-            *unsafe { (*$s).d_buf }.offset((*$s).sym_next as isize) = 0;
-        }
-        let __v: *mut internal_state = $s;
-        let __v2: u32 = unsafe { (*__v).sym_next };
-        unsafe {
-            (*__v).sym_next = __v2.wrapping_add(1);
-        }
-        unsafe {
-            *unsafe { (*$s).l_buf }.add(__v2 as usize) = cc;
-        }
-        let __v4: *mut ct_data_s = unsafe {
-            ((*$s).dyn_ltree.as_mut_ptr() as *mut ct_data_s).offset(((cc as u32) as i32) as isize)
-        };
-        unsafe {
-            (*__v4).fc.freq = (((((*__v4).fc.freq as u32) as i32) + 1) as i16) as u16;
-        }
-        $flush = ((unsafe { (*$s).sym_next }) == unsafe { (*$s).sym_end }) as i32;
-    };
 }
 
 #[cfg(all(not(feature = "lit-mem"), not(feature = "zlib-debug")))]
@@ -498,8 +259,7 @@ macro_rules! _tr_tally_dist {
             (*__v4).sym_next = __v5.wrapping_add(1);
         }
         unsafe {
-            *unsafe { (*$s).sym_buf }.add(__v5 as usize) =
-                ((((dist as u32) as i32) >> 8i32) as i8) as u8;
+            *unsafe { (*$s).sym_buf }.add(__v5 as usize) = ((dist as i32) >> 8i32) as u8;
         }
         let __v7: *mut internal_state = $s;
         let __v8: u32 = unsafe { (*__v7).sym_next };
@@ -509,30 +269,82 @@ macro_rules! _tr_tally_dist {
         unsafe {
             *unsafe { (*$s).sym_buf }.add(__v8 as usize) = len;
         }
-        dist = ((((dist as u32) as i32) - 1) as i16) as u16;
+        dist = ((dist as i32) - 1) as u16;
         let __v12: *mut ct_data_s = unsafe {
             ((*$s).dyn_ltree.as_mut_ptr() as *mut ct_data_s).offset(
-                (((*(std::ptr::addr_of!(_length_code) as *const u8)
-                    .offset(((len as u32) as i32) as isize) as u32) as i32)
+                ((*(std::ptr::addr_of!(_length_code) as *const u8).offset((len as i32) as isize)
+                    as i32)
                     + 256
                     + 1) as isize,
             )
         };
         unsafe {
-            (*__v12).fc.freq = (((((*__v12).fc.freq as u32) as i32) + 1) as i16) as u16;
+            (*__v12).fc.freq = (((*__v12).fc.freq as i32) + 1) as u16;
         }
         let __v15: *mut ct_data_s = unsafe {
-            ((*$s).dyn_dtree.as_mut_ptr() as *mut ct_data_s).offset(d_code__2!(dist) as isize)
+            ((*$s).dyn_dtree.as_mut_ptr() as *mut ct_data_s).offset(d_code!(dist) as isize)
         };
         unsafe {
-            (*__v15).fc.freq = (((((*__v15).fc.freq as u32) as i32) + 1) as i16) as u16;
+            (*__v15).fc.freq = (((*__v15).fc.freq as i32) + 1) as u16;
         }
         $flush = ((unsafe { (*$s).sym_next }) == unsafe { (*$s).sym_end }) as i32;
     };
 }
 
+#[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
+macro_rules! _tr_tally_dist {
+    ($s:expr, $distance:expr, $length:expr, $flush:expr) => {
+        let len: u8 = ($length) as u8;
+        let mut dist: u16 = ($distance) as u16;
+        unsafe {
+            *unsafe { (*$s).d_buf }.offset((*$s).sym_next as isize) = dist;
+        }
+        let __v: *mut internal_state = $s;
+        let __v2: u32 = unsafe { (*__v).sym_next };
+        unsafe {
+            (*__v).sym_next = __v2.wrapping_add(1);
+        }
+        unsafe {
+            *unsafe { (*$s).l_buf }.add(__v2 as usize) = len;
+        }
+        dist = ((dist as i32) - 1) as u16;
+        let __v6: *mut ct_data_s = unsafe {
+            ((*$s).dyn_ltree.as_mut_ptr() as *mut ct_data_s).offset(
+                ((*(std::ptr::addr_of!(_length_code) as *const u8).offset((len as i32) as isize)
+                    as i32)
+                    + 256
+                    + 1) as isize,
+            )
+        };
+        unsafe {
+            (*__v6).fc.freq = (((*__v6).fc.freq as i32) + 1) as u16;
+        }
+        let __v9: *mut ct_data_s = unsafe {
+            ((*$s).dyn_dtree.as_mut_ptr() as *mut ct_data_s).offset(d_code!(dist) as isize)
+        };
+        unsafe {
+            (*__v9).fc.freq = (((*__v9).fc.freq as i32) + 1) as u16;
+        }
+        $flush = ((unsafe { (*$s).sym_next }) == unsafe { (*$s).sym_end }) as i32;
+    };
+}
+
+#[cfg(feature = "zlib-debug")]
+macro_rules! _tr_tally_dist {
+    ($s:expr, $distance:expr, $length:expr, $flush:expr) => {
+        $flush = unsafe { _tr_tally($s, ($distance) as u32, $length) };
+    };
+}
+
+#[cfg(feature = "zlib-debug")]
+macro_rules! _tr_tally_dist__2 {
+    ($s:expr, $distance:expr, $length:expr, $flush:expr) => {
+        $flush = unsafe { _tr_tally($s, $distance, $length) };
+    };
+}
+
 #[cfg(all(not(feature = "lit-mem"), not(feature = "zlib-debug")))]
-macro_rules! _tr_tally_lit__3 {
+macro_rules! _tr_tally_lit {
     ($s:expr, $c:expr, $flush:expr) => {
         let cc: u8 = $c;
         let __v: *mut internal_state = $s;
@@ -560,66 +372,84 @@ macro_rules! _tr_tally_lit__3 {
             *unsafe { (*$s).sym_buf }.add(__v8 as usize) = cc;
         }
         let __v10: *mut ct_data_s = unsafe {
-            ((*$s).dyn_ltree.as_mut_ptr() as *mut ct_data_s).offset(((cc as u32) as i32) as isize)
+            ((*$s).dyn_ltree.as_mut_ptr() as *mut ct_data_s).offset((cc as i32) as isize)
         };
         unsafe {
-            (*__v10).fc.freq = (((((*__v10).fc.freq as u32) as i32) + 1) as i16) as u16;
+            (*__v10).fc.freq = (((*__v10).fc.freq as i32) + 1) as u16;
         }
         $flush = ((unsafe { (*$s).sym_next }) == unsafe { (*$s).sym_end }) as i32;
     };
 }
 
+#[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
+macro_rules! _tr_tally_lit {
+    ($s:expr, $c:expr, $flush:expr) => {
+        let cc: u8 = $c;
+        unsafe {
+            *unsafe { (*$s).d_buf }.offset((*$s).sym_next as isize) = 0;
+        }
+        let __v: *mut internal_state = $s;
+        let __v2: u32 = unsafe { (*__v).sym_next };
+        unsafe {
+            (*__v).sym_next = __v2.wrapping_add(1);
+        }
+        unsafe {
+            *unsafe { (*$s).l_buf }.add(__v2 as usize) = cc;
+        }
+        let __v4: *mut ct_data_s = unsafe {
+            ((*$s).dyn_ltree.as_mut_ptr() as *mut ct_data_s).offset((cc as i32) as isize)
+        };
+        unsafe {
+            (*__v4).fc.freq = (((*__v4).fc.freq as i32) + 1) as u16;
+        }
+        $flush = ((unsafe { (*$s).sym_next }) == unsafe { (*$s).sym_end }) as i32;
+    };
+}
+
+#[cfg(feature = "zlib-debug")]
+macro_rules! _tr_tally_lit {
+    ($s:expr, $c:expr, $flush:expr) => {
+        $flush = unsafe { _tr_tally($s, 0u32, ($c) as u32) };
+    };
+}
+
 #[cfg(not(feature = "zlib-debug"))]
-macro_rules! d_code__2 {
+macro_rules! d_code {
     ($dist:expr) => {
-        if ((($dist) as u32) as i32) < 256 {
-            ((unsafe {
-                *(std::ptr::addr_of!(_dist_code) as *const u8)
-                    .offset(((($dist) as u32) as i32) as isize)
-            }) as u32) as i32
+        if (($dist) as i32) < 256 {
+            (unsafe {
+                *(std::ptr::addr_of!(_dist_code) as *const u8).offset((($dist) as i32) as isize)
+            }) as i32
         } else {
-            ((unsafe {
+            (unsafe {
                 *(std::ptr::addr_of!(_dist_code) as *const u8)
-                    .offset((256 + (((($dist) as u32) as i32) >> 7i32)) as isize)
-            }) as u32) as i32
+                    .offset((256 + ((($dist) as i32) >> 7i32)) as isize)
+            }) as i32
         }
     };
 }
 
-#[cfg(all(target_pointer_width = "64", windows))]
-macro_rules! zmemzero__4 {
+#[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
+macro_rules! zmemzero__2 {
     ($dest:expr, $len:expr) => {
         unsafe {
             std::ptr::write_bytes(
                 ((($dest) as *mut ()) as *mut core::ffi::c_void) as *mut u8,
                 (0i32 as i32) as u8,
-                ((($len) as u64) as usize) as usize,
+                ((($len) as size_t) as usize) as usize,
             )
         };
     };
 }
 
-#[cfg(target_os = "macos")]
-macro_rules! zmemzero__3 {
+#[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
+macro_rules! zmemzero__2 {
     ($dest:expr, $len:expr) => {
         unsafe {
             std::ptr::write_bytes(
                 (($dest) as *mut ()) as *mut u8,
                 0u8,
-                (($len) as c_ulong) as usize,
-            )
-        };
-    };
-}
-
-#[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
-macro_rules! zmemzero__5 {
-    ($dest:expr, $len:expr) => {
-        unsafe {
-            std::ptr::write_bytes(
-                ((($dest) as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (0i32 as i32) as u8,
-                ((($len) as c_ulong) as usize) as usize,
+                (($len) as size_t) as usize,
             )
         };
     };
@@ -679,6 +509,7 @@ unsafe extern "C" {
 use core::ffi::c_char;
 use core::ffi::c_long;
 use core::ffi::c_ulong;
+use slate_support::ptrdiff_t;
 use slate_support::size_t;
 
 #[repr(C)]
@@ -1146,53 +977,23 @@ fn read_buf(strm: *mut z_stream_s, buf: *mut u8, size: u32) -> u32 {
     unsafe {
         (*strm).avail_in = __v1.wrapping_sub(len);
     }
-    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+    #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 (((*strm).next_in as *const ()) as *const core::ffi::c_void) as *const u8,
                 ((buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                ((len as c_ulong) as usize) as usize,
+                ((len as size_t) as usize) as usize,
             )
         };
     }
-    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                (((*strm).next_in as *const ()) as *const core::ffi::c_void) as *const u8,
-                ((buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (len as usize) as usize,
-            )
-        };
-    }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 ((*strm).next_in as *const ()) as *const u8,
                 buf as *mut u8,
-                (len as c_ulong) as usize,
-            )
-        };
-    }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                (((*strm).next_in as *const ()) as *const core::ffi::c_void) as *const u8,
-                ((buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                ((len as u64) as usize) as usize,
-            )
-        };
-    }
-    #[cfg(all(target_arch = "arm", windows))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                ((*strm).next_in as *const ()) as *const u8,
-                buf as *mut u8,
-                len as usize,
+                (len as size_t) as usize,
             )
         };
     }
@@ -1245,104 +1046,38 @@ fn fill_window(s: *mut internal_state) {
             .wrapping_sub((unsafe { (*s).lookahead }) as c_ulong)
             .wrapping_sub((unsafe { (*s).strstart }) as c_ulong) as u32;
         // Deal with !@#$% 64K limit:
-        #[cfg(all(target_pointer_width = "64", unix))]
-        {
-            if (std::mem::size_of::<i32>() as c_ulong) <= 2 {
-                if more == 0 && (unsafe { (*s).strstart }) == 0 && (unsafe { (*s).lookahead }) == 0
-                {
-                    more = wsize;
-                } else {
-                    if more == 4294967295u32 {
-                        // Very unlikely, but possible on 16 bit machine if
-                        // strstart == 0 && lookahead == 1 (input done a byte at time)
-                        more = more.wrapping_sub(1);
-                    }
-                }
-            }
-        }
-        #[cfg(target_pointer_width = "32")]
-        {
-            if (std::mem::size_of::<i32>() as u32) <= 2 {
-                if more == 0 && (unsafe { (*s).strstart }) == 0 && (unsafe { (*s).lookahead }) == 0
-                {
-                    more = wsize;
-                } else {
-                    if more == 4294967295u32 {
-                        // Very unlikely, but possible on 16 bit machine if
-                        // strstart == 0 && lookahead == 1 (input done a byte at time)
-                        more = more.wrapping_sub(1);
-                    }
-                }
-            }
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            if (std::mem::size_of::<i32>() as u64) <= 2 {
-                if more == 0 && (unsafe { (*s).strstart }) == 0 && (unsafe { (*s).lookahead }) == 0
-                {
-                    more = wsize;
-                } else {
-                    if more == 4294967295u32 {
-                        // Very unlikely, but possible on 16 bit machine if
-                        // strstart == 0 && lookahead == 1 (input done a byte at time)
-                        more = more.wrapping_sub(1);
-                    }
+        if (std::mem::size_of::<i32>() as size_t) <= 2 {
+            if more == 0 && (unsafe { (*s).strstart }) == 0 && (unsafe { (*s).lookahead }) == 0 {
+                more = wsize;
+            } else {
+                if more == 4294967295u32 {
+                    // Very unlikely, but possible on 16 bit machine if
+                    // strstart == 0 && lookahead == 1 (input done a byte at time)
+                    more = more.wrapping_sub(1);
                 }
             }
         }
         // If the window is almost full and there is insufficient lookahead,
         // move the upper half to the lower one to make room in the upper half.
         if (unsafe { (*s).strstart }) >= wsize.wrapping_add(MAX_DIST!(s)) {
-            #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+            #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
                         ((unsafe { (*s).window }.add(wsize as usize) as *const ())
                             as *const core::ffi::c_void) as *const u8,
                         (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                        ((wsize.wrapping_sub(more) as c_ulong) as usize) as usize,
+                        ((wsize.wrapping_sub(more) as size_t) as usize) as usize,
                     )
                 };
             }
-            #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-            {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        ((unsafe { (*s).window }.add(wsize as usize) as *const ())
-                            as *const core::ffi::c_void) as *const u8,
-                        (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                        (wsize.wrapping_sub(more) as usize) as usize,
-                    )
-                };
-            }
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
                         (unsafe { (*s).window }.add(wsize as usize) as *const ()) as *const u8,
                         ((*s).window as *mut ()) as *mut u8,
-                        (wsize.wrapping_sub(more) as c_ulong) as usize,
-                    )
-                };
-            }
-            #[cfg(all(target_pointer_width = "64", windows))]
-            {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        ((unsafe { (*s).window }.add(wsize as usize) as *const ())
-                            as *const core::ffi::c_void) as *const u8,
-                        (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                        ((wsize.wrapping_sub(more) as u64) as usize) as usize,
-                    )
-                };
-            }
-            #[cfg(all(target_arch = "arm", windows))]
-            {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        (unsafe { (*s).window }.add(wsize as usize) as *const ()) as *const u8,
-                        ((*s).window as *mut ()) as *mut u8,
-                        wsize.wrapping_sub(more) as usize,
+                        (wsize.wrapping_sub(more) as size_t) as usize,
                     )
                 };
             }
@@ -1452,41 +1187,10 @@ fn fill_window(s: *mut internal_state) {
             if init > 258 {
                 init = 258;
             }
-            #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
-            {
-                zmemzero__5!(
-                    unsafe { unsafe { (*s).window }.add(curr as usize) },
-                    init as u32
-                );
-            }
-            #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-            {
-                zmemzero!(
-                    unsafe { unsafe { (*s).window }.add(curr as usize) },
-                    init as u32
-                );
-            }
-            #[cfg(target_os = "macos")]
-            {
-                zmemzero__3!(
-                    unsafe { unsafe { (*s).window }.add(curr as usize) },
-                    init as u32
-                );
-            }
-            #[cfg(all(target_pointer_width = "64", windows))]
-            {
-                zmemzero__4!(
-                    unsafe { unsafe { (*s).window }.add(curr as usize) },
-                    init as u32
-                );
-            }
-            #[cfg(all(target_arch = "arm", windows))]
-            {
-                zmemzero__2!(
-                    unsafe { unsafe { (*s).window }.add(curr as usize) },
-                    init as u32
-                );
-            }
+            zmemzero__2!(
+                unsafe { unsafe { (*s).window }.add(curr as usize) },
+                init as u32
+            );
             unsafe {
                 (*s).high_water = curr.wrapping_add(init);
             }
@@ -1501,41 +1205,10 @@ fn fill_window(s: *mut internal_state) {
                 if init > unsafe { (*s).window_size }.wrapping_sub(unsafe { (*s).high_water }) {
                     init = unsafe { (*s).window_size }.wrapping_sub(unsafe { (*s).high_water });
                 }
-                #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
-                {
-                    zmemzero__5!(
-                        unsafe { unsafe { (*s).window }.offset((*s).high_water as isize) },
-                        init as u32
-                    );
-                }
-                #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-                {
-                    zmemzero!(
-                        unsafe { unsafe { (*s).window }.offset((*s).high_water as isize) },
-                        init as u32
-                    );
-                }
-                #[cfg(target_os = "macos")]
-                {
-                    zmemzero__3!(
-                        unsafe { unsafe { (*s).window }.offset((*s).high_water as isize) },
-                        init as u32
-                    );
-                }
-                #[cfg(all(target_pointer_width = "64", windows))]
-                {
-                    zmemzero__4!(
-                        unsafe { unsafe { (*s).window }.offset((*s).high_water as isize) },
-                        init as u32
-                    );
-                }
-                #[cfg(all(target_arch = "arm", windows))]
-                {
-                    zmemzero__2!(
-                        unsafe { unsafe { (*s).window }.offset((*s).high_water as isize) },
-                        init as u32
-                    );
-                }
+                zmemzero__2!(
+                    unsafe { unsafe { (*s).window }.offset((*s).high_water as isize) },
+                    init as u32
+                );
                 let __v24: c_ulong = unsafe { (*s).high_water };
                 unsafe {
                     (*s).high_water = __v24.wrapping_add(init);
@@ -1576,52 +1249,11 @@ extern "C-unwind" fn deflateInit2_(
     stream_size: i32,
 ) -> i32 {
     let mut wrap: i32 = 1;
-    #[cfg(any(all(target_arch = "x86_64", unix), target_os = "macos"))]
+    if version.is_null()
+        || ((unsafe { *version.add(0) }) as i32) != ((unsafe { my_version[0] }) as i32)
+        || (stream_size as size_t) != (std::mem::size_of::<z_stream_s>() as size_t)
     {
-        if version.is_null()
-            || ((unsafe { *version.add(0) }) as i32) != ((unsafe { my_version[0] }) as i32)
-            || (stream_size as c_ulong) != (std::mem::size_of::<z_stream_s>() as c_ulong)
-        {
-            return -6;
-        }
-    }
-    #[cfg(any(target_arch = "x86", all(target_arch = "arm", windows)))]
-    {
-        if version.is_null()
-            || ((unsafe { *version.add(0) }) as i32) != ((unsafe { my_version[0] }) as i32)
-            || (stream_size as u32) != (std::mem::size_of::<z_stream_s>() as u32)
-        {
-            return -6;
-        }
-    }
-    #[cfg(all(not(target_os = "macos"), target_arch = "aarch64", unix))]
-    {
-        if version.is_null()
-            || (((unsafe { *version.add(0) }) as u32) as i32)
-                != (((unsafe { my_version[0] }) as u32) as i32)
-            || (stream_size as c_ulong) != (std::mem::size_of::<z_stream_s>() as c_ulong)
-        {
-            return -6;
-        }
-    }
-    #[cfg(all(target_arch = "arm", unix))]
-    {
-        if version.is_null()
-            || (((unsafe { *version.add(0) }) as u32) as i32)
-                != (((unsafe { my_version[0] }) as u32) as i32)
-            || (stream_size as u32) != (std::mem::size_of::<z_stream_s>() as u32)
-        {
-            return -6;
-        }
-    }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        if version.is_null()
-            || ((unsafe { *version.add(0) }) as i32) != ((unsafe { my_version[0] }) as i32)
-            || ((stream_size as i64) as u64) != (std::mem::size_of::<z_stream_s>() as u64)
-        {
-            return -6;
-        }
+        return -6;
     }
     if strm.is_null() {
         return -2;
@@ -1697,39 +1329,13 @@ extern "C-unwind" fn deflateInit2_(
         windowBits = 9;
     }
     // until 256-byte window bug fixed
-    #[cfg(all(target_pointer_width = "64", unix))]
     let s: *mut internal_state =
-        ZALLOC__2!(strm, 1i32, std::mem::size_of::<internal_state>() as c_ulong)
+        ZALLOC__2!(strm, 1i32, std::mem::size_of::<internal_state>() as size_t)
             as *mut internal_state;
-    #[cfg(target_pointer_width = "32")]
-    let s: *mut internal_state =
-        ZALLOC__4!(strm, 1i32, std::mem::size_of::<internal_state>() as u32) as *mut internal_state;
-    #[cfg(all(target_pointer_width = "64", windows))]
-    let s: *mut internal_state =
-        ZALLOC__2!(strm, 1i32, std::mem::size_of::<internal_state>() as u64) as *mut internal_state;
     if s.is_null() {
         return -4;
     }
-    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
-    {
-        zmemzero!(s, std::mem::size_of::<internal_state>() as c_ulong);
-    }
-    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-    {
-        zmemzero!(s, std::mem::size_of::<internal_state>() as u32);
-    }
-    #[cfg(target_os = "macos")]
-    {
-        zmemzero__2!(s, std::mem::size_of::<internal_state>() as c_ulong);
-    }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        zmemzero!(s, std::mem::size_of::<internal_state>() as u64);
-    }
-    #[cfg(all(target_arch = "arm", windows))]
-    {
-        zmemzero__2!(s, std::mem::size_of::<internal_state>() as u32);
-    }
+    zmemzero!(s, std::mem::size_of::<internal_state>() as size_t);
     unsafe {
         (*strm).state = s;
     }
@@ -1768,82 +1374,25 @@ extern "C-unwind" fn deflateInit2_(
         (*s).hash_shift = unsafe { (*s).hash_bits }.wrapping_add(3).wrapping_sub(1) / 3;
     }
     unsafe {
-        #[cfg(all(target_pointer_width = "64", unix))]
-        {
-            (*s).window = ZALLOC!(
-                strm,
-                unsafe { (*s).w_size },
-                (2 as c_ulong).wrapping_mul(std::mem::size_of::<u8>() as c_ulong)
-            ) as *mut u8;
-        }
-        #[cfg(target_pointer_width = "32")]
-        {
-            (*s).window = ZALLOC__3!(
-                strm,
-                unsafe { (*s).w_size },
-                2u32.wrapping_mul(std::mem::size_of::<u8>() as u32)
-            ) as *mut u8;
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            (*s).window = ZALLOC!(
-                strm,
-                unsafe { (*s).w_size },
-                2u64.wrapping_mul(std::mem::size_of::<u8>() as u64)
-            ) as *mut u8;
-        }
+        (*s).window = ZALLOC!(
+            strm,
+            unsafe { (*s).w_size },
+            (2 as size_t).wrapping_mul(std::mem::size_of::<u8>() as size_t)
+        ) as *mut u8;
     }
     unsafe {
-        #[cfg(all(target_pointer_width = "64", unix))]
-        {
-            (*s).prev = ZALLOC!(
-                strm,
-                unsafe { (*s).w_size },
-                std::mem::size_of::<u16>() as c_ulong
-            ) as *mut u16;
-        }
-        #[cfg(target_pointer_width = "32")]
-        {
-            (*s).prev = ZALLOC__3!(
-                strm,
-                unsafe { (*s).w_size },
-                std::mem::size_of::<u16>() as u32
-            ) as *mut u16;
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            (*s).prev = ZALLOC!(
-                strm,
-                unsafe { (*s).w_size },
-                std::mem::size_of::<u16>() as u64
-            ) as *mut u16;
-        }
+        (*s).prev = ZALLOC!(
+            strm,
+            unsafe { (*s).w_size },
+            std::mem::size_of::<u16>() as size_t
+        ) as *mut u16;
     }
     unsafe {
-        #[cfg(all(target_pointer_width = "64", unix))]
-        {
-            (*s).head = ZALLOC!(
-                strm,
-                unsafe { (*s).hash_size },
-                std::mem::size_of::<u16>() as c_ulong
-            ) as *mut u16;
-        }
-        #[cfg(target_pointer_width = "32")]
-        {
-            (*s).head = ZALLOC__3!(
-                strm,
-                unsafe { (*s).hash_size },
-                std::mem::size_of::<u16>() as u32
-            ) as *mut u16;
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            (*s).head = ZALLOC!(
-                strm,
-                unsafe { (*s).hash_size },
-                std::mem::size_of::<u16>() as u64
-            ) as *mut u16;
-        }
+        (*s).head = ZALLOC!(
+            strm,
+            unsafe { (*s).hash_size },
+            std::mem::size_of::<u16>() as size_t
+        ) as *mut u16;
     }
     unsafe {
         (*s).high_water = 0;
@@ -1954,7 +1503,7 @@ extern "C-unwind" fn deflateInit2_(
         (*s).strategy = strategy;
     }
     unsafe {
-        (*s).method = (method as i8) as u8;
+        (*s).method = method as u8;
     }
     deflateReset(strm)
 }
@@ -2053,26 +1602,7 @@ extern "C-unwind" fn deflateSetDictionary(
     if dictLength >= unsafe { (*s).w_size } {
         if wrap == 0 {
             // already empty otherwise
-            #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
-            {
-                CLEAR_HASH__3!(s);
-            }
-            #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-            {
-                CLEAR_HASH__2!(s);
-            }
-            #[cfg(target_os = "macos")]
-            {
-                CLEAR_HASH__5!(s);
-            }
-            #[cfg(all(target_pointer_width = "64", windows))]
-            {
-                CLEAR_HASH__4!(s);
-            }
-            #[cfg(all(target_arch = "arm", windows))]
-            {
-                CLEAR_HASH!(s);
-            }
+            CLEAR_HASH!(s);
             unsafe {
                 (*s).strstart = 0;
             }
@@ -2180,7 +1710,7 @@ extern "C-unwind" fn deflateGetDictionary(
         len = unsafe { (*s).w_size };
     }
     if !dictionary.is_null() && len != 0 {
-        #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+        #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
@@ -2190,25 +1720,11 @@ extern "C-unwind" fn deflateGetDictionary(
                         .sub(len as usize) as *const ())
                         as *const core::ffi::c_void) as *const u8,
                     ((dictionary as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                    ((len as c_ulong) as usize) as usize,
+                    ((len as size_t) as usize) as usize,
                 )
             };
         }
-        #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-        {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    ((unsafe { (*s).window }
-                        .offset((*s).strstart as isize)
-                        .offset((*s).lookahead as isize)
-                        .sub(len as usize) as *const ())
-                        as *const core::ffi::c_void) as *const u8,
-                    ((dictionary as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                    (len as usize) as usize,
-                )
-            };
-        }
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
@@ -2217,34 +1733,7 @@ extern "C-unwind" fn deflateGetDictionary(
                         .offset((*s).lookahead as isize)
                         .sub(len as usize) as *const ()) as *const u8,
                     dictionary as *mut u8,
-                    (len as c_ulong) as usize,
-                )
-            };
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    ((unsafe { (*s).window }
-                        .offset((*s).strstart as isize)
-                        .offset((*s).lookahead as isize)
-                        .sub(len as usize) as *const ())
-                        as *const core::ffi::c_void) as *const u8,
-                    ((dictionary as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                    ((len as u64) as usize) as usize,
-                )
-            };
-        }
-        #[cfg(all(target_arch = "arm", windows))]
-        {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    (unsafe { (*s).window }
-                        .offset((*s).strstart as isize)
-                        .offset((*s).lookahead as isize)
-                        .sub(len as usize) as *const ()) as *const u8,
-                    dictionary as *mut u8,
-                    len as usize,
+                    (len as size_t) as usize,
                 )
             };
         }
@@ -2332,26 +1821,7 @@ fn lm_init(s: *mut internal_state) {
     unsafe {
         (*s).window_size = (2 as c_ulong).wrapping_mul((*s).w_size as c_ulong);
     }
-    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
-    {
-        CLEAR_HASH__3!(s);
-    }
-    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-    {
-        CLEAR_HASH__2!(s);
-    }
-    #[cfg(target_os = "macos")]
-    {
-        CLEAR_HASH__5!(s);
-    }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        CLEAR_HASH__4!(s);
-    }
-    #[cfg(all(target_arch = "arm", windows))]
-    {
-        CLEAR_HASH!(s);
-    }
+    CLEAR_HASH!(s);
     // Set the default configuration parameters:
     unsafe {
         (*s).max_lazy_match = configuration_table.0[(*s).level as usize].max_lazy as u32;
@@ -2360,7 +1830,7 @@ fn lm_init(s: *mut internal_state) {
         (*s).good_match = configuration_table.0[(*s).level as usize].good_length as u32;
     }
     unsafe {
-        (*s).nice_match = (configuration_table.0[(*s).level as usize].nice_length as u32) as i32;
+        (*s).nice_match = configuration_table.0[(*s).level as usize].nice_length as i32;
     }
     unsafe {
         (*s).max_chain_length = configuration_table.0[(*s).level as usize].max_chain as u32;
@@ -2486,9 +1956,9 @@ extern "C-unwind" fn deflatePrime(strm: *mut z_stream_s, mut bits: i32, mut valu
             put = bits;
         }
         unsafe {
-            (*s).bi_buf = (((((*s).bi_buf as u32) as i32)
-                | ((((((value & (1i32 << put) - 1) << (*s).bi_valid) as i16) as u16) as u32)
-                    as i32)) as i16) as u16;
+            (*s).bi_buf = (((*s).bi_buf as i32)
+                | ((((value & (1i32 << put) - 1) << (*s).bi_valid) as u16) as i32))
+                as u16;
         }
         unsafe {
             (*s).bi_valid = (*s).bi_valid + put;
@@ -2562,26 +2032,7 @@ extern "C-unwind" fn deflateParams(strm: *mut z_stream_s, mut level: i32, strate
             if (unsafe { (*s).matches }) == 1 {
                 slide_hash(s);
             } else {
-                #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
-                {
-                    CLEAR_HASH__3!(s);
-                }
-                #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-                {
-                    CLEAR_HASH__2!(s);
-                }
-                #[cfg(target_os = "macos")]
-                {
-                    CLEAR_HASH__5!(s);
-                }
-                #[cfg(all(target_pointer_width = "64", windows))]
-                {
-                    CLEAR_HASH__4!(s);
-                }
-                #[cfg(all(target_arch = "arm", windows))]
-                {
-                    CLEAR_HASH!(s);
-                }
+                CLEAR_HASH!(s);
             }
             unsafe {
                 (*s).matches = 0;
@@ -2597,7 +2048,7 @@ extern "C-unwind" fn deflateParams(strm: *mut z_stream_s, mut level: i32, strate
             (*s).good_match = configuration_table.0[level as usize].good_length as u32;
         }
         unsafe {
-            (*s).nice_match = (configuration_table.0[level as usize].nice_length as u32) as i32;
+            (*s).nice_match = configuration_table.0[level as usize].nice_length as i32;
         }
         unsafe {
             (*s).max_chain_length = configuration_table.0[level as usize].max_chain as u32;
@@ -2667,61 +2118,47 @@ extern "C-unwind" fn deflateBound_z(strm: *mut z_stream_s, sourceLen: size_t) ->
     // upper bound for fixed blocks with 9-bit literals and length 255
     // (memLevel == 2, which is the lowest that may not use stored blocks) --
     // ~13% overhead plus a small constant
-    #[cfg(target_pointer_width = "64")]
-    {
-        fixedlen = sourceLen
-            .wrapping_add(sourceLen >> 3i32)
-            .wrapping_add(sourceLen >> 8i32)
-            .wrapping_add(sourceLen >> 9i32)
-            .wrapping_add(4);
-        if fixedlen < sourceLen {
+    fixedlen = sourceLen
+        .wrapping_add(sourceLen >> 3i32)
+        .wrapping_add(sourceLen >> 8i32)
+        .wrapping_add(sourceLen >> 9i32)
+        .wrapping_add(4);
+    if fixedlen < sourceLen {
+        #[cfg(target_pointer_width = "64")]
+        {
             fixedlen = (18446744073709551615 as size_t);
         }
-    }
-    #[cfg(target_pointer_width = "32")]
-    {
-        fixedlen = (sourceLen as u32)
-            .wrapping_add((sourceLen as u32) >> 3i32)
-            .wrapping_add((sourceLen as u32) >> 8i32)
-            .wrapping_add((sourceLen as u32) >> 9i32)
-            .wrapping_add(4) as size_t;
-        if (fixedlen as u32) < (sourceLen as u32) {
+        #[cfg(target_pointer_width = "32")]
+        {
             fixedlen = (4294967295 as size_t);
         }
     }
     // upper bound for stored blocks with length 127 (memLevel == 1) --
     // ~4% overhead plus a small constant
-    #[cfg(target_pointer_width = "64")]
-    {
-        storelen = sourceLen
-            .wrapping_add(sourceLen >> 5i32)
-            .wrapping_add(sourceLen >> 7i32)
-            .wrapping_add(sourceLen >> 11i32)
-            .wrapping_add(7);
-        if storelen < sourceLen {
+    storelen = sourceLen
+        .wrapping_add(sourceLen >> 5i32)
+        .wrapping_add(sourceLen >> 7i32)
+        .wrapping_add(sourceLen >> 11i32)
+        .wrapping_add(7);
+    if storelen < sourceLen {
+        #[cfg(target_pointer_width = "64")]
+        {
             storelen = (18446744073709551615 as size_t);
         }
-    }
-    #[cfg(target_pointer_width = "32")]
-    {
-        storelen = (sourceLen as u32)
-            .wrapping_add((sourceLen as u32) >> 5i32)
-            .wrapping_add((sourceLen as u32) >> 7i32)
-            .wrapping_add((sourceLen as u32) >> 11i32)
-            .wrapping_add(7) as size_t;
-        if (storelen as u32) < (sourceLen as u32) {
+        #[cfg(target_pointer_width = "32")]
+        {
             storelen = (4294967295 as size_t);
         }
     }
     // if can't get parameters, return larger bound plus a wrapper
     if deflateStateCheck(strm) != 0 {
+        bound = if fixedlen > storelen {
+            fixedlen
+        } else {
+            storelen
+        };
         #[cfg(target_pointer_width = "64")]
         {
-            bound = if fixedlen > storelen {
-                fixedlen
-            } else {
-                storelen
-            };
             return if bound.wrapping_add(18) < bound {
                 (18446744073709551615 as size_t)
             } else {
@@ -2730,16 +2167,11 @@ extern "C-unwind" fn deflateBound_z(strm: *mut z_stream_s, sourceLen: size_t) ->
         }
         #[cfg(target_pointer_width = "32")]
         {
-            bound = (if (fixedlen as u32) > (storelen as u32) {
-                fixedlen as u32
+            return if bound.wrapping_add(18) < bound {
+                (4294967295 as size_t)
             } else {
-                storelen as u32
-            }) as size_t;
-            return (if (bound as u32).wrapping_add(18) < (bound as u32) {
-                4294967295u32
-            } else {
-                (bound as u32).wrapping_add(18)
-            }) as size_t;
+                bound.wrapping_add(18)
+            };
         }
     }
     // compute wrapper length
@@ -2767,30 +2199,14 @@ extern "C-unwind" fn deflateBound_z(strm: *mut z_stream_s, sourceLen: size_t) ->
                     // user-supplied gzip header
                     let mut str: *mut u8 = unsafe { std::mem::zeroed() };
                     if !unsafe { (*(*s).gzhead).extra }.is_null() {
-                        #[cfg(target_pointer_width = "64")]
-                        {
-                            wraplen = wraplen.wrapping_add(
-                                2u32.wrapping_add(unsafe { (*(*s).gzhead).extra_len }) as size_t,
-                            );
-                        }
-                        #[cfg(target_pointer_width = "32")]
-                        {
-                            wraplen = (wraplen as u32).wrapping_add(
-                                2u32.wrapping_add(unsafe { (*(*s).gzhead).extra_len }),
-                            ) as size_t;
-                        }
+                        wraplen = wraplen.wrapping_add(
+                            2u32.wrapping_add(unsafe { (*(*s).gzhead).extra_len }) as size_t,
+                        );
                     }
                     str = unsafe { (*(*s).gzhead).name };
                     if !str.is_null() {
                         loop {
-                            #[cfg(target_pointer_width = "64")]
-                            {
-                                wraplen = wraplen.wrapping_add(1);
-                            }
-                            #[cfg(target_pointer_width = "32")]
-                            {
-                                wraplen = (wraplen as u32).wrapping_add(1) as size_t;
-                            }
+                            wraplen = wraplen.wrapping_add(1);
                             let __v6: *mut u8 = str;
                             str = unsafe { __v6.add(1) };
                             if (unsafe { *__v6 }) == 0 {
@@ -2801,14 +2217,7 @@ extern "C-unwind" fn deflateBound_z(strm: *mut z_stream_s, sourceLen: size_t) ->
                     str = unsafe { (*(*s).gzhead).comment };
                     if !str.is_null() {
                         loop {
-                            #[cfg(target_pointer_width = "64")]
-                            {
-                                wraplen = wraplen.wrapping_add(1);
-                            }
-                            #[cfg(target_pointer_width = "32")]
-                            {
-                                wraplen = (wraplen as u32).wrapping_add(1) as size_t;
-                            }
+                            wraplen = wraplen.wrapping_add(1);
                             let __v11: *mut u8 = str;
                             str = unsafe { __v11.add(1) };
                             if (unsafe { *__v11 }) == 0 {
@@ -2817,14 +2226,7 @@ extern "C-unwind" fn deflateBound_z(strm: *mut z_stream_s, sourceLen: size_t) ->
                         }
                     }
                     if (unsafe { (*(*s).gzhead).hcrc }) != 0 {
-                        #[cfg(target_pointer_width = "64")]
-                        {
-                            wraplen = wraplen.wrapping_add(2);
-                        }
-                        #[cfg(target_pointer_width = "32")]
-                        {
-                            wraplen = (wraplen as u32).wrapping_add(2) as size_t;
-                        }
+                        wraplen = wraplen.wrapping_add(2);
                     }
                 }
             }
@@ -2857,15 +2259,15 @@ extern "C-unwind" fn deflateBound_z(strm: *mut z_stream_s, sourceLen: size_t) ->
     }
     // if not default parameters, return one of the conservative bounds
     if (unsafe { (*s).w_bits }) != 15 || (unsafe { (*s).hash_bits }) != 15u32 {
+        bound = if (unsafe { (*s).w_bits }) <= unsafe { (*s).hash_bits }
+            && (unsafe { (*s).level }) != 0
+        {
+            fixedlen
+        } else {
+            storelen
+        };
         #[cfg(target_pointer_width = "64")]
         {
-            bound = if (unsafe { (*s).w_bits }) <= unsafe { (*s).hash_bits }
-                && (unsafe { (*s).level }) != 0
-            {
-                fixedlen
-            } else {
-                storelen
-            };
             return if bound.wrapping_add(wraplen) < bound {
                 (18446744073709551615 as size_t)
             } else {
@@ -2874,54 +2276,36 @@ extern "C-unwind" fn deflateBound_z(strm: *mut z_stream_s, sourceLen: size_t) ->
         }
         #[cfg(target_pointer_width = "32")]
         {
-            bound = (if (unsafe { (*s).w_bits }) <= unsafe { (*s).hash_bits }
-                && (unsafe { (*s).level }) != 0
-            {
-                fixedlen as u32
+            return if bound.wrapping_add(wraplen) < bound {
+                (4294967295 as size_t)
             } else {
-                storelen as u32
-            }) as size_t;
-            return (if (bound as u32).wrapping_add(wraplen as u32) < (bound as u32) {
-                4294967295u32
-            } else {
-                (bound as u32).wrapping_add(wraplen as u32)
-            }) as size_t;
+                bound.wrapping_add(wraplen)
+            };
         }
     }
     // default settings: return tight bound for that case -- ~0.03% overhead
     // plus a small constant
+    bound = sourceLen
+        .wrapping_add(sourceLen >> 12i32)
+        .wrapping_add(sourceLen >> 14i32)
+        .wrapping_add(sourceLen >> 25i32)
+        .wrapping_add(13)
+        .wrapping_sub(6)
+        .wrapping_add(wraplen);
     #[cfg(target_pointer_width = "64")]
     {
-        bound = sourceLen
-            .wrapping_add(sourceLen >> 12i32)
-            .wrapping_add(sourceLen >> 14i32)
-            .wrapping_add(sourceLen >> 25i32)
-            .wrapping_add(13)
-            .wrapping_sub(6)
-            .wrapping_add(wraplen);
-        {
-            if bound < sourceLen {
-                (18446744073709551615 as size_t)
-            } else {
-                bound
-            }
+        if bound < sourceLen {
+            (18446744073709551615 as size_t)
+        } else {
+            bound
         }
     }
     #[cfg(target_pointer_width = "32")]
     {
-        bound = (sourceLen as u32)
-            .wrapping_add((sourceLen as u32) >> 12i32)
-            .wrapping_add((sourceLen as u32) >> 14i32)
-            .wrapping_add((sourceLen as u32) >> 25i32)
-            .wrapping_add(13)
-            .wrapping_sub(6)
-            .wrapping_add(wraplen as u32) as size_t;
-        {
-            (if (bound as u32) < (sourceLen as u32) {
-                4294967295u32
-            } else {
-                bound as u32
-            }) as size_t
+        if bound < sourceLen {
+            (4294967295 as size_t)
+        } else {
+            bound
         }
     }
 }
@@ -2939,7 +2323,7 @@ extern "C-unwind" fn deflateBound(strm: *mut z_stream_s, sourceLen: c_ulong) -> 
     }
     #[cfg(target_pointer_width = "32")]
     {
-        if (bound as c_ulong) != ((bound as u32) as c_ulong) {
+        if (bound as c_ulong) != (bound as c_ulong) {
             (4294967295 as c_ulong)
         } else {
             bound as c_ulong
@@ -2979,53 +2363,23 @@ fn flush_pending(strm: *mut z_stream_s) {
     if len == 0 {
         return;
     }
-    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+    #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 (((*s).pending_out as *const ()) as *const core::ffi::c_void) as *const u8,
                 (((*strm).next_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                ((len as c_ulong) as usize) as usize,
+                ((len as size_t) as usize) as usize,
             )
         };
     }
-    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                (((*s).pending_out as *const ()) as *const core::ffi::c_void) as *const u8,
-                (((*strm).next_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (len as usize) as usize,
-            )
-        };
-    }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 ((*s).pending_out as *const ()) as *const u8,
                 ((*strm).next_out as *mut ()) as *mut u8,
-                (len as c_ulong) as usize,
-            )
-        };
-    }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                (((*s).pending_out as *const ()) as *const core::ffi::c_void) as *const u8,
-                (((*strm).next_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                ((len as u64) as usize) as usize,
-            )
-        };
-    }
-    #[cfg(all(target_arch = "arm", windows))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                ((*s).pending_out as *const ()) as *const u8,
-                ((*strm).next_out as *mut ()) as *mut u8,
-                len as usize,
+                (len as size_t) as usize,
             )
         };
     }
@@ -3284,7 +2638,7 @@ extern "C-unwind" fn deflate(strm: *mut z_stream_s, flush: i32) -> i32 {
                 {
                     let copy: c_ulong =
                         unsafe { (*s).pending_buf_size }.wrapping_sub(unsafe { (*s).pending });
-                    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+                    #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
                     {
                         unsafe {
                             std::ptr::copy_nonoverlapping(
@@ -3296,27 +2650,11 @@ extern "C-unwind" fn deflate(strm: *mut z_stream_s, flush: i32) -> i32 {
                                     as *mut ())
                                     as *mut core::ffi::c_void)
                                     as *mut u8,
-                                (copy as usize) as usize,
+                                ((copy as size_t) as usize) as usize,
                             )
                         };
                     }
-                    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-                    {
-                        unsafe {
-                            std::ptr::copy_nonoverlapping(
-                                ((unsafe { (*(*s).gzhead).extra }.offset((*s).gzindex as isize)
-                                    as *const ())
-                                    as *const core::ffi::c_void)
-                                    as *const u8,
-                                ((unsafe { (*s).pending_buf }.offset((*s).pending as isize)
-                                    as *mut ())
-                                    as *mut core::ffi::c_void)
-                                    as *mut u8,
-                                ((copy as u32) as usize) as usize,
-                            )
-                        };
-                    }
-                    #[cfg(target_os = "macos")]
+                    #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
                     {
                         unsafe {
                             std::ptr::copy_nonoverlapping(
@@ -3324,35 +2662,7 @@ extern "C-unwind" fn deflate(strm: *mut z_stream_s, flush: i32) -> i32 {
                                     as *const ()) as *const u8,
                                 (unsafe { (*s).pending_buf }.offset((*s).pending as isize)
                                     as *mut ()) as *mut u8,
-                                copy as usize,
-                            )
-                        };
-                    }
-                    #[cfg(all(target_pointer_width = "64", windows))]
-                    {
-                        unsafe {
-                            std::ptr::copy_nonoverlapping(
-                                ((unsafe { (*(*s).gzhead).extra }.offset((*s).gzindex as isize)
-                                    as *const ())
-                                    as *const core::ffi::c_void)
-                                    as *const u8,
-                                ((unsafe { (*s).pending_buf }.offset((*s).pending as isize)
-                                    as *mut ())
-                                    as *mut core::ffi::c_void)
-                                    as *mut u8,
-                                ((copy as u64) as usize) as usize,
-                            )
-                        };
-                    }
-                    #[cfg(all(target_arch = "arm", windows))]
-                    {
-                        unsafe {
-                            std::ptr::copy_nonoverlapping(
-                                (unsafe { (*(*s).gzhead).extra }.offset((*s).gzindex as isize)
-                                    as *const ()) as *const u8,
-                                (unsafe { (*s).pending_buf }.offset((*s).pending as isize)
-                                    as *mut ()) as *mut u8,
-                                (copy as u32) as usize,
+                                (copy as size_t) as usize,
                             )
                         };
                     }
@@ -3374,7 +2684,7 @@ extern "C-unwind" fn deflate(strm: *mut z_stream_s, flush: i32) -> i32 {
                     beg = 0;
                     left = left.wrapping_sub(copy);
                 }
-                #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+                #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
                 {
                     unsafe {
                         std::ptr::copy_nonoverlapping(
@@ -3384,25 +2694,11 @@ extern "C-unwind" fn deflate(strm: *mut z_stream_s, flush: i32) -> i32 {
                                 as *const u8,
                             ((unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
                                 as *mut core::ffi::c_void) as *mut u8,
-                            (left as usize) as usize,
+                            ((left as size_t) as usize) as usize,
                         )
                     };
                 }
-                #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-                {
-                    unsafe {
-                        std::ptr::copy_nonoverlapping(
-                            ((unsafe { (*(*s).gzhead).extra }.offset((*s).gzindex as isize)
-                                as *const ())
-                                as *const core::ffi::c_void)
-                                as *const u8,
-                            ((unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
-                                as *mut core::ffi::c_void) as *mut u8,
-                            ((left as u32) as usize) as usize,
-                        )
-                    };
-                }
-                #[cfg(target_os = "macos")]
+                #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
                 {
                     unsafe {
                         std::ptr::copy_nonoverlapping(
@@ -3410,33 +2706,7 @@ extern "C-unwind" fn deflate(strm: *mut z_stream_s, flush: i32) -> i32 {
                                 as *const ()) as *const u8,
                             (unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
                                 as *mut u8,
-                            left as usize,
-                        )
-                    };
-                }
-                #[cfg(all(target_pointer_width = "64", windows))]
-                {
-                    unsafe {
-                        std::ptr::copy_nonoverlapping(
-                            ((unsafe { (*(*s).gzhead).extra }.offset((*s).gzindex as isize)
-                                as *const ())
-                                as *const core::ffi::c_void)
-                                as *const u8,
-                            ((unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
-                                as *mut core::ffi::c_void) as *mut u8,
-                            ((left as u64) as usize) as usize,
-                        )
-                    };
-                }
-                #[cfg(all(target_arch = "arm", windows))]
-                {
-                    unsafe {
-                        std::ptr::copy_nonoverlapping(
-                            (unsafe { (*(*s).gzhead).extra }.offset((*s).gzindex as isize)
-                                as *const ()) as *const u8,
-                            (unsafe { (*s).pending_buf }.offset((*s).pending as isize) as *mut ())
-                                as *mut u8,
-                            (left as u32) as usize,
+                            (left as size_t) as usize,
                         )
                     };
                 }
@@ -3473,8 +2743,7 @@ extern "C-unwind" fn deflate(strm: *mut z_stream_s, flush: i32) -> i32 {
                     unsafe {
                         (*s).gzindex = __v76.wrapping_add(1);
                     }
-                    val = ((unsafe { *unsafe { (*(*s).gzhead).name }.add(__v76 as usize) }) as u32)
-                        as i32;
+                    val = (unsafe { *unsafe { (*(*s).gzhead).name }.add(__v76 as usize) }) as i32;
                     put_byte!(s, val);
                     if val == 0 {
                         break;
@@ -3509,8 +2778,8 @@ extern "C-unwind" fn deflate(strm: *mut z_stream_s, flush: i32) -> i32 {
                     unsafe {
                         (*s).gzindex = __v85.wrapping_add(1);
                     }
-                    val = ((unsafe { *unsafe { (*(*s).gzhead).comment }.add(__v85 as usize) })
-                        as u32) as i32;
+                    val =
+                        (unsafe { *unsafe { (*(*s).gzhead).comment }.add(__v85 as usize) }) as i32;
                     put_byte!(s, val);
                     if val == 0 {
                         break;
@@ -3610,27 +2879,7 @@ extern "C-unwind" fn deflate(strm: *mut z_stream_s, flush: i32) -> i32 {
                     // For a full flush, this empty block will be recognized
                     // as a special marker by inflate_sync().
                     if flush == 3 {
-                        #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
-                        {
-                            CLEAR_HASH__3!(s);
-                        }
-                        #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-                        {
-                            CLEAR_HASH__2!(s);
-                        }
-                        #[cfg(target_os = "macos")]
-                        {
-                            CLEAR_HASH__5!(s);
-                        }
-                        #[cfg(all(target_pointer_width = "64", windows))]
-                        {
-                            CLEAR_HASH__4!(s);
-                        }
-                        #[cfg(all(target_arch = "arm", windows))]
-                        {
-                            CLEAR_HASH!(s);
-                        }
-                        // forget history
+                        CLEAR_HASH!(s); // forget history
                         if (unsafe { (*s).lookahead }) == 0 {
                             unsafe {
                                 (*s).strstart = 0;
@@ -3723,13 +2972,13 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
         return -2;
     }
     let ss: *mut internal_state = unsafe { (*source).state };
-    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+    #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 ((source as *const ()) as *const core::ffi::c_void) as *const u8,
                 ((dest as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                ((std::mem::size_of::<z_stream_s>() as c_ulong) as usize) as usize,
+                ((std::mem::size_of::<z_stream_s>() as size_t) as usize) as usize,
             )
         };
     }
@@ -3743,79 +2992,23 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
             )
         };
     }
-    #[cfg(all(target_pointer_width = "64", unix))]
     let ds: *mut internal_state =
-        ZALLOC__2!(dest, 1i32, std::mem::size_of::<internal_state>() as c_ulong)
+        ZALLOC__2!(dest, 1i32, std::mem::size_of::<internal_state>() as size_t)
             as *mut internal_state;
-    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                ((source as *const ()) as *const core::ffi::c_void) as *const u8,
-                ((dest as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                ((std::mem::size_of::<z_stream_s>() as u32) as usize) as usize,
-            )
-        };
-    }
-    #[cfg(target_pointer_width = "32")]
-    let ds: *mut internal_state =
-        ZALLOC__4!(dest, 1i32, std::mem::size_of::<internal_state>() as u32) as *mut internal_state;
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                ((source as *const ()) as *const core::ffi::c_void) as *const u8,
-                ((dest as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                ((std::mem::size_of::<z_stream_s>() as u64) as usize) as usize,
-            )
-        };
-    }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    let ds: *mut internal_state =
-        ZALLOC__2!(dest, 1i32, std::mem::size_of::<internal_state>() as u64) as *mut internal_state;
     if ds.is_null() {
         return -4;
     }
-    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
-    {
-        zmemzero!(ds, std::mem::size_of::<internal_state>() as c_ulong);
-    }
-    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-    {
-        zmemzero!(ds, std::mem::size_of::<internal_state>() as u32);
-    }
-    #[cfg(target_os = "macos")]
-    {
-        zmemzero__2!(ds, std::mem::size_of::<internal_state>() as c_ulong);
-    }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        zmemzero!(ds, std::mem::size_of::<internal_state>() as u64);
-    }
-    #[cfg(all(target_arch = "arm", windows))]
-    {
-        zmemzero__2!(ds, std::mem::size_of::<internal_state>() as u32);
-    }
+    zmemzero!(ds, std::mem::size_of::<internal_state>() as size_t);
     unsafe {
         (*dest).state = ds;
     }
-    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+    #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 ((ss as *const ()) as *const core::ffi::c_void) as *const u8,
                 ((ds as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                ((std::mem::size_of::<internal_state>() as c_ulong) as usize) as usize,
-            )
-        };
-    }
-    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                ((ss as *const ()) as *const core::ffi::c_void) as *const u8,
-                ((ds as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                ((std::mem::size_of::<internal_state>() as u32) as usize) as usize,
+                ((std::mem::size_of::<internal_state>() as size_t) as usize) as usize,
             )
         };
     }
@@ -3829,96 +3022,29 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
             )
         };
     }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                ((ss as *const ()) as *const core::ffi::c_void) as *const u8,
-                ((ds as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                ((std::mem::size_of::<internal_state>() as u64) as usize) as usize,
-            )
-        };
-    }
     unsafe {
         (*ds).strm = dest;
     }
     unsafe {
-        #[cfg(all(target_pointer_width = "64", unix))]
-        {
-            (*ds).window = ZALLOC!(
-                dest,
-                unsafe { (*ds).w_size },
-                (2 as c_ulong).wrapping_mul(std::mem::size_of::<u8>() as c_ulong)
-            ) as *mut u8;
-        }
-        #[cfg(target_pointer_width = "32")]
-        {
-            (*ds).window = ZALLOC__3!(
-                dest,
-                unsafe { (*ds).w_size },
-                2u32.wrapping_mul(std::mem::size_of::<u8>() as u32)
-            ) as *mut u8;
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            (*ds).window = ZALLOC!(
-                dest,
-                unsafe { (*ds).w_size },
-                2u64.wrapping_mul(std::mem::size_of::<u8>() as u64)
-            ) as *mut u8;
-        }
+        (*ds).window = ZALLOC!(
+            dest,
+            unsafe { (*ds).w_size },
+            (2 as size_t).wrapping_mul(std::mem::size_of::<u8>() as size_t)
+        ) as *mut u8;
     }
     unsafe {
-        #[cfg(all(target_pointer_width = "64", unix))]
-        {
-            (*ds).prev = ZALLOC!(
-                dest,
-                unsafe { (*ds).w_size },
-                std::mem::size_of::<u16>() as c_ulong
-            ) as *mut u16;
-        }
-        #[cfg(target_pointer_width = "32")]
-        {
-            (*ds).prev = ZALLOC__3!(
-                dest,
-                unsafe { (*ds).w_size },
-                std::mem::size_of::<u16>() as u32
-            ) as *mut u16;
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            (*ds).prev = ZALLOC!(
-                dest,
-                unsafe { (*ds).w_size },
-                std::mem::size_of::<u16>() as u64
-            ) as *mut u16;
-        }
+        (*ds).prev = ZALLOC!(
+            dest,
+            unsafe { (*ds).w_size },
+            std::mem::size_of::<u16>() as size_t
+        ) as *mut u16;
     }
     unsafe {
-        #[cfg(all(target_pointer_width = "64", unix))]
-        {
-            (*ds).head = ZALLOC!(
-                dest,
-                unsafe { (*ds).hash_size },
-                std::mem::size_of::<u16>() as c_ulong
-            ) as *mut u16;
-        }
-        #[cfg(target_pointer_width = "32")]
-        {
-            (*ds).head = ZALLOC__3!(
-                dest,
-                unsafe { (*ds).hash_size },
-                std::mem::size_of::<u16>() as u32
-            ) as *mut u16;
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            (*ds).head = ZALLOC!(
-                dest,
-                unsafe { (*ds).hash_size },
-                std::mem::size_of::<u16>() as u64
-            ) as *mut u16;
-        }
+        (*ds).head = ZALLOC!(
+            dest,
+            unsafe { (*ds).hash_size },
+            std::mem::size_of::<u16>() as size_t
+        ) as *mut u16;
     }
     unsafe {
         #[cfg(feature = "lit-mem")]
@@ -3939,15 +3065,18 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
         return -4;
     }
     // following zmemcpy's do not work for 16-bit MSDOS
-    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+    #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 (((*ss).window as *const ()) as *const core::ffi::c_void) as *const u8,
                 (((*ds).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                ((*ss).high_water as usize) as usize,
+                (((*ss).high_water as size_t) as usize) as usize,
             )
         };
+    }
+    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64"))]
+    {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 (((*ss).prev as *const ()) as *const core::ffi::c_void) as *const u8,
@@ -3958,8 +3087,8 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
                     (*ds).w_size
                 } else {
                     unsafe { (*ss).strstart }.wrapping_sub((*ss).insert)
-                }) as c_ulong)
-                    .wrapping_mul(std::mem::size_of::<u16>() as c_ulong) as usize)
+                }) as size_t)
+                    .wrapping_mul(std::mem::size_of::<u16>() as size_t) as usize)
                     as usize,
             )
         };
@@ -3967,7 +3096,7 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
             std::ptr::copy_nonoverlapping(
                 (((*ss).head as *const ()) as *const core::ffi::c_void) as *const u8,
                 (((*ds).head as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (((*ds).hash_size as c_ulong).wrapping_mul(std::mem::size_of::<u16>() as c_ulong)
+                (((*ds).hash_size as size_t).wrapping_mul(std::mem::size_of::<u16>() as size_t)
                     as usize) as usize,
             )
         };
@@ -3976,43 +3105,40 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
-                (((*ss).window as *const ()) as *const core::ffi::c_void) as *const u8,
-                (((*ds).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (((*ss).high_water as u32) as usize) as usize,
-            )
-        };
-        unsafe {
-            std::ptr::copy_nonoverlapping(
                 (((*ss).prev as *const ()) as *const core::ffi::c_void) as *const u8,
                 (((*ds).prev as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (if (*ss).slid != 0
+                ((if (*ss).slid != 0
                     || unsafe { (*ss).strstart }.wrapping_sub((*ss).insert) > (*ds).w_size
                 {
                     (*ds).w_size
                 } else {
                     unsafe { (*ss).strstart }.wrapping_sub((*ss).insert)
                 }
-                .wrapping_mul(std::mem::size_of::<u16>() as u32) as usize) as usize,
+                .wrapping_mul(std::mem::size_of::<u16>() as u32) as size_t)
+                    as usize) as usize,
             )
         };
         unsafe {
             std::ptr::copy_nonoverlapping(
                 (((*ss).head as *const ()) as *const core::ffi::c_void) as *const u8,
                 (((*ds).head as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (unsafe { (*ds).hash_size }.wrapping_mul(std::mem::size_of::<u16>() as u32)
-                    as usize) as usize,
+                ((unsafe { (*ds).hash_size }.wrapping_mul(std::mem::size_of::<u16>() as u32)
+                    as size_t) as usize) as usize,
             )
         };
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 ((*ss).window as *const ()) as *const u8,
                 ((*ds).window as *mut ()) as *mut u8,
-                (*ss).high_water as usize,
+                ((*ss).high_water as size_t) as usize,
             )
         };
+    }
+    #[cfg(target_os = "macos")]
+    {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 ((*ss).prev as *const ()) as *const u8,
@@ -4023,48 +3149,15 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
                     (*ds).w_size
                 } else {
                     unsafe { (*ss).strstart }.wrapping_sub((*ss).insert)
-                }) as c_ulong)
-                    .wrapping_mul(std::mem::size_of::<u16>() as c_ulong) as usize,
+                }) as size_t)
+                    .wrapping_mul(std::mem::size_of::<u16>() as size_t) as usize,
             )
         };
         unsafe {
             std::ptr::copy_nonoverlapping(
                 ((*ss).head as *const ()) as *const u8,
                 ((*ds).head as *mut ()) as *mut u8,
-                ((*ds).hash_size as c_ulong).wrapping_mul(std::mem::size_of::<u16>() as c_ulong)
-                    as usize,
-            )
-        };
-    }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                (((*ss).window as *const ()) as *const core::ffi::c_void) as *const u8,
-                (((*ds).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (((*ss).high_water as u64) as usize) as usize,
-            )
-        };
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                (((*ss).prev as *const ()) as *const core::ffi::c_void) as *const u8,
-                (((*ds).prev as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (((if (*ss).slid != 0
-                    || unsafe { (*ss).strstart }.wrapping_sub((*ss).insert) > (*ds).w_size
-                {
-                    (*ds).w_size
-                } else {
-                    unsafe { (*ss).strstart }.wrapping_sub((*ss).insert)
-                }) as u64)
-                    .wrapping_mul(std::mem::size_of::<u16>() as u64) as usize)
-                    as usize,
-            )
-        };
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                (((*ss).head as *const ()) as *const core::ffi::c_void) as *const u8,
-                (((*ds).head as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (((*ds).hash_size as u64).wrapping_mul(std::mem::size_of::<u16>() as u64) as usize)
+                ((*ds).hash_size as size_t).wrapping_mul(std::mem::size_of::<u16>() as size_t)
                     as usize,
             )
         };
@@ -4073,103 +3166,51 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
-                ((*ss).window as *const ()) as *const u8,
-                ((*ds).window as *mut ()) as *mut u8,
-                ((*ss).high_water as u32) as usize,
-            )
-        };
-        unsafe {
-            std::ptr::copy_nonoverlapping(
                 ((*ss).prev as *const ()) as *const u8,
                 ((*ds).prev as *mut ()) as *mut u8,
-                if (*ss).slid != 0
+                (if (*ss).slid != 0
                     || unsafe { (*ss).strstart }.wrapping_sub((*ss).insert) > (*ds).w_size
                 {
                     (*ds).w_size
                 } else {
                     unsafe { (*ss).strstart }.wrapping_sub((*ss).insert)
                 }
-                .wrapping_mul(std::mem::size_of::<u16>() as u32) as usize,
+                .wrapping_mul(std::mem::size_of::<u16>() as u32) as size_t)
+                    as usize,
             )
         };
         unsafe {
             std::ptr::copy_nonoverlapping(
                 ((*ss).head as *const ()) as *const u8,
                 ((*ds).head as *mut ()) as *mut u8,
-                unsafe { (*ds).hash_size }.wrapping_mul(std::mem::size_of::<u16>() as u32) as usize,
+                (unsafe { (*ds).hash_size }.wrapping_mul(std::mem::size_of::<u16>() as u32)
+                    as size_t) as usize,
             )
         };
     }
     unsafe {
-        #[cfg(all(target_pointer_width = "64", unix))]
-        {
-            (*ds).pending_out = unsafe { (*ds).pending_buf }.offset(
-                (unsafe { (*ss).pending_out }.offset_from((*ss).pending_buf as *mut u8) as c_long)
-                    as isize,
-            );
-        }
-        #[cfg(target_pointer_width = "32")]
-        {
-            (*ds).pending_out = unsafe { (*ds).pending_buf }.offset(
-                (unsafe { (*ss).pending_out }.offset_from((*ss).pending_buf as *mut u8) as i32)
-                    as isize,
-            );
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            (*ds).pending_out = unsafe { (*ds).pending_buf }.offset(
-                (unsafe { (*ss).pending_out }.offset_from((*ss).pending_buf as *mut u8) as i64)
-                    as isize,
-            );
-        }
+        (*ds).pending_out = unsafe { (*ds).pending_buf }.offset(
+            (unsafe { (*ss).pending_out }.offset_from((*ss).pending_buf as *mut u8) as ptrdiff_t)
+                as isize,
+        );
     }
-    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+    #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 (((*ss).pending_out as *const ()) as *const core::ffi::c_void) as *const u8,
                 (((*ds).pending_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                ((*ss).pending as usize) as usize,
+                (((*ss).pending as size_t) as usize) as usize,
             )
         };
     }
-    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                (((*ss).pending_out as *const ()) as *const core::ffi::c_void) as *const u8,
-                (((*ds).pending_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (((*ss).pending as u32) as usize) as usize,
-            )
-        };
-    }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 ((*ss).pending_out as *const ()) as *const u8,
                 ((*ds).pending_out as *mut ()) as *mut u8,
-                (*ss).pending as usize,
-            )
-        };
-    }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                (((*ss).pending_out as *const ()) as *const core::ffi::c_void) as *const u8,
-                (((*ds).pending_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (((*ss).pending as u64) as usize) as usize,
-            )
-        };
-    }
-    #[cfg(all(target_arch = "arm", windows))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                ((*ss).pending_out as *const ()) as *const u8,
-                ((*ds).pending_out as *mut ()) as *mut u8,
-                ((*ss).pending as u32) as usize,
+                ((*ss).pending as size_t) as usize,
             )
         };
     }
@@ -4193,7 +3234,6 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
     #[cfg(all(
         not(target_os = "macos"),
         target_pointer_width = "64",
-        unix,
         feature = "lit-mem"
     ))]
     {
@@ -4201,15 +3241,8 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
             std::ptr::copy_nonoverlapping(
                 (((*ss).d_buf as *const ()) as *const core::ffi::c_void) as *const u8,
                 (((*ds).d_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (((*ss).sym_next as c_ulong).wrapping_mul(std::mem::size_of::<u16>() as c_ulong)
+                (((*ss).sym_next as size_t).wrapping_mul(std::mem::size_of::<u16>() as size_t)
                     as usize) as usize,
-            )
-        };
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                (((*ss).l_buf as *const ()) as *const core::ffi::c_void) as *const u8,
-                (((*ds).l_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (((*ss).sym_next as c_ulong) as usize) as usize,
             )
         };
     }
@@ -4222,15 +3255,21 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
             std::ptr::copy_nonoverlapping(
                 (((*ss).d_buf as *const ()) as *const core::ffi::c_void) as *const u8,
                 (((*ds).d_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (unsafe { (*ss).sym_next }.wrapping_mul(std::mem::size_of::<u16>() as u32) as usize)
-                    as usize,
+                ((unsafe { (*ss).sym_next }.wrapping_mul(std::mem::size_of::<u16>() as u32)
+                    as size_t) as usize) as usize,
             )
         };
+    }
+    #[cfg(all(
+        not(any(target_os = "macos", all(target_arch = "arm", windows))),
+        feature = "lit-mem"
+    ))]
+    {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 (((*ss).l_buf as *const ()) as *const core::ffi::c_void) as *const u8,
                 (((*ds).l_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                ((*ss).sym_next as usize) as usize,
+                (((*ss).sym_next as size_t) as usize) as usize,
             )
         };
     }
@@ -4240,33 +3279,8 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
             std::ptr::copy_nonoverlapping(
                 ((*ss).d_buf as *const ()) as *const u8,
                 ((*ds).d_buf as *mut ()) as *mut u8,
-                ((*ss).sym_next as c_ulong).wrapping_mul(std::mem::size_of::<u16>() as c_ulong)
+                ((*ss).sym_next as size_t).wrapping_mul(std::mem::size_of::<u16>() as size_t)
                     as usize,
-            )
-        };
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                ((*ss).l_buf as *const ()) as *const u8,
-                ((*ds).l_buf as *mut ()) as *mut u8,
-                ((*ss).sym_next as c_ulong) as usize,
-            )
-        };
-    }
-    #[cfg(all(target_pointer_width = "64", windows, feature = "lit-mem"))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                (((*ss).d_buf as *const ()) as *const core::ffi::c_void) as *const u8,
-                (((*ds).d_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (((*ss).sym_next as u64).wrapping_mul(std::mem::size_of::<u16>() as u64) as usize)
-                    as usize,
-            )
-        };
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                (((*ss).l_buf as *const ()) as *const core::ffi::c_void) as *const u8,
-                (((*ds).l_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (((*ss).sym_next as u64) as usize) as usize,
             )
         };
     }
@@ -4276,21 +3290,26 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
             std::ptr::copy_nonoverlapping(
                 ((*ss).d_buf as *const ()) as *const u8,
                 ((*ds).d_buf as *mut ()) as *mut u8,
-                unsafe { (*ss).sym_next }.wrapping_mul(std::mem::size_of::<u16>() as u32) as usize,
+                (unsafe { (*ss).sym_next }.wrapping_mul(std::mem::size_of::<u16>() as u32)
+                    as size_t) as usize,
             )
         };
+    }
+    #[cfg(all(
+        any(target_os = "macos", all(target_arch = "arm", windows)),
+        feature = "lit-mem"
+    ))]
+    {
         unsafe {
             std::ptr::copy_nonoverlapping(
                 ((*ss).l_buf as *const ()) as *const u8,
                 ((*ds).l_buf as *mut ()) as *mut u8,
-                (*ss).sym_next as usize,
+                ((*ss).sym_next as size_t) as usize,
             )
         };
     }
     #[cfg(all(
-        not(target_os = "macos"),
-        target_pointer_width = "64",
-        unix,
+        not(any(target_os = "macos", all(target_arch = "arm", windows))),
         not(feature = "lit-mem")
     ))]
     {
@@ -4298,50 +3317,20 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
             std::ptr::copy_nonoverlapping(
                 (((*ss).sym_buf as *const ()) as *const core::ffi::c_void) as *const u8,
                 (((*ds).sym_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (((*ss).sym_next as c_ulong) as usize) as usize,
+                (((*ss).sym_next as size_t) as usize) as usize,
             )
         };
     }
     #[cfg(all(
-        any(target_arch = "x86", all(target_arch = "arm", unix)),
+        any(target_os = "macos", all(target_arch = "arm", windows)),
         not(feature = "lit-mem")
     ))]
     {
         unsafe {
             std::ptr::copy_nonoverlapping(
-                (((*ss).sym_buf as *const ()) as *const core::ffi::c_void) as *const u8,
-                (((*ds).sym_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                ((*ss).sym_next as usize) as usize,
-            )
-        };
-    }
-    #[cfg(all(target_os = "macos", not(feature = "lit-mem")))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
                 ((*ss).sym_buf as *const ()) as *const u8,
                 ((*ds).sym_buf as *mut ()) as *mut u8,
-                ((*ss).sym_next as c_ulong) as usize,
-            )
-        };
-    }
-    #[cfg(all(target_pointer_width = "64", windows, not(feature = "lit-mem")))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                (((*ss).sym_buf as *const ()) as *const core::ffi::c_void) as *const u8,
-                (((*ds).sym_buf as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                (((*ss).sym_next as u64) as usize) as usize,
-            )
-        };
-    }
-    #[cfg(all(target_arch = "arm", windows, not(feature = "lit-mem")))]
-    {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                ((*ss).sym_buf as *const ()) as *const u8,
-                ((*ds).sym_buf as *mut ()) as *mut u8,
-                (*ss).sym_next as usize,
+                ((*ss).sym_next as size_t) as usize,
             )
         };
     }
@@ -4357,12 +3346,7 @@ extern "C-unwind" fn deflateCopy(dest: *mut z_stream_s, source: *mut z_stream_s)
     0
 }
 
-#[cfg(all(
-    target_pointer_width = "64",
-    unix,
-    not(feature = "fastest"),
-    not(feature = "zlib-debug")
-))]
+#[cfg(all(not(feature = "fastest"), not(feature = "zlib-debug")))]
 /// Set match_start to the longest match starting at the given string and
 /// return its length. Matches shorter or equal to prev_length are discarded,
 /// in which case the result is equal to prev_length and match_start is
@@ -4413,18 +3397,17 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
         // conditional jumps will be made that depend on those values.
         // However the length of the match is limited to the lookahead, so
         // the output of deflate is not affected by the uninitialized values.
-        let __v2: bool = if (((unsafe { *r#match.offset(best_len as isize) }) as u32) as i32)
-            != ((scan_end as u32) as i32)
-            || (((unsafe { *r#match.offset((best_len - 1) as isize) }) as u32) as i32)
-                != ((scan_end1 as u32) as i32)
-            || (((unsafe { *r#match }) as u32) as i32) != (((unsafe { *scan }) as u32) as i32)
+        let __v2: bool = if ((unsafe { *r#match.offset(best_len as isize) }) as i32)
+            != (scan_end as i32)
+            || ((unsafe { *r#match.offset((best_len - 1) as isize) }) as i32) != (scan_end1 as i32)
+            || ((unsafe { *r#match }) as i32) != ((unsafe { *scan }) as i32)
         {
             true
         } else {
             let __v3: *mut u8 = r#match;
             let __v4: *mut u8 = unsafe { __v3.add(1) };
             r#match = __v4;
-            (((unsafe { *__v4 }) as u32) as i32) != (((unsafe { *scan.add(1) }) as u32) as i32)
+            ((unsafe { *__v4 }) as i32) != ((unsafe { *scan.add(1) }) as i32)
         };
         if !__v2 {
             // The check at best_len - 1 can be removed because it will be made
@@ -4445,16 +3428,14 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
                 let __v13: *mut u8 = r#match;
                 let __v14: *mut u8 = unsafe { __v13.add(1) };
                 r#match = __v14;
-                let __v15: bool = if (((unsafe { *__v12 }) as u32) as i32)
-                    == (((unsafe { *__v14 }) as u32) as i32)
-                {
+                let __v15: bool = if ((unsafe { *__v12 }) as i32) == ((unsafe { *__v14 }) as i32) {
                     let __v16: *mut u8 = scan;
                     let __v17: *mut u8 = unsafe { __v16.add(1) };
                     scan = __v17;
                     let __v18: *mut u8 = r#match;
                     let __v19: *mut u8 = unsafe { __v18.add(1) };
                     r#match = __v19;
-                    (((unsafe { *__v17 }) as u32) as i32) == (((unsafe { *__v19 }) as u32) as i32)
+                    ((unsafe { *__v17 }) as i32) == ((unsafe { *__v19 }) as i32)
                 } else {
                     false
                 };
@@ -4465,7 +3446,7 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
                     let __v23: *mut u8 = r#match;
                     let __v24: *mut u8 = unsafe { __v23.add(1) };
                     r#match = __v24;
-                    (((unsafe { *__v22 }) as u32) as i32) == (((unsafe { *__v24 }) as u32) as i32)
+                    ((unsafe { *__v22 }) as i32) == ((unsafe { *__v24 }) as i32)
                 } else {
                     false
                 };
@@ -4476,7 +3457,7 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
                     let __v28: *mut u8 = r#match;
                     let __v29: *mut u8 = unsafe { __v28.add(1) };
                     r#match = __v29;
-                    (((unsafe { *__v27 }) as u32) as i32) == (((unsafe { *__v29 }) as u32) as i32)
+                    ((unsafe { *__v27 }) as i32) == ((unsafe { *__v29 }) as i32)
                 } else {
                     false
                 };
@@ -4487,7 +3468,7 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
                     let __v33: *mut u8 = r#match;
                     let __v34: *mut u8 = unsafe { __v33.add(1) };
                     r#match = __v34;
-                    (((unsafe { *__v32 }) as u32) as i32) == (((unsafe { *__v34 }) as u32) as i32)
+                    ((unsafe { *__v32 }) as i32) == ((unsafe { *__v34 }) as i32)
                 } else {
                     false
                 };
@@ -4498,7 +3479,7 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
                     let __v38: *mut u8 = r#match;
                     let __v39: *mut u8 = unsafe { __v38.add(1) };
                     r#match = __v39;
-                    (((unsafe { *__v37 }) as u32) as i32) == (((unsafe { *__v39 }) as u32) as i32)
+                    ((unsafe { *__v37 }) as i32) == ((unsafe { *__v39 }) as i32)
                 } else {
                     false
                 };
@@ -4509,7 +3490,7 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
                     let __v43: *mut u8 = r#match;
                     let __v44: *mut u8 = unsafe { __v43.add(1) };
                     r#match = __v44;
-                    (((unsafe { *__v42 }) as u32) as i32) == (((unsafe { *__v44 }) as u32) as i32)
+                    ((unsafe { *__v42 }) as i32) == ((unsafe { *__v44 }) as i32)
                 } else {
                     false
                 };
@@ -4520,7 +3501,7 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
                     let __v48: *mut u8 = r#match;
                     let __v49: *mut u8 = unsafe { __v48.add(1) };
                     r#match = __v49;
-                    (((unsafe { *__v47 }) as u32) as i32) == (((unsafe { *__v49 }) as u32) as i32)
+                    ((unsafe { *__v47 }) as i32) == ((unsafe { *__v49 }) as i32)
                 } else {
                     false
                 };
@@ -4528,7 +3509,7 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
                     break;
                 }
             }
-            len = 258 - (((unsafe { strend.offset_from(scan as *mut u8) }) as c_long) as i32);
+            len = 258 - (((unsafe { strend.offset_from(scan as *mut u8) }) as ptrdiff_t) as i32);
             scan = unsafe { strend.sub(258) };
             if len > best_len {
                 unsafe {
@@ -4561,12 +3542,7 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
     unsafe { (*s).lookahead }
 }
 
-#[cfg(all(
-    target_pointer_width = "64",
-    unix,
-    feature = "fastest",
-    not(feature = "zlib-debug")
-))]
+#[cfg(all(feature = "fastest", not(feature = "zlib-debug")))]
 /// Optimized version for FASTEST only
 fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
     let mut scan: *mut u8 = unsafe { unsafe { (*s).window }.offset((*s).strstart as isize) }; // current string
@@ -4581,9 +3557,8 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
     // It is easy to get rid of this optimization if necessary.
     r#match = unsafe { unsafe { (*s).window }.add(cur_match as usize) };
     // Return failure if the match length is less than 2:
-    if (((unsafe { *r#match.add(0) }) as u32) as i32) != (((unsafe { *scan.add(0) }) as u32) as i32)
-        || (((unsafe { *r#match.add(1) }) as u32) as i32)
-            != (((unsafe { *scan.add(1) }) as u32) as i32)
+    if ((unsafe { *r#match.add(0) }) as i32) != ((unsafe { *scan.add(0) }) as i32)
+        || ((unsafe { *r#match.add(1) }) as i32) != ((unsafe { *scan.add(1) }) as i32)
     {
         return 2u32;
     }
@@ -4605,18 +3580,17 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
         let __v7: *mut u8 = r#match;
         let __v8: *mut u8 = unsafe { __v7.add(1) };
         r#match = __v8;
-        let __v9: bool =
-            if (((unsafe { *__v6 }) as u32) as i32) == (((unsafe { *__v8 }) as u32) as i32) {
-                let __v10: *mut u8 = scan;
-                let __v11: *mut u8 = unsafe { __v10.add(1) };
-                scan = __v11;
-                let __v12: *mut u8 = r#match;
-                let __v13: *mut u8 = unsafe { __v12.add(1) };
-                r#match = __v13;
-                (((unsafe { *__v11 }) as u32) as i32) == (((unsafe { *__v13 }) as u32) as i32)
-            } else {
-                false
-            };
+        let __v9: bool = if ((unsafe { *__v6 }) as i32) == ((unsafe { *__v8 }) as i32) {
+            let __v10: *mut u8 = scan;
+            let __v11: *mut u8 = unsafe { __v10.add(1) };
+            scan = __v11;
+            let __v12: *mut u8 = r#match;
+            let __v13: *mut u8 = unsafe { __v12.add(1) };
+            r#match = __v13;
+            ((unsafe { *__v11 }) as i32) == ((unsafe { *__v13 }) as i32)
+        } else {
+            false
+        };
         let __v14: bool = if __v9 {
             let __v15: *mut u8 = scan;
             let __v16: *mut u8 = unsafe { __v15.add(1) };
@@ -4624,7 +3598,7 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
             let __v17: *mut u8 = r#match;
             let __v18: *mut u8 = unsafe { __v17.add(1) };
             r#match = __v18;
-            (((unsafe { *__v16 }) as u32) as i32) == (((unsafe { *__v18 }) as u32) as i32)
+            ((unsafe { *__v16 }) as i32) == ((unsafe { *__v18 }) as i32)
         } else {
             false
         };
@@ -4635,7 +3609,7 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
             let __v22: *mut u8 = r#match;
             let __v23: *mut u8 = unsafe { __v22.add(1) };
             r#match = __v23;
-            (((unsafe { *__v21 }) as u32) as i32) == (((unsafe { *__v23 }) as u32) as i32)
+            ((unsafe { *__v21 }) as i32) == ((unsafe { *__v23 }) as i32)
         } else {
             false
         };
@@ -4646,7 +3620,7 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
             let __v27: *mut u8 = r#match;
             let __v28: *mut u8 = unsafe { __v27.add(1) };
             r#match = __v28;
-            (((unsafe { *__v26 }) as u32) as i32) == (((unsafe { *__v28 }) as u32) as i32)
+            ((unsafe { *__v26 }) as i32) == ((unsafe { *__v28 }) as i32)
         } else {
             false
         };
@@ -4657,7 +3631,7 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
             let __v32: *mut u8 = r#match;
             let __v33: *mut u8 = unsafe { __v32.add(1) };
             r#match = __v33;
-            (((unsafe { *__v31 }) as u32) as i32) == (((unsafe { *__v33 }) as u32) as i32)
+            ((unsafe { *__v31 }) as i32) == ((unsafe { *__v33 }) as i32)
         } else {
             false
         };
@@ -4668,7 +3642,7 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
             let __v37: *mut u8 = r#match;
             let __v38: *mut u8 = unsafe { __v37.add(1) };
             r#match = __v38;
-            (((unsafe { *__v36 }) as u32) as i32) == (((unsafe { *__v38 }) as u32) as i32)
+            ((unsafe { *__v36 }) as i32) == ((unsafe { *__v38 }) as i32)
         } else {
             false
         };
@@ -4679,7 +3653,7 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
             let __v42: *mut u8 = r#match;
             let __v43: *mut u8 = unsafe { __v42.add(1) };
             r#match = __v43;
-            (((unsafe { *__v41 }) as u32) as i32) == (((unsafe { *__v43 }) as u32) as i32)
+            ((unsafe { *__v41 }) as i32) == ((unsafe { *__v43 }) as i32)
         } else {
             false
         };
@@ -4687,7 +3661,7 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
             break;
         }
     }
-    len = 258 - (((unsafe { strend.offset_from(scan as *mut u8) }) as c_long) as i32);
+    len = 258 - (((unsafe { strend.offset_from(scan as *mut u8) }) as ptrdiff_t) as i32);
     if len < 3 {
         return 2u32;
     }
@@ -4701,12 +3675,7 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
     }
 }
 
-#[cfg(all(
-    target_pointer_width = "64",
-    unix,
-    not(feature = "fastest"),
-    feature = "zlib-debug"
-))]
+#[cfg(all(not(feature = "fastest"), feature = "zlib-debug"))]
 /// Set match_start to the longest match starting at the given string and
 /// return its length. Matches shorter or equal to prev_length are discarded,
 /// in which case the result is equal to prev_length and match_start is
@@ -4770,18 +3739,17 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
         // conditional jumps will be made that depend on those values.
         // However the length of the match is limited to the lookahead, so
         // the output of deflate is not affected by the uninitialized values.
-        let __v2: bool = if (((unsafe { *r#match.offset(best_len as isize) }) as u32) as i32)
-            != ((scan_end as u32) as i32)
-            || (((unsafe { *r#match.offset((best_len - 1) as isize) }) as u32) as i32)
-                != ((scan_end1 as u32) as i32)
-            || (((unsafe { *r#match }) as u32) as i32) != (((unsafe { *scan }) as u32) as i32)
+        let __v2: bool = if ((unsafe { *r#match.offset(best_len as isize) }) as i32)
+            != (scan_end as i32)
+            || ((unsafe { *r#match.offset((best_len - 1) as isize) }) as i32) != (scan_end1 as i32)
+            || ((unsafe { *r#match }) as i32) != ((unsafe { *scan }) as i32)
         {
             true
         } else {
             let __v3: *mut u8 = r#match;
             let __v4: *mut u8 = unsafe { __v3.add(1) };
             r#match = __v4;
-            (((unsafe { *__v4 }) as u32) as i32) != (((unsafe { *scan.add(1) }) as u32) as i32)
+            ((unsafe { *__v4 }) as i32) != ((unsafe { *scan.add(1) }) as i32)
         };
         if !__v2 {
             // The check at best_len - 1 can be removed because it will be made
@@ -4794,7 +3762,7 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
             let __v8: *mut u8 = r#match;
             r#match = unsafe { __v8.add(1) };
             Assert!(
-                (((unsafe { *scan }) as u32) as i32) == (((unsafe { *r#match }) as u32) as i32),
+                ((unsafe { *scan }) as i32) == ((unsafe { *r#match }) as i32),
                 c"match[2]?".as_ptr() as *mut c_char
             );
             // We check for insufficient lookahead only every 8th comparison;
@@ -4806,16 +3774,14 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
                 let __v13: *mut u8 = r#match;
                 let __v14: *mut u8 = unsafe { __v13.add(1) };
                 r#match = __v14;
-                let __v15: bool = if (((unsafe { *__v12 }) as u32) as i32)
-                    == (((unsafe { *__v14 }) as u32) as i32)
-                {
+                let __v15: bool = if ((unsafe { *__v12 }) as i32) == ((unsafe { *__v14 }) as i32) {
                     let __v16: *mut u8 = scan;
                     let __v17: *mut u8 = unsafe { __v16.add(1) };
                     scan = __v17;
                     let __v18: *mut u8 = r#match;
                     let __v19: *mut u8 = unsafe { __v18.add(1) };
                     r#match = __v19;
-                    (((unsafe { *__v17 }) as u32) as i32) == (((unsafe { *__v19 }) as u32) as i32)
+                    ((unsafe { *__v17 }) as i32) == ((unsafe { *__v19 }) as i32)
                 } else {
                     false
                 };
@@ -4826,7 +3792,7 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
                     let __v23: *mut u8 = r#match;
                     let __v24: *mut u8 = unsafe { __v23.add(1) };
                     r#match = __v24;
-                    (((unsafe { *__v22 }) as u32) as i32) == (((unsafe { *__v24 }) as u32) as i32)
+                    ((unsafe { *__v22 }) as i32) == ((unsafe { *__v24 }) as i32)
                 } else {
                     false
                 };
@@ -4837,7 +3803,7 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
                     let __v28: *mut u8 = r#match;
                     let __v29: *mut u8 = unsafe { __v28.add(1) };
                     r#match = __v29;
-                    (((unsafe { *__v27 }) as u32) as i32) == (((unsafe { *__v29 }) as u32) as i32)
+                    ((unsafe { *__v27 }) as i32) == ((unsafe { *__v29 }) as i32)
                 } else {
                     false
                 };
@@ -4848,7 +3814,7 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
                     let __v33: *mut u8 = r#match;
                     let __v34: *mut u8 = unsafe { __v33.add(1) };
                     r#match = __v34;
-                    (((unsafe { *__v32 }) as u32) as i32) == (((unsafe { *__v34 }) as u32) as i32)
+                    ((unsafe { *__v32 }) as i32) == ((unsafe { *__v34 }) as i32)
                 } else {
                     false
                 };
@@ -4859,7 +3825,7 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
                     let __v38: *mut u8 = r#match;
                     let __v39: *mut u8 = unsafe { __v38.add(1) };
                     r#match = __v39;
-                    (((unsafe { *__v37 }) as u32) as i32) == (((unsafe { *__v39 }) as u32) as i32)
+                    ((unsafe { *__v37 }) as i32) == ((unsafe { *__v39 }) as i32)
                 } else {
                     false
                 };
@@ -4870,7 +3836,7 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
                     let __v43: *mut u8 = r#match;
                     let __v44: *mut u8 = unsafe { __v43.add(1) };
                     r#match = __v44;
-                    (((unsafe { *__v42 }) as u32) as i32) == (((unsafe { *__v44 }) as u32) as i32)
+                    ((unsafe { *__v42 }) as i32) == ((unsafe { *__v44 }) as i32)
                 } else {
                     false
                 };
@@ -4881,7 +3847,7 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
                     let __v48: *mut u8 = r#match;
                     let __v49: *mut u8 = unsafe { __v48.add(1) };
                     r#match = __v49;
-                    (((unsafe { *__v47 }) as u32) as i32) == (((unsafe { *__v49 }) as u32) as i32)
+                    ((unsafe { *__v47 }) as i32) == ((unsafe { *__v49 }) as i32)
                 } else {
                     false
                 };
@@ -4896,7 +3862,7 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
                 },
                 c"wild scan".as_ptr() as *mut c_char
             );
-            len = 258 - (((unsafe { strend.offset_from(scan as *mut u8) }) as c_long) as i32);
+            len = 258 - (((unsafe { strend.offset_from(scan as *mut u8) }) as ptrdiff_t) as i32);
             scan = unsafe { strend.sub(258) };
             if len > best_len {
                 unsafe {
@@ -4929,12 +3895,7 @@ fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
     unsafe { (*s).lookahead }
 }
 
-#[cfg(all(
-    target_pointer_width = "64",
-    unix,
-    feature = "fastest",
-    feature = "zlib-debug"
-))]
+#[cfg(all(feature = "fastest", feature = "zlib-debug"))]
 /// Optimized version for FASTEST only
 fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
     let mut scan: *mut u8 = unsafe { unsafe { (*s).window }.offset((*s).strstart as isize) }; // current string
@@ -4962,9 +3923,8 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
     );
     r#match = unsafe { unsafe { (*s).window }.add(cur_match as usize) };
     // Return failure if the match length is less than 2:
-    if (((unsafe { *r#match.add(0) }) as u32) as i32) != (((unsafe { *scan.add(0) }) as u32) as i32)
-        || (((unsafe { *r#match.add(1) }) as u32) as i32)
-            != (((unsafe { *scan.add(1) }) as u32) as i32)
+    if ((unsafe { *r#match.add(0) }) as i32) != ((unsafe { *scan.add(0) }) as i32)
+        || ((unsafe { *r#match.add(1) }) as i32) != ((unsafe { *scan.add(1) }) as i32)
     {
         return 2u32;
     }
@@ -4978,7 +3938,7 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
     let __v2: *mut u8 = r#match;
     r#match = unsafe { __v2.add(2) };
     Assert!(
-        (((unsafe { *scan }) as u32) as i32) == (((unsafe { *r#match }) as u32) as i32),
+        ((unsafe { *scan }) as i32) == ((unsafe { *r#match }) as i32),
         c"match[2]?".as_ptr() as *mut c_char
     );
     // We check for insufficient lookahead only every 8th comparison;
@@ -4990,18 +3950,17 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
         let __v7: *mut u8 = r#match;
         let __v8: *mut u8 = unsafe { __v7.add(1) };
         r#match = __v8;
-        let __v9: bool =
-            if (((unsafe { *__v6 }) as u32) as i32) == (((unsafe { *__v8 }) as u32) as i32) {
-                let __v10: *mut u8 = scan;
-                let __v11: *mut u8 = unsafe { __v10.add(1) };
-                scan = __v11;
-                let __v12: *mut u8 = r#match;
-                let __v13: *mut u8 = unsafe { __v12.add(1) };
-                r#match = __v13;
-                (((unsafe { *__v11 }) as u32) as i32) == (((unsafe { *__v13 }) as u32) as i32)
-            } else {
-                false
-            };
+        let __v9: bool = if ((unsafe { *__v6 }) as i32) == ((unsafe { *__v8 }) as i32) {
+            let __v10: *mut u8 = scan;
+            let __v11: *mut u8 = unsafe { __v10.add(1) };
+            scan = __v11;
+            let __v12: *mut u8 = r#match;
+            let __v13: *mut u8 = unsafe { __v12.add(1) };
+            r#match = __v13;
+            ((unsafe { *__v11 }) as i32) == ((unsafe { *__v13 }) as i32)
+        } else {
+            false
+        };
         let __v14: bool = if __v9 {
             let __v15: *mut u8 = scan;
             let __v16: *mut u8 = unsafe { __v15.add(1) };
@@ -5009,7 +3968,7 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
             let __v17: *mut u8 = r#match;
             let __v18: *mut u8 = unsafe { __v17.add(1) };
             r#match = __v18;
-            (((unsafe { *__v16 }) as u32) as i32) == (((unsafe { *__v18 }) as u32) as i32)
+            ((unsafe { *__v16 }) as i32) == ((unsafe { *__v18 }) as i32)
         } else {
             false
         };
@@ -5020,7 +3979,7 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
             let __v22: *mut u8 = r#match;
             let __v23: *mut u8 = unsafe { __v22.add(1) };
             r#match = __v23;
-            (((unsafe { *__v21 }) as u32) as i32) == (((unsafe { *__v23 }) as u32) as i32)
+            ((unsafe { *__v21 }) as i32) == ((unsafe { *__v23 }) as i32)
         } else {
             false
         };
@@ -5031,7 +3990,7 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
             let __v27: *mut u8 = r#match;
             let __v28: *mut u8 = unsafe { __v27.add(1) };
             r#match = __v28;
-            (((unsafe { *__v26 }) as u32) as i32) == (((unsafe { *__v28 }) as u32) as i32)
+            ((unsafe { *__v26 }) as i32) == ((unsafe { *__v28 }) as i32)
         } else {
             false
         };
@@ -5042,7 +4001,7 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
             let __v32: *mut u8 = r#match;
             let __v33: *mut u8 = unsafe { __v32.add(1) };
             r#match = __v33;
-            (((unsafe { *__v31 }) as u32) as i32) == (((unsafe { *__v33 }) as u32) as i32)
+            ((unsafe { *__v31 }) as i32) == ((unsafe { *__v33 }) as i32)
         } else {
             false
         };
@@ -5053,7 +4012,7 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
             let __v37: *mut u8 = r#match;
             let __v38: *mut u8 = unsafe { __v37.add(1) };
             r#match = __v38;
-            (((unsafe { *__v36 }) as u32) as i32) == (((unsafe { *__v38 }) as u32) as i32)
+            ((unsafe { *__v36 }) as i32) == ((unsafe { *__v38 }) as i32)
         } else {
             false
         };
@@ -5064,7 +4023,7 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
             let __v42: *mut u8 = r#match;
             let __v43: *mut u8 = unsafe { __v42.add(1) };
             r#match = __v43;
-            (((unsafe { *__v41 }) as u32) as i32) == (((unsafe { *__v43 }) as u32) as i32)
+            ((unsafe { *__v41 }) as i32) == ((unsafe { *__v43 }) as i32)
         } else {
             false
         };
@@ -5079,1475 +4038,7 @@ fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
         },
         c"wild scan".as_ptr() as *mut c_char
     );
-    len = 258 - (((unsafe { strend.offset_from(scan as *mut u8) }) as c_long) as i32);
-    if len < 3 {
-        return 2u32;
-    }
-    unsafe {
-        (*s).match_start = cur_match;
-    }
-    if (len as u32) <= unsafe { (*s).lookahead } {
-        len as u32
-    } else {
-        unsafe { (*s).lookahead }
-    }
-}
-
-#[cfg(all(
-    target_pointer_width = "32",
-    not(feature = "fastest"),
-    not(feature = "zlib-debug")
-))]
-/// Set match_start to the longest match starting at the given string and
-/// return its length. Matches shorter or equal to prev_length are discarded,
-/// in which case the result is equal to prev_length and match_start is
-/// garbage.
-/// IN assertions: cur_match is the head of the hash chain for the current
-///   string (strstart) and its distance is <= MAX_DIST, and prev_length >= 1
-/// OUT assertion: the match length is not greater than s->lookahead.
-fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
-    let mut chain_length: u32 = unsafe { (*s).max_chain_length }; // max hash chain length
-    let mut scan: *mut u8 = unsafe { unsafe { (*s).window }.offset((*s).strstart as isize) }; // current string
-    let mut r#match: *mut u8 = unsafe { std::mem::zeroed() }; // matched string
-    let mut len: i32 = 0; // length of current match
-    let mut best_len: i32 = (unsafe { (*s).prev_length }) as i32; // best match length so far
-    let mut nice_match: i32 = unsafe { (*s).nice_match }; // stop if match long enough
-    let limit: u32 = if (unsafe { (*s).strstart }) > MAX_DIST!(s) {
-        unsafe { (*s).strstart }.wrapping_sub(MAX_DIST!(s))
-    } else {
-        0
-    };
-    // Stop when cur_match becomes <= limit. To simplify the code,
-    // we prevent matches with the string of window index 0.
-    let prev: *mut u16 = unsafe { (*s).prev };
-    let wmask: u32 = unsafe { (*s).w_mask };
-    let strend: *mut u8 = unsafe {
-        unsafe { (*s).window }
-            .offset((*s).strstart as isize)
-            .add(258)
-    };
-    let mut scan_end1: u8 = unsafe { *scan.offset((best_len - 1) as isize) };
-    let mut scan_end: u8 = unsafe { *scan.offset(best_len as isize) };
-    // The code is optimized for HASH_BITS >= 8 and MAX_MATCH-2 multiple of 16.
-    // It is easy to get rid of this optimization if necessary.
-    // Do not waste too much time if we already have a good match:
-    if (unsafe { (*s).prev_length }) >= unsafe { (*s).good_match } {
-        chain_length >>= 2i32;
-    }
-    // Do not look for matches beyond the end of the input. This is necessary
-    // to make deflate deterministic.
-    if (nice_match as u32) > unsafe { (*s).lookahead } {
-        nice_match = (unsafe { (*s).lookahead }) as i32;
-    }
-    loop {
-        r#match = unsafe { unsafe { (*s).window }.add(cur_match as usize) };
-        // Skip to next match if the match length cannot increase
-        // or if the match length is less than 2.  Note that the checks below
-        // for insufficient lookahead only occur occasionally for performance
-        // reasons.  Therefore uninitialized memory will be accessed, and
-        // conditional jumps will be made that depend on those values.
-        // However the length of the match is limited to the lookahead, so
-        // the output of deflate is not affected by the uninitialized values.
-        let __v2: bool = if (((unsafe { *r#match.offset(best_len as isize) }) as u32) as i32)
-            != ((scan_end as u32) as i32)
-            || (((unsafe { *r#match.offset((best_len - 1) as isize) }) as u32) as i32)
-                != ((scan_end1 as u32) as i32)
-            || (((unsafe { *r#match }) as u32) as i32) != (((unsafe { *scan }) as u32) as i32)
-        {
-            true
-        } else {
-            let __v3: *mut u8 = r#match;
-            let __v4: *mut u8 = unsafe { __v3.add(1) };
-            r#match = __v4;
-            (((unsafe { *__v4 }) as u32) as i32) != (((unsafe { *scan.add(1) }) as u32) as i32)
-        };
-        if !__v2 {
-            // The check at best_len - 1 can be removed because it will be made
-            // again later. (This heuristic is not always a win.)
-            // It is not necessary to compare scan[2] and match[2] since they
-            // are always equal when the other bytes match, given that
-            // the hash keys are equal and that HASH_BITS >= 8.
-            let __v6: *mut u8 = scan;
-            scan = unsafe { __v6.add(2) };
-            let __v8: *mut u8 = r#match;
-            r#match = unsafe { __v8.add(1) };
-            // We check for insufficient lookahead only every 8th comparison;
-            // the 256th check will be made at strstart + 258.
-            loop {
-                let __v11: *mut u8 = scan;
-                let __v12: *mut u8 = unsafe { __v11.add(1) };
-                scan = __v12;
-                let __v13: *mut u8 = r#match;
-                let __v14: *mut u8 = unsafe { __v13.add(1) };
-                r#match = __v14;
-                let __v15: bool = if (((unsafe { *__v12 }) as u32) as i32)
-                    == (((unsafe { *__v14 }) as u32) as i32)
-                {
-                    let __v16: *mut u8 = scan;
-                    let __v17: *mut u8 = unsafe { __v16.add(1) };
-                    scan = __v17;
-                    let __v18: *mut u8 = r#match;
-                    let __v19: *mut u8 = unsafe { __v18.add(1) };
-                    r#match = __v19;
-                    (((unsafe { *__v17 }) as u32) as i32) == (((unsafe { *__v19 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v20: bool = if __v15 {
-                    let __v21: *mut u8 = scan;
-                    let __v22: *mut u8 = unsafe { __v21.add(1) };
-                    scan = __v22;
-                    let __v23: *mut u8 = r#match;
-                    let __v24: *mut u8 = unsafe { __v23.add(1) };
-                    r#match = __v24;
-                    (((unsafe { *__v22 }) as u32) as i32) == (((unsafe { *__v24 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v25: bool = if __v20 {
-                    let __v26: *mut u8 = scan;
-                    let __v27: *mut u8 = unsafe { __v26.add(1) };
-                    scan = __v27;
-                    let __v28: *mut u8 = r#match;
-                    let __v29: *mut u8 = unsafe { __v28.add(1) };
-                    r#match = __v29;
-                    (((unsafe { *__v27 }) as u32) as i32) == (((unsafe { *__v29 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v30: bool = if __v25 {
-                    let __v31: *mut u8 = scan;
-                    let __v32: *mut u8 = unsafe { __v31.add(1) };
-                    scan = __v32;
-                    let __v33: *mut u8 = r#match;
-                    let __v34: *mut u8 = unsafe { __v33.add(1) };
-                    r#match = __v34;
-                    (((unsafe { *__v32 }) as u32) as i32) == (((unsafe { *__v34 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v35: bool = if __v30 {
-                    let __v36: *mut u8 = scan;
-                    let __v37: *mut u8 = unsafe { __v36.add(1) };
-                    scan = __v37;
-                    let __v38: *mut u8 = r#match;
-                    let __v39: *mut u8 = unsafe { __v38.add(1) };
-                    r#match = __v39;
-                    (((unsafe { *__v37 }) as u32) as i32) == (((unsafe { *__v39 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v40: bool = if __v35 {
-                    let __v41: *mut u8 = scan;
-                    let __v42: *mut u8 = unsafe { __v41.add(1) };
-                    scan = __v42;
-                    let __v43: *mut u8 = r#match;
-                    let __v44: *mut u8 = unsafe { __v43.add(1) };
-                    r#match = __v44;
-                    (((unsafe { *__v42 }) as u32) as i32) == (((unsafe { *__v44 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v45: bool = if __v40 {
-                    let __v46: *mut u8 = scan;
-                    let __v47: *mut u8 = unsafe { __v46.add(1) };
-                    scan = __v47;
-                    let __v48: *mut u8 = r#match;
-                    let __v49: *mut u8 = unsafe { __v48.add(1) };
-                    r#match = __v49;
-                    (((unsafe { *__v47 }) as u32) as i32) == (((unsafe { *__v49 }) as u32) as i32)
-                } else {
-                    false
-                };
-                if !(__v45 && scan < strend) {
-                    break;
-                }
-            }
-            len = 258 - ((unsafe { strend.offset_from(scan as *mut u8) }) as i32);
-            scan = unsafe { strend.sub(258) };
-            if len > best_len {
-                unsafe {
-                    (*s).match_start = cur_match;
-                }
-                best_len = len;
-                if len >= nice_match {
-                    break;
-                }
-                scan_end1 = unsafe { *scan.offset((best_len - 1) as isize) };
-                scan_end = unsafe { *scan.offset(best_len as isize) };
-            }
-        }
-        let __v50: u32 = (unsafe { *prev.add((cur_match & wmask) as usize) }) as u32;
-        cur_match = __v50;
-        let __v51: bool = if __v50 > limit {
-            let __v53: u32 = chain_length.wrapping_sub(1);
-            chain_length = __v53;
-            __v53 != 0
-        } else {
-            false
-        };
-        if !__v51 {
-            break;
-        }
-    }
-    if (best_len as u32) <= unsafe { (*s).lookahead } {
-        return best_len as u32;
-    }
-    unsafe { (*s).lookahead }
-}
-
-#[cfg(all(
-    target_pointer_width = "32",
-    feature = "fastest",
-    not(feature = "zlib-debug")
-))]
-/// Optimized version for FASTEST only
-fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
-    let mut scan: *mut u8 = unsafe { unsafe { (*s).window }.offset((*s).strstart as isize) }; // current string
-    let mut r#match: *mut u8 = unsafe { std::mem::zeroed() }; // matched string
-    let mut len: i32 = 0; // length of current match
-    let strend: *mut u8 = unsafe {
-        unsafe { (*s).window }
-            .offset((*s).strstart as isize)
-            .add(258)
-    };
-    // The code is optimized for HASH_BITS >= 8 and MAX_MATCH-2 multiple of 16.
-    // It is easy to get rid of this optimization if necessary.
-    r#match = unsafe { unsafe { (*s).window }.add(cur_match as usize) };
-    // Return failure if the match length is less than 2:
-    if (((unsafe { *r#match.add(0) }) as u32) as i32) != (((unsafe { *scan.add(0) }) as u32) as i32)
-        || (((unsafe { *r#match.add(1) }) as u32) as i32)
-            != (((unsafe { *scan.add(1) }) as u32) as i32)
-    {
-        return 2u32;
-    }
-    // The check at best_len - 1 can be removed because it will be made
-    // again later. (This heuristic is not always a win.)
-    // It is not necessary to compare scan[2] and match[2] since they
-    // are always equal when the other bytes match, given that
-    // the hash keys are equal and that HASH_BITS >= 8.
-    let __v0: *mut u8 = scan;
-    scan = unsafe { __v0.add(2) };
-    let __v2: *mut u8 = r#match;
-    r#match = unsafe { __v2.add(2) };
-    // We check for insufficient lookahead only every 8th comparison;
-    // the 256th check will be made at strstart + 258.
-    loop {
-        let __v5: *mut u8 = scan;
-        let __v6: *mut u8 = unsafe { __v5.add(1) };
-        scan = __v6;
-        let __v7: *mut u8 = r#match;
-        let __v8: *mut u8 = unsafe { __v7.add(1) };
-        r#match = __v8;
-        let __v9: bool =
-            if (((unsafe { *__v6 }) as u32) as i32) == (((unsafe { *__v8 }) as u32) as i32) {
-                let __v10: *mut u8 = scan;
-                let __v11: *mut u8 = unsafe { __v10.add(1) };
-                scan = __v11;
-                let __v12: *mut u8 = r#match;
-                let __v13: *mut u8 = unsafe { __v12.add(1) };
-                r#match = __v13;
-                (((unsafe { *__v11 }) as u32) as i32) == (((unsafe { *__v13 }) as u32) as i32)
-            } else {
-                false
-            };
-        let __v14: bool = if __v9 {
-            let __v15: *mut u8 = scan;
-            let __v16: *mut u8 = unsafe { __v15.add(1) };
-            scan = __v16;
-            let __v17: *mut u8 = r#match;
-            let __v18: *mut u8 = unsafe { __v17.add(1) };
-            r#match = __v18;
-            (((unsafe { *__v16 }) as u32) as i32) == (((unsafe { *__v18 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v19: bool = if __v14 {
-            let __v20: *mut u8 = scan;
-            let __v21: *mut u8 = unsafe { __v20.add(1) };
-            scan = __v21;
-            let __v22: *mut u8 = r#match;
-            let __v23: *mut u8 = unsafe { __v22.add(1) };
-            r#match = __v23;
-            (((unsafe { *__v21 }) as u32) as i32) == (((unsafe { *__v23 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v24: bool = if __v19 {
-            let __v25: *mut u8 = scan;
-            let __v26: *mut u8 = unsafe { __v25.add(1) };
-            scan = __v26;
-            let __v27: *mut u8 = r#match;
-            let __v28: *mut u8 = unsafe { __v27.add(1) };
-            r#match = __v28;
-            (((unsafe { *__v26 }) as u32) as i32) == (((unsafe { *__v28 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v29: bool = if __v24 {
-            let __v30: *mut u8 = scan;
-            let __v31: *mut u8 = unsafe { __v30.add(1) };
-            scan = __v31;
-            let __v32: *mut u8 = r#match;
-            let __v33: *mut u8 = unsafe { __v32.add(1) };
-            r#match = __v33;
-            (((unsafe { *__v31 }) as u32) as i32) == (((unsafe { *__v33 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v34: bool = if __v29 {
-            let __v35: *mut u8 = scan;
-            let __v36: *mut u8 = unsafe { __v35.add(1) };
-            scan = __v36;
-            let __v37: *mut u8 = r#match;
-            let __v38: *mut u8 = unsafe { __v37.add(1) };
-            r#match = __v38;
-            (((unsafe { *__v36 }) as u32) as i32) == (((unsafe { *__v38 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v39: bool = if __v34 {
-            let __v40: *mut u8 = scan;
-            let __v41: *mut u8 = unsafe { __v40.add(1) };
-            scan = __v41;
-            let __v42: *mut u8 = r#match;
-            let __v43: *mut u8 = unsafe { __v42.add(1) };
-            r#match = __v43;
-            (((unsafe { *__v41 }) as u32) as i32) == (((unsafe { *__v43 }) as u32) as i32)
-        } else {
-            false
-        };
-        if !(__v39 && scan < strend) {
-            break;
-        }
-    }
-    len = 258 - ((unsafe { strend.offset_from(scan as *mut u8) }) as i32);
-    if len < 3 {
-        return 2u32;
-    }
-    unsafe {
-        (*s).match_start = cur_match;
-    }
-    if (len as u32) <= unsafe { (*s).lookahead } {
-        len as u32
-    } else {
-        unsafe { (*s).lookahead }
-    }
-}
-
-#[cfg(all(
-    target_pointer_width = "32",
-    not(feature = "fastest"),
-    feature = "zlib-debug"
-))]
-/// Set match_start to the longest match starting at the given string and
-/// return its length. Matches shorter or equal to prev_length are discarded,
-/// in which case the result is equal to prev_length and match_start is
-/// garbage.
-/// IN assertions: cur_match is the head of the hash chain for the current
-///   string (strstart) and its distance is <= MAX_DIST, and prev_length >= 1
-/// OUT assertion: the match length is not greater than s->lookahead.
-fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
-    let mut chain_length: u32 = unsafe { (*s).max_chain_length }; // max hash chain length
-    let mut scan: *mut u8 = unsafe { unsafe { (*s).window }.offset((*s).strstart as isize) }; // current string
-    let mut r#match: *mut u8 = unsafe { std::mem::zeroed() }; // matched string
-    let mut len: i32 = 0; // length of current match
-    let mut best_len: i32 = (unsafe { (*s).prev_length }) as i32; // best match length so far
-    let mut nice_match: i32 = unsafe { (*s).nice_match }; // stop if match long enough
-    let limit: u32 = if (unsafe { (*s).strstart }) > MAX_DIST!(s) {
-        unsafe { (*s).strstart }.wrapping_sub(MAX_DIST!(s))
-    } else {
-        0
-    };
-    // Stop when cur_match becomes <= limit. To simplify the code,
-    // we prevent matches with the string of window index 0.
-    let prev: *mut u16 = unsafe { (*s).prev };
-    let wmask: u32 = unsafe { (*s).w_mask };
-    let strend: *mut u8 = unsafe {
-        unsafe { (*s).window }
-            .offset((*s).strstart as isize)
-            .add(258)
-    };
-    let mut scan_end1: u8 = unsafe { *scan.offset((best_len - 1) as isize) };
-    let mut scan_end: u8 = unsafe { *scan.offset(best_len as isize) };
-    // The code is optimized for HASH_BITS >= 8 and MAX_MATCH-2 multiple of 16.
-    // It is easy to get rid of this optimization if necessary.
-    Assert!(
-        (unsafe { (*s).hash_bits }) >= 8 && true,
-        c"Code too clever".as_ptr() as *mut c_char
-    );
-    // Do not waste too much time if we already have a good match:
-    if (unsafe { (*s).prev_length }) >= unsafe { (*s).good_match } {
-        chain_length >>= 2i32;
-    }
-    // Do not look for matches beyond the end of the input. This is necessary
-    // to make deflate deterministic.
-    if (nice_match as u32) > unsafe { (*s).lookahead } {
-        nice_match = (unsafe { (*s).lookahead }) as i32;
-    }
-    Assert!(
-        ((unsafe { (*s).strstart }) as c_ulong)
-            <= unsafe { (*s).window_size }.wrapping_sub((262 as c_ulong)),
-        c"need lookahead".as_ptr() as *mut c_char
-    );
-    loop {
-        Assert!(
-            cur_match < unsafe { (*s).strstart },
-            c"no future".as_ptr() as *mut c_char
-        );
-        r#match = unsafe { unsafe { (*s).window }.add(cur_match as usize) };
-        // Skip to next match if the match length cannot increase
-        // or if the match length is less than 2.  Note that the checks below
-        // for insufficient lookahead only occur occasionally for performance
-        // reasons.  Therefore uninitialized memory will be accessed, and
-        // conditional jumps will be made that depend on those values.
-        // However the length of the match is limited to the lookahead, so
-        // the output of deflate is not affected by the uninitialized values.
-        let __v2: bool = if (((unsafe { *r#match.offset(best_len as isize) }) as u32) as i32)
-            != ((scan_end as u32) as i32)
-            || (((unsafe { *r#match.offset((best_len - 1) as isize) }) as u32) as i32)
-                != ((scan_end1 as u32) as i32)
-            || (((unsafe { *r#match }) as u32) as i32) != (((unsafe { *scan }) as u32) as i32)
-        {
-            true
-        } else {
-            let __v3: *mut u8 = r#match;
-            let __v4: *mut u8 = unsafe { __v3.add(1) };
-            r#match = __v4;
-            (((unsafe { *__v4 }) as u32) as i32) != (((unsafe { *scan.add(1) }) as u32) as i32)
-        };
-        if !__v2 {
-            // The check at best_len - 1 can be removed because it will be made
-            // again later. (This heuristic is not always a win.)
-            // It is not necessary to compare scan[2] and match[2] since they
-            // are always equal when the other bytes match, given that
-            // the hash keys are equal and that HASH_BITS >= 8.
-            let __v6: *mut u8 = scan;
-            scan = unsafe { __v6.add(2) };
-            let __v8: *mut u8 = r#match;
-            r#match = unsafe { __v8.add(1) };
-            Assert!(
-                (((unsafe { *scan }) as u32) as i32) == (((unsafe { *r#match }) as u32) as i32),
-                c"match[2]?".as_ptr() as *mut c_char
-            );
-            // We check for insufficient lookahead only every 8th comparison;
-            // the 256th check will be made at strstart + 258.
-            loop {
-                let __v11: *mut u8 = scan;
-                let __v12: *mut u8 = unsafe { __v11.add(1) };
-                scan = __v12;
-                let __v13: *mut u8 = r#match;
-                let __v14: *mut u8 = unsafe { __v13.add(1) };
-                r#match = __v14;
-                let __v15: bool = if (((unsafe { *__v12 }) as u32) as i32)
-                    == (((unsafe { *__v14 }) as u32) as i32)
-                {
-                    let __v16: *mut u8 = scan;
-                    let __v17: *mut u8 = unsafe { __v16.add(1) };
-                    scan = __v17;
-                    let __v18: *mut u8 = r#match;
-                    let __v19: *mut u8 = unsafe { __v18.add(1) };
-                    r#match = __v19;
-                    (((unsafe { *__v17 }) as u32) as i32) == (((unsafe { *__v19 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v20: bool = if __v15 {
-                    let __v21: *mut u8 = scan;
-                    let __v22: *mut u8 = unsafe { __v21.add(1) };
-                    scan = __v22;
-                    let __v23: *mut u8 = r#match;
-                    let __v24: *mut u8 = unsafe { __v23.add(1) };
-                    r#match = __v24;
-                    (((unsafe { *__v22 }) as u32) as i32) == (((unsafe { *__v24 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v25: bool = if __v20 {
-                    let __v26: *mut u8 = scan;
-                    let __v27: *mut u8 = unsafe { __v26.add(1) };
-                    scan = __v27;
-                    let __v28: *mut u8 = r#match;
-                    let __v29: *mut u8 = unsafe { __v28.add(1) };
-                    r#match = __v29;
-                    (((unsafe { *__v27 }) as u32) as i32) == (((unsafe { *__v29 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v30: bool = if __v25 {
-                    let __v31: *mut u8 = scan;
-                    let __v32: *mut u8 = unsafe { __v31.add(1) };
-                    scan = __v32;
-                    let __v33: *mut u8 = r#match;
-                    let __v34: *mut u8 = unsafe { __v33.add(1) };
-                    r#match = __v34;
-                    (((unsafe { *__v32 }) as u32) as i32) == (((unsafe { *__v34 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v35: bool = if __v30 {
-                    let __v36: *mut u8 = scan;
-                    let __v37: *mut u8 = unsafe { __v36.add(1) };
-                    scan = __v37;
-                    let __v38: *mut u8 = r#match;
-                    let __v39: *mut u8 = unsafe { __v38.add(1) };
-                    r#match = __v39;
-                    (((unsafe { *__v37 }) as u32) as i32) == (((unsafe { *__v39 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v40: bool = if __v35 {
-                    let __v41: *mut u8 = scan;
-                    let __v42: *mut u8 = unsafe { __v41.add(1) };
-                    scan = __v42;
-                    let __v43: *mut u8 = r#match;
-                    let __v44: *mut u8 = unsafe { __v43.add(1) };
-                    r#match = __v44;
-                    (((unsafe { *__v42 }) as u32) as i32) == (((unsafe { *__v44 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v45: bool = if __v40 {
-                    let __v46: *mut u8 = scan;
-                    let __v47: *mut u8 = unsafe { __v46.add(1) };
-                    scan = __v47;
-                    let __v48: *mut u8 = r#match;
-                    let __v49: *mut u8 = unsafe { __v48.add(1) };
-                    r#match = __v49;
-                    (((unsafe { *__v47 }) as u32) as i32) == (((unsafe { *__v49 }) as u32) as i32)
-                } else {
-                    false
-                };
-                if !(__v45 && scan < strend) {
-                    break;
-                }
-            }
-            Assert!(
-                scan <= unsafe {
-                    unsafe { (*s).window }
-                        .add((unsafe { (*s).window_size }.wrapping_sub(1) as u32) as usize)
-                },
-                c"wild scan".as_ptr() as *mut c_char
-            );
-            len = 258 - ((unsafe { strend.offset_from(scan as *mut u8) }) as i32);
-            scan = unsafe { strend.sub(258) };
-            if len > best_len {
-                unsafe {
-                    (*s).match_start = cur_match;
-                }
-                best_len = len;
-                if len >= nice_match {
-                    break;
-                }
-                scan_end1 = unsafe { *scan.offset((best_len - 1) as isize) };
-                scan_end = unsafe { *scan.offset(best_len as isize) };
-            }
-        }
-        let __v50: u32 = (unsafe { *prev.add((cur_match & wmask) as usize) }) as u32;
-        cur_match = __v50;
-        let __v51: bool = if __v50 > limit {
-            let __v53: u32 = chain_length.wrapping_sub(1);
-            chain_length = __v53;
-            __v53 != 0
-        } else {
-            false
-        };
-        if !__v51 {
-            break;
-        }
-    }
-    if (best_len as u32) <= unsafe { (*s).lookahead } {
-        return best_len as u32;
-    }
-    unsafe { (*s).lookahead }
-}
-
-#[cfg(all(
-    target_pointer_width = "32",
-    feature = "fastest",
-    feature = "zlib-debug"
-))]
-/// Optimized version for FASTEST only
-fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
-    let mut scan: *mut u8 = unsafe { unsafe { (*s).window }.offset((*s).strstart as isize) }; // current string
-    let mut r#match: *mut u8 = unsafe { std::mem::zeroed() }; // matched string
-    let mut len: i32 = 0; // length of current match
-    let strend: *mut u8 = unsafe {
-        unsafe { (*s).window }
-            .offset((*s).strstart as isize)
-            .add(258)
-    };
-    // The code is optimized for HASH_BITS >= 8 and MAX_MATCH-2 multiple of 16.
-    // It is easy to get rid of this optimization if necessary.
-    Assert!(
-        (unsafe { (*s).hash_bits }) >= 8 && true,
-        c"Code too clever".as_ptr() as *mut c_char
-    );
-    Assert!(
-        ((unsafe { (*s).strstart }) as c_ulong)
-            <= unsafe { (*s).window_size }.wrapping_sub((262 as c_ulong)),
-        c"need lookahead".as_ptr() as *mut c_char
-    );
-    Assert!(
-        cur_match < unsafe { (*s).strstart },
-        c"no future".as_ptr() as *mut c_char
-    );
-    r#match = unsafe { unsafe { (*s).window }.add(cur_match as usize) };
-    // Return failure if the match length is less than 2:
-    if (((unsafe { *r#match.add(0) }) as u32) as i32) != (((unsafe { *scan.add(0) }) as u32) as i32)
-        || (((unsafe { *r#match.add(1) }) as u32) as i32)
-            != (((unsafe { *scan.add(1) }) as u32) as i32)
-    {
-        return 2u32;
-    }
-    // The check at best_len - 1 can be removed because it will be made
-    // again later. (This heuristic is not always a win.)
-    // It is not necessary to compare scan[2] and match[2] since they
-    // are always equal when the other bytes match, given that
-    // the hash keys are equal and that HASH_BITS >= 8.
-    let __v0: *mut u8 = scan;
-    scan = unsafe { __v0.add(2) };
-    let __v2: *mut u8 = r#match;
-    r#match = unsafe { __v2.add(2) };
-    Assert!(
-        (((unsafe { *scan }) as u32) as i32) == (((unsafe { *r#match }) as u32) as i32),
-        c"match[2]?".as_ptr() as *mut c_char
-    );
-    // We check for insufficient lookahead only every 8th comparison;
-    // the 256th check will be made at strstart + 258.
-    loop {
-        let __v5: *mut u8 = scan;
-        let __v6: *mut u8 = unsafe { __v5.add(1) };
-        scan = __v6;
-        let __v7: *mut u8 = r#match;
-        let __v8: *mut u8 = unsafe { __v7.add(1) };
-        r#match = __v8;
-        let __v9: bool =
-            if (((unsafe { *__v6 }) as u32) as i32) == (((unsafe { *__v8 }) as u32) as i32) {
-                let __v10: *mut u8 = scan;
-                let __v11: *mut u8 = unsafe { __v10.add(1) };
-                scan = __v11;
-                let __v12: *mut u8 = r#match;
-                let __v13: *mut u8 = unsafe { __v12.add(1) };
-                r#match = __v13;
-                (((unsafe { *__v11 }) as u32) as i32) == (((unsafe { *__v13 }) as u32) as i32)
-            } else {
-                false
-            };
-        let __v14: bool = if __v9 {
-            let __v15: *mut u8 = scan;
-            let __v16: *mut u8 = unsafe { __v15.add(1) };
-            scan = __v16;
-            let __v17: *mut u8 = r#match;
-            let __v18: *mut u8 = unsafe { __v17.add(1) };
-            r#match = __v18;
-            (((unsafe { *__v16 }) as u32) as i32) == (((unsafe { *__v18 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v19: bool = if __v14 {
-            let __v20: *mut u8 = scan;
-            let __v21: *mut u8 = unsafe { __v20.add(1) };
-            scan = __v21;
-            let __v22: *mut u8 = r#match;
-            let __v23: *mut u8 = unsafe { __v22.add(1) };
-            r#match = __v23;
-            (((unsafe { *__v21 }) as u32) as i32) == (((unsafe { *__v23 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v24: bool = if __v19 {
-            let __v25: *mut u8 = scan;
-            let __v26: *mut u8 = unsafe { __v25.add(1) };
-            scan = __v26;
-            let __v27: *mut u8 = r#match;
-            let __v28: *mut u8 = unsafe { __v27.add(1) };
-            r#match = __v28;
-            (((unsafe { *__v26 }) as u32) as i32) == (((unsafe { *__v28 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v29: bool = if __v24 {
-            let __v30: *mut u8 = scan;
-            let __v31: *mut u8 = unsafe { __v30.add(1) };
-            scan = __v31;
-            let __v32: *mut u8 = r#match;
-            let __v33: *mut u8 = unsafe { __v32.add(1) };
-            r#match = __v33;
-            (((unsafe { *__v31 }) as u32) as i32) == (((unsafe { *__v33 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v34: bool = if __v29 {
-            let __v35: *mut u8 = scan;
-            let __v36: *mut u8 = unsafe { __v35.add(1) };
-            scan = __v36;
-            let __v37: *mut u8 = r#match;
-            let __v38: *mut u8 = unsafe { __v37.add(1) };
-            r#match = __v38;
-            (((unsafe { *__v36 }) as u32) as i32) == (((unsafe { *__v38 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v39: bool = if __v34 {
-            let __v40: *mut u8 = scan;
-            let __v41: *mut u8 = unsafe { __v40.add(1) };
-            scan = __v41;
-            let __v42: *mut u8 = r#match;
-            let __v43: *mut u8 = unsafe { __v42.add(1) };
-            r#match = __v43;
-            (((unsafe { *__v41 }) as u32) as i32) == (((unsafe { *__v43 }) as u32) as i32)
-        } else {
-            false
-        };
-        if !(__v39 && scan < strend) {
-            break;
-        }
-    }
-    Assert!(
-        scan <= unsafe {
-            unsafe { (*s).window }
-                .add((unsafe { (*s).window_size }.wrapping_sub(1) as u32) as usize)
-        },
-        c"wild scan".as_ptr() as *mut c_char
-    );
-    len = 258 - ((unsafe { strend.offset_from(scan as *mut u8) }) as i32);
-    if len < 3 {
-        return 2u32;
-    }
-    unsafe {
-        (*s).match_start = cur_match;
-    }
-    if (len as u32) <= unsafe { (*s).lookahead } {
-        len as u32
-    } else {
-        unsafe { (*s).lookahead }
-    }
-}
-
-#[cfg(all(
-    target_pointer_width = "64",
-    windows,
-    not(feature = "fastest"),
-    not(feature = "zlib-debug")
-))]
-/// Set match_start to the longest match starting at the given string and
-/// return its length. Matches shorter or equal to prev_length are discarded,
-/// in which case the result is equal to prev_length and match_start is
-/// garbage.
-/// IN assertions: cur_match is the head of the hash chain for the current
-///   string (strstart) and its distance is <= MAX_DIST, and prev_length >= 1
-/// OUT assertion: the match length is not greater than s->lookahead.
-fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
-    let mut chain_length: u32 = unsafe { (*s).max_chain_length }; // max hash chain length
-    let mut scan: *mut u8 = unsafe { unsafe { (*s).window }.offset((*s).strstart as isize) }; // current string
-    let mut r#match: *mut u8 = unsafe { std::mem::zeroed() }; // matched string
-    let mut len: i32 = 0; // length of current match
-    let mut best_len: i32 = (unsafe { (*s).prev_length }) as i32; // best match length so far
-    let mut nice_match: i32 = unsafe { (*s).nice_match }; // stop if match long enough
-    let limit: u32 = if (unsafe { (*s).strstart }) > MAX_DIST!(s) {
-        unsafe { (*s).strstart }.wrapping_sub(MAX_DIST!(s))
-    } else {
-        0
-    };
-    // Stop when cur_match becomes <= limit. To simplify the code,
-    // we prevent matches with the string of window index 0.
-    let prev: *mut u16 = unsafe { (*s).prev };
-    let wmask: u32 = unsafe { (*s).w_mask };
-    let strend: *mut u8 = unsafe {
-        unsafe { (*s).window }
-            .offset((*s).strstart as isize)
-            .add(258)
-    };
-    let mut scan_end1: u8 = unsafe { *scan.offset((best_len - 1) as isize) };
-    let mut scan_end: u8 = unsafe { *scan.offset(best_len as isize) };
-    // The code is optimized for HASH_BITS >= 8 and MAX_MATCH-2 multiple of 16.
-    // It is easy to get rid of this optimization if necessary.
-    // Do not waste too much time if we already have a good match:
-    if (unsafe { (*s).prev_length }) >= unsafe { (*s).good_match } {
-        chain_length >>= 2i32;
-    }
-    // Do not look for matches beyond the end of the input. This is necessary
-    // to make deflate deterministic.
-    if (nice_match as u32) > unsafe { (*s).lookahead } {
-        nice_match = (unsafe { (*s).lookahead }) as i32;
-    }
-    loop {
-        r#match = unsafe { unsafe { (*s).window }.add(cur_match as usize) };
-        // Skip to next match if the match length cannot increase
-        // or if the match length is less than 2.  Note that the checks below
-        // for insufficient lookahead only occur occasionally for performance
-        // reasons.  Therefore uninitialized memory will be accessed, and
-        // conditional jumps will be made that depend on those values.
-        // However the length of the match is limited to the lookahead, so
-        // the output of deflate is not affected by the uninitialized values.
-        let __v2: bool = if (((unsafe { *r#match.offset(best_len as isize) }) as u32) as i32)
-            != ((scan_end as u32) as i32)
-            || (((unsafe { *r#match.offset((best_len - 1) as isize) }) as u32) as i32)
-                != ((scan_end1 as u32) as i32)
-            || (((unsafe { *r#match }) as u32) as i32) != (((unsafe { *scan }) as u32) as i32)
-        {
-            true
-        } else {
-            let __v3: *mut u8 = r#match;
-            let __v4: *mut u8 = unsafe { __v3.add(1) };
-            r#match = __v4;
-            (((unsafe { *__v4 }) as u32) as i32) != (((unsafe { *scan.add(1) }) as u32) as i32)
-        };
-        if !__v2 {
-            // The check at best_len - 1 can be removed because it will be made
-            // again later. (This heuristic is not always a win.)
-            // It is not necessary to compare scan[2] and match[2] since they
-            // are always equal when the other bytes match, given that
-            // the hash keys are equal and that HASH_BITS >= 8.
-            let __v6: *mut u8 = scan;
-            scan = unsafe { __v6.add(2) };
-            let __v8: *mut u8 = r#match;
-            r#match = unsafe { __v8.add(1) };
-            // We check for insufficient lookahead only every 8th comparison;
-            // the 256th check will be made at strstart + 258.
-            loop {
-                let __v11: *mut u8 = scan;
-                let __v12: *mut u8 = unsafe { __v11.add(1) };
-                scan = __v12;
-                let __v13: *mut u8 = r#match;
-                let __v14: *mut u8 = unsafe { __v13.add(1) };
-                r#match = __v14;
-                let __v15: bool = if (((unsafe { *__v12 }) as u32) as i32)
-                    == (((unsafe { *__v14 }) as u32) as i32)
-                {
-                    let __v16: *mut u8 = scan;
-                    let __v17: *mut u8 = unsafe { __v16.add(1) };
-                    scan = __v17;
-                    let __v18: *mut u8 = r#match;
-                    let __v19: *mut u8 = unsafe { __v18.add(1) };
-                    r#match = __v19;
-                    (((unsafe { *__v17 }) as u32) as i32) == (((unsafe { *__v19 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v20: bool = if __v15 {
-                    let __v21: *mut u8 = scan;
-                    let __v22: *mut u8 = unsafe { __v21.add(1) };
-                    scan = __v22;
-                    let __v23: *mut u8 = r#match;
-                    let __v24: *mut u8 = unsafe { __v23.add(1) };
-                    r#match = __v24;
-                    (((unsafe { *__v22 }) as u32) as i32) == (((unsafe { *__v24 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v25: bool = if __v20 {
-                    let __v26: *mut u8 = scan;
-                    let __v27: *mut u8 = unsafe { __v26.add(1) };
-                    scan = __v27;
-                    let __v28: *mut u8 = r#match;
-                    let __v29: *mut u8 = unsafe { __v28.add(1) };
-                    r#match = __v29;
-                    (((unsafe { *__v27 }) as u32) as i32) == (((unsafe { *__v29 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v30: bool = if __v25 {
-                    let __v31: *mut u8 = scan;
-                    let __v32: *mut u8 = unsafe { __v31.add(1) };
-                    scan = __v32;
-                    let __v33: *mut u8 = r#match;
-                    let __v34: *mut u8 = unsafe { __v33.add(1) };
-                    r#match = __v34;
-                    (((unsafe { *__v32 }) as u32) as i32) == (((unsafe { *__v34 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v35: bool = if __v30 {
-                    let __v36: *mut u8 = scan;
-                    let __v37: *mut u8 = unsafe { __v36.add(1) };
-                    scan = __v37;
-                    let __v38: *mut u8 = r#match;
-                    let __v39: *mut u8 = unsafe { __v38.add(1) };
-                    r#match = __v39;
-                    (((unsafe { *__v37 }) as u32) as i32) == (((unsafe { *__v39 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v40: bool = if __v35 {
-                    let __v41: *mut u8 = scan;
-                    let __v42: *mut u8 = unsafe { __v41.add(1) };
-                    scan = __v42;
-                    let __v43: *mut u8 = r#match;
-                    let __v44: *mut u8 = unsafe { __v43.add(1) };
-                    r#match = __v44;
-                    (((unsafe { *__v42 }) as u32) as i32) == (((unsafe { *__v44 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v45: bool = if __v40 {
-                    let __v46: *mut u8 = scan;
-                    let __v47: *mut u8 = unsafe { __v46.add(1) };
-                    scan = __v47;
-                    let __v48: *mut u8 = r#match;
-                    let __v49: *mut u8 = unsafe { __v48.add(1) };
-                    r#match = __v49;
-                    (((unsafe { *__v47 }) as u32) as i32) == (((unsafe { *__v49 }) as u32) as i32)
-                } else {
-                    false
-                };
-                if !(__v45 && scan < strend) {
-                    break;
-                }
-            }
-            len = 258 - (((unsafe { strend.offset_from(scan as *mut u8) }) as i64) as i32);
-            scan = unsafe { strend.sub(258) };
-            if len > best_len {
-                unsafe {
-                    (*s).match_start = cur_match;
-                }
-                best_len = len;
-                if len >= nice_match {
-                    break;
-                }
-                scan_end1 = unsafe { *scan.offset((best_len - 1) as isize) };
-                scan_end = unsafe { *scan.offset(best_len as isize) };
-            }
-        }
-        let __v50: u32 = (unsafe { *prev.add((cur_match & wmask) as usize) }) as u32;
-        cur_match = __v50;
-        let __v51: bool = if __v50 > limit {
-            let __v53: u32 = chain_length.wrapping_sub(1);
-            chain_length = __v53;
-            __v53 != 0
-        } else {
-            false
-        };
-        if !__v51 {
-            break;
-        }
-    }
-    if (best_len as u32) <= unsafe { (*s).lookahead } {
-        return best_len as u32;
-    }
-    unsafe { (*s).lookahead }
-}
-
-#[cfg(all(
-    target_pointer_width = "64",
-    windows,
-    feature = "fastest",
-    not(feature = "zlib-debug")
-))]
-/// Optimized version for FASTEST only
-fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
-    let mut scan: *mut u8 = unsafe { unsafe { (*s).window }.offset((*s).strstart as isize) }; // current string
-    let mut r#match: *mut u8 = unsafe { std::mem::zeroed() }; // matched string
-    let mut len: i32 = 0; // length of current match
-    let strend: *mut u8 = unsafe {
-        unsafe { (*s).window }
-            .offset((*s).strstart as isize)
-            .add(258)
-    };
-    // The code is optimized for HASH_BITS >= 8 and MAX_MATCH-2 multiple of 16.
-    // It is easy to get rid of this optimization if necessary.
-    r#match = unsafe { unsafe { (*s).window }.add(cur_match as usize) };
-    // Return failure if the match length is less than 2:
-    if (((unsafe { *r#match.add(0) }) as u32) as i32) != (((unsafe { *scan.add(0) }) as u32) as i32)
-        || (((unsafe { *r#match.add(1) }) as u32) as i32)
-            != (((unsafe { *scan.add(1) }) as u32) as i32)
-    {
-        return 2u32;
-    }
-    // The check at best_len - 1 can be removed because it will be made
-    // again later. (This heuristic is not always a win.)
-    // It is not necessary to compare scan[2] and match[2] since they
-    // are always equal when the other bytes match, given that
-    // the hash keys are equal and that HASH_BITS >= 8.
-    let __v0: *mut u8 = scan;
-    scan = unsafe { __v0.add(2) };
-    let __v2: *mut u8 = r#match;
-    r#match = unsafe { __v2.add(2) };
-    // We check for insufficient lookahead only every 8th comparison;
-    // the 256th check will be made at strstart + 258.
-    loop {
-        let __v5: *mut u8 = scan;
-        let __v6: *mut u8 = unsafe { __v5.add(1) };
-        scan = __v6;
-        let __v7: *mut u8 = r#match;
-        let __v8: *mut u8 = unsafe { __v7.add(1) };
-        r#match = __v8;
-        let __v9: bool =
-            if (((unsafe { *__v6 }) as u32) as i32) == (((unsafe { *__v8 }) as u32) as i32) {
-                let __v10: *mut u8 = scan;
-                let __v11: *mut u8 = unsafe { __v10.add(1) };
-                scan = __v11;
-                let __v12: *mut u8 = r#match;
-                let __v13: *mut u8 = unsafe { __v12.add(1) };
-                r#match = __v13;
-                (((unsafe { *__v11 }) as u32) as i32) == (((unsafe { *__v13 }) as u32) as i32)
-            } else {
-                false
-            };
-        let __v14: bool = if __v9 {
-            let __v15: *mut u8 = scan;
-            let __v16: *mut u8 = unsafe { __v15.add(1) };
-            scan = __v16;
-            let __v17: *mut u8 = r#match;
-            let __v18: *mut u8 = unsafe { __v17.add(1) };
-            r#match = __v18;
-            (((unsafe { *__v16 }) as u32) as i32) == (((unsafe { *__v18 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v19: bool = if __v14 {
-            let __v20: *mut u8 = scan;
-            let __v21: *mut u8 = unsafe { __v20.add(1) };
-            scan = __v21;
-            let __v22: *mut u8 = r#match;
-            let __v23: *mut u8 = unsafe { __v22.add(1) };
-            r#match = __v23;
-            (((unsafe { *__v21 }) as u32) as i32) == (((unsafe { *__v23 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v24: bool = if __v19 {
-            let __v25: *mut u8 = scan;
-            let __v26: *mut u8 = unsafe { __v25.add(1) };
-            scan = __v26;
-            let __v27: *mut u8 = r#match;
-            let __v28: *mut u8 = unsafe { __v27.add(1) };
-            r#match = __v28;
-            (((unsafe { *__v26 }) as u32) as i32) == (((unsafe { *__v28 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v29: bool = if __v24 {
-            let __v30: *mut u8 = scan;
-            let __v31: *mut u8 = unsafe { __v30.add(1) };
-            scan = __v31;
-            let __v32: *mut u8 = r#match;
-            let __v33: *mut u8 = unsafe { __v32.add(1) };
-            r#match = __v33;
-            (((unsafe { *__v31 }) as u32) as i32) == (((unsafe { *__v33 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v34: bool = if __v29 {
-            let __v35: *mut u8 = scan;
-            let __v36: *mut u8 = unsafe { __v35.add(1) };
-            scan = __v36;
-            let __v37: *mut u8 = r#match;
-            let __v38: *mut u8 = unsafe { __v37.add(1) };
-            r#match = __v38;
-            (((unsafe { *__v36 }) as u32) as i32) == (((unsafe { *__v38 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v39: bool = if __v34 {
-            let __v40: *mut u8 = scan;
-            let __v41: *mut u8 = unsafe { __v40.add(1) };
-            scan = __v41;
-            let __v42: *mut u8 = r#match;
-            let __v43: *mut u8 = unsafe { __v42.add(1) };
-            r#match = __v43;
-            (((unsafe { *__v41 }) as u32) as i32) == (((unsafe { *__v43 }) as u32) as i32)
-        } else {
-            false
-        };
-        if !(__v39 && scan < strend) {
-            break;
-        }
-    }
-    len = 258 - (((unsafe { strend.offset_from(scan as *mut u8) }) as i64) as i32);
-    if len < 3 {
-        return 2u32;
-    }
-    unsafe {
-        (*s).match_start = cur_match;
-    }
-    if (len as u32) <= unsafe { (*s).lookahead } {
-        len as u32
-    } else {
-        unsafe { (*s).lookahead }
-    }
-}
-
-#[cfg(all(
-    target_pointer_width = "64",
-    windows,
-    not(feature = "fastest"),
-    feature = "zlib-debug"
-))]
-/// Set match_start to the longest match starting at the given string and
-/// return its length. Matches shorter or equal to prev_length are discarded,
-/// in which case the result is equal to prev_length and match_start is
-/// garbage.
-/// IN assertions: cur_match is the head of the hash chain for the current
-///   string (strstart) and its distance is <= MAX_DIST, and prev_length >= 1
-/// OUT assertion: the match length is not greater than s->lookahead.
-fn longest_match(s: *mut internal_state, mut cur_match: u32) -> u32 {
-    let mut chain_length: u32 = unsafe { (*s).max_chain_length }; // max hash chain length
-    let mut scan: *mut u8 = unsafe { unsafe { (*s).window }.offset((*s).strstart as isize) }; // current string
-    let mut r#match: *mut u8 = unsafe { std::mem::zeroed() }; // matched string
-    let mut len: i32 = 0; // length of current match
-    let mut best_len: i32 = (unsafe { (*s).prev_length }) as i32; // best match length so far
-    let mut nice_match: i32 = unsafe { (*s).nice_match }; // stop if match long enough
-    let limit: u32 = if (unsafe { (*s).strstart }) > MAX_DIST!(s) {
-        unsafe { (*s).strstart }.wrapping_sub(MAX_DIST!(s))
-    } else {
-        0
-    };
-    // Stop when cur_match becomes <= limit. To simplify the code,
-    // we prevent matches with the string of window index 0.
-    let prev: *mut u16 = unsafe { (*s).prev };
-    let wmask: u32 = unsafe { (*s).w_mask };
-    let strend: *mut u8 = unsafe {
-        unsafe { (*s).window }
-            .offset((*s).strstart as isize)
-            .add(258)
-    };
-    let mut scan_end1: u8 = unsafe { *scan.offset((best_len - 1) as isize) };
-    let mut scan_end: u8 = unsafe { *scan.offset(best_len as isize) };
-    // The code is optimized for HASH_BITS >= 8 and MAX_MATCH-2 multiple of 16.
-    // It is easy to get rid of this optimization if necessary.
-    Assert!(
-        (unsafe { (*s).hash_bits }) >= 8 && true,
-        c"Code too clever".as_ptr() as *mut c_char
-    );
-    // Do not waste too much time if we already have a good match:
-    if (unsafe { (*s).prev_length }) >= unsafe { (*s).good_match } {
-        chain_length >>= 2i32;
-    }
-    // Do not look for matches beyond the end of the input. This is necessary
-    // to make deflate deterministic.
-    if (nice_match as u32) > unsafe { (*s).lookahead } {
-        nice_match = (unsafe { (*s).lookahead }) as i32;
-    }
-    Assert!(
-        ((unsafe { (*s).strstart }) as c_ulong)
-            <= unsafe { (*s).window_size }.wrapping_sub((262 as c_ulong)),
-        c"need lookahead".as_ptr() as *mut c_char
-    );
-    loop {
-        Assert!(
-            cur_match < unsafe { (*s).strstart },
-            c"no future".as_ptr() as *mut c_char
-        );
-        r#match = unsafe { unsafe { (*s).window }.add(cur_match as usize) };
-        // Skip to next match if the match length cannot increase
-        // or if the match length is less than 2.  Note that the checks below
-        // for insufficient lookahead only occur occasionally for performance
-        // reasons.  Therefore uninitialized memory will be accessed, and
-        // conditional jumps will be made that depend on those values.
-        // However the length of the match is limited to the lookahead, so
-        // the output of deflate is not affected by the uninitialized values.
-        let __v2: bool = if (((unsafe { *r#match.offset(best_len as isize) }) as u32) as i32)
-            != ((scan_end as u32) as i32)
-            || (((unsafe { *r#match.offset((best_len - 1) as isize) }) as u32) as i32)
-                != ((scan_end1 as u32) as i32)
-            || (((unsafe { *r#match }) as u32) as i32) != (((unsafe { *scan }) as u32) as i32)
-        {
-            true
-        } else {
-            let __v3: *mut u8 = r#match;
-            let __v4: *mut u8 = unsafe { __v3.add(1) };
-            r#match = __v4;
-            (((unsafe { *__v4 }) as u32) as i32) != (((unsafe { *scan.add(1) }) as u32) as i32)
-        };
-        if !__v2 {
-            // The check at best_len - 1 can be removed because it will be made
-            // again later. (This heuristic is not always a win.)
-            // It is not necessary to compare scan[2] and match[2] since they
-            // are always equal when the other bytes match, given that
-            // the hash keys are equal and that HASH_BITS >= 8.
-            let __v6: *mut u8 = scan;
-            scan = unsafe { __v6.add(2) };
-            let __v8: *mut u8 = r#match;
-            r#match = unsafe { __v8.add(1) };
-            Assert!(
-                (((unsafe { *scan }) as u32) as i32) == (((unsafe { *r#match }) as u32) as i32),
-                c"match[2]?".as_ptr() as *mut c_char
-            );
-            // We check for insufficient lookahead only every 8th comparison;
-            // the 256th check will be made at strstart + 258.
-            loop {
-                let __v11: *mut u8 = scan;
-                let __v12: *mut u8 = unsafe { __v11.add(1) };
-                scan = __v12;
-                let __v13: *mut u8 = r#match;
-                let __v14: *mut u8 = unsafe { __v13.add(1) };
-                r#match = __v14;
-                let __v15: bool = if (((unsafe { *__v12 }) as u32) as i32)
-                    == (((unsafe { *__v14 }) as u32) as i32)
-                {
-                    let __v16: *mut u8 = scan;
-                    let __v17: *mut u8 = unsafe { __v16.add(1) };
-                    scan = __v17;
-                    let __v18: *mut u8 = r#match;
-                    let __v19: *mut u8 = unsafe { __v18.add(1) };
-                    r#match = __v19;
-                    (((unsafe { *__v17 }) as u32) as i32) == (((unsafe { *__v19 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v20: bool = if __v15 {
-                    let __v21: *mut u8 = scan;
-                    let __v22: *mut u8 = unsafe { __v21.add(1) };
-                    scan = __v22;
-                    let __v23: *mut u8 = r#match;
-                    let __v24: *mut u8 = unsafe { __v23.add(1) };
-                    r#match = __v24;
-                    (((unsafe { *__v22 }) as u32) as i32) == (((unsafe { *__v24 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v25: bool = if __v20 {
-                    let __v26: *mut u8 = scan;
-                    let __v27: *mut u8 = unsafe { __v26.add(1) };
-                    scan = __v27;
-                    let __v28: *mut u8 = r#match;
-                    let __v29: *mut u8 = unsafe { __v28.add(1) };
-                    r#match = __v29;
-                    (((unsafe { *__v27 }) as u32) as i32) == (((unsafe { *__v29 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v30: bool = if __v25 {
-                    let __v31: *mut u8 = scan;
-                    let __v32: *mut u8 = unsafe { __v31.add(1) };
-                    scan = __v32;
-                    let __v33: *mut u8 = r#match;
-                    let __v34: *mut u8 = unsafe { __v33.add(1) };
-                    r#match = __v34;
-                    (((unsafe { *__v32 }) as u32) as i32) == (((unsafe { *__v34 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v35: bool = if __v30 {
-                    let __v36: *mut u8 = scan;
-                    let __v37: *mut u8 = unsafe { __v36.add(1) };
-                    scan = __v37;
-                    let __v38: *mut u8 = r#match;
-                    let __v39: *mut u8 = unsafe { __v38.add(1) };
-                    r#match = __v39;
-                    (((unsafe { *__v37 }) as u32) as i32) == (((unsafe { *__v39 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v40: bool = if __v35 {
-                    let __v41: *mut u8 = scan;
-                    let __v42: *mut u8 = unsafe { __v41.add(1) };
-                    scan = __v42;
-                    let __v43: *mut u8 = r#match;
-                    let __v44: *mut u8 = unsafe { __v43.add(1) };
-                    r#match = __v44;
-                    (((unsafe { *__v42 }) as u32) as i32) == (((unsafe { *__v44 }) as u32) as i32)
-                } else {
-                    false
-                };
-                let __v45: bool = if __v40 {
-                    let __v46: *mut u8 = scan;
-                    let __v47: *mut u8 = unsafe { __v46.add(1) };
-                    scan = __v47;
-                    let __v48: *mut u8 = r#match;
-                    let __v49: *mut u8 = unsafe { __v48.add(1) };
-                    r#match = __v49;
-                    (((unsafe { *__v47 }) as u32) as i32) == (((unsafe { *__v49 }) as u32) as i32)
-                } else {
-                    false
-                };
-                if !(__v45 && scan < strend) {
-                    break;
-                }
-            }
-            Assert!(
-                scan <= unsafe {
-                    unsafe { (*s).window }
-                        .add((unsafe { (*s).window_size }.wrapping_sub(1) as u32) as usize)
-                },
-                c"wild scan".as_ptr() as *mut c_char
-            );
-            len = 258 - (((unsafe { strend.offset_from(scan as *mut u8) }) as i64) as i32);
-            scan = unsafe { strend.sub(258) };
-            if len > best_len {
-                unsafe {
-                    (*s).match_start = cur_match;
-                }
-                best_len = len;
-                if len >= nice_match {
-                    break;
-                }
-                scan_end1 = unsafe { *scan.offset((best_len - 1) as isize) };
-                scan_end = unsafe { *scan.offset(best_len as isize) };
-            }
-        }
-        let __v50: u32 = (unsafe { *prev.add((cur_match & wmask) as usize) }) as u32;
-        cur_match = __v50;
-        let __v51: bool = if __v50 > limit {
-            let __v53: u32 = chain_length.wrapping_sub(1);
-            chain_length = __v53;
-            __v53 != 0
-        } else {
-            false
-        };
-        if !__v51 {
-            break;
-        }
-    }
-    if (best_len as u32) <= unsafe { (*s).lookahead } {
-        return best_len as u32;
-    }
-    unsafe { (*s).lookahead }
-}
-
-#[cfg(all(
-    target_pointer_width = "64",
-    windows,
-    feature = "fastest",
-    feature = "zlib-debug"
-))]
-/// Optimized version for FASTEST only
-fn longest_match(s: *mut internal_state, cur_match: u32) -> u32 {
-    let mut scan: *mut u8 = unsafe { unsafe { (*s).window }.offset((*s).strstart as isize) }; // current string
-    let mut r#match: *mut u8 = unsafe { std::mem::zeroed() }; // matched string
-    let mut len: i32 = 0; // length of current match
-    let strend: *mut u8 = unsafe {
-        unsafe { (*s).window }
-            .offset((*s).strstart as isize)
-            .add(258)
-    };
-    // The code is optimized for HASH_BITS >= 8 and MAX_MATCH-2 multiple of 16.
-    // It is easy to get rid of this optimization if necessary.
-    Assert!(
-        (unsafe { (*s).hash_bits }) >= 8 && true,
-        c"Code too clever".as_ptr() as *mut c_char
-    );
-    Assert!(
-        ((unsafe { (*s).strstart }) as c_ulong)
-            <= unsafe { (*s).window_size }.wrapping_sub((262 as c_ulong)),
-        c"need lookahead".as_ptr() as *mut c_char
-    );
-    Assert!(
-        cur_match < unsafe { (*s).strstart },
-        c"no future".as_ptr() as *mut c_char
-    );
-    r#match = unsafe { unsafe { (*s).window }.add(cur_match as usize) };
-    // Return failure if the match length is less than 2:
-    if (((unsafe { *r#match.add(0) }) as u32) as i32) != (((unsafe { *scan.add(0) }) as u32) as i32)
-        || (((unsafe { *r#match.add(1) }) as u32) as i32)
-            != (((unsafe { *scan.add(1) }) as u32) as i32)
-    {
-        return 2u32;
-    }
-    // The check at best_len - 1 can be removed because it will be made
-    // again later. (This heuristic is not always a win.)
-    // It is not necessary to compare scan[2] and match[2] since they
-    // are always equal when the other bytes match, given that
-    // the hash keys are equal and that HASH_BITS >= 8.
-    let __v0: *mut u8 = scan;
-    scan = unsafe { __v0.add(2) };
-    let __v2: *mut u8 = r#match;
-    r#match = unsafe { __v2.add(2) };
-    Assert!(
-        (((unsafe { *scan }) as u32) as i32) == (((unsafe { *r#match }) as u32) as i32),
-        c"match[2]?".as_ptr() as *mut c_char
-    );
-    // We check for insufficient lookahead only every 8th comparison;
-    // the 256th check will be made at strstart + 258.
-    loop {
-        let __v5: *mut u8 = scan;
-        let __v6: *mut u8 = unsafe { __v5.add(1) };
-        scan = __v6;
-        let __v7: *mut u8 = r#match;
-        let __v8: *mut u8 = unsafe { __v7.add(1) };
-        r#match = __v8;
-        let __v9: bool =
-            if (((unsafe { *__v6 }) as u32) as i32) == (((unsafe { *__v8 }) as u32) as i32) {
-                let __v10: *mut u8 = scan;
-                let __v11: *mut u8 = unsafe { __v10.add(1) };
-                scan = __v11;
-                let __v12: *mut u8 = r#match;
-                let __v13: *mut u8 = unsafe { __v12.add(1) };
-                r#match = __v13;
-                (((unsafe { *__v11 }) as u32) as i32) == (((unsafe { *__v13 }) as u32) as i32)
-            } else {
-                false
-            };
-        let __v14: bool = if __v9 {
-            let __v15: *mut u8 = scan;
-            let __v16: *mut u8 = unsafe { __v15.add(1) };
-            scan = __v16;
-            let __v17: *mut u8 = r#match;
-            let __v18: *mut u8 = unsafe { __v17.add(1) };
-            r#match = __v18;
-            (((unsafe { *__v16 }) as u32) as i32) == (((unsafe { *__v18 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v19: bool = if __v14 {
-            let __v20: *mut u8 = scan;
-            let __v21: *mut u8 = unsafe { __v20.add(1) };
-            scan = __v21;
-            let __v22: *mut u8 = r#match;
-            let __v23: *mut u8 = unsafe { __v22.add(1) };
-            r#match = __v23;
-            (((unsafe { *__v21 }) as u32) as i32) == (((unsafe { *__v23 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v24: bool = if __v19 {
-            let __v25: *mut u8 = scan;
-            let __v26: *mut u8 = unsafe { __v25.add(1) };
-            scan = __v26;
-            let __v27: *mut u8 = r#match;
-            let __v28: *mut u8 = unsafe { __v27.add(1) };
-            r#match = __v28;
-            (((unsafe { *__v26 }) as u32) as i32) == (((unsafe { *__v28 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v29: bool = if __v24 {
-            let __v30: *mut u8 = scan;
-            let __v31: *mut u8 = unsafe { __v30.add(1) };
-            scan = __v31;
-            let __v32: *mut u8 = r#match;
-            let __v33: *mut u8 = unsafe { __v32.add(1) };
-            r#match = __v33;
-            (((unsafe { *__v31 }) as u32) as i32) == (((unsafe { *__v33 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v34: bool = if __v29 {
-            let __v35: *mut u8 = scan;
-            let __v36: *mut u8 = unsafe { __v35.add(1) };
-            scan = __v36;
-            let __v37: *mut u8 = r#match;
-            let __v38: *mut u8 = unsafe { __v37.add(1) };
-            r#match = __v38;
-            (((unsafe { *__v36 }) as u32) as i32) == (((unsafe { *__v38 }) as u32) as i32)
-        } else {
-            false
-        };
-        let __v39: bool = if __v34 {
-            let __v40: *mut u8 = scan;
-            let __v41: *mut u8 = unsafe { __v40.add(1) };
-            scan = __v41;
-            let __v42: *mut u8 = r#match;
-            let __v43: *mut u8 = unsafe { __v42.add(1) };
-            r#match = __v43;
-            (((unsafe { *__v41 }) as u32) as i32) == (((unsafe { *__v43 }) as u32) as i32)
-        } else {
-            false
-        };
-        if !(__v39 && scan < strend) {
-            break;
-        }
-    }
-    Assert!(
-        scan <= unsafe {
-            unsafe { (*s).window }
-                .add((unsafe { (*s).window_size }.wrapping_sub(1) as u32) as usize)
-        },
-        c"wild scan".as_ptr() as *mut c_char
-    );
-    len = 258 - (((unsafe { strend.offset_from(scan as *mut u8) }) as i64) as i32);
+    len = 258 - (((unsafe { strend.offset_from(scan as *mut u8) }) as ptrdiff_t) as i32);
     if len < 3 {
         return 2u32;
     }
@@ -6577,13 +4068,13 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
         here = unsafe { __v2.add(1) };
         len = len.wrapping_sub(1);
     }
-    #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+    #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
     {
         if (unsafe {
             memcmp(
                 (back as *const ()) as *const core::ffi::c_void,
                 (here as *const ()) as *const core::ffi::c_void,
-                (len as c_ulong) as usize,
+                (len as size_t) as usize,
             ) as i32
         }) != 0
         {
@@ -6608,8 +4099,8 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
                     slate_support::fprintf(
                         slate_support::stderr(),
                         c"(%02x %02x)".as_ptr(),
-                        (*__v6 as u32) as i32,
-                        (*__v8 as u32) as i32,
+                        *__v6 as i32,
+                        *__v8 as i32,
                     )
                 };
                 unsafe { fflush(std::ptr::null_mut()) };
@@ -6622,16 +4113,9 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
             unsafe { z_error(c"invalid match".as_ptr() as *mut c_char) };
         }
     }
-    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
+    #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
     {
-        if (unsafe {
-            memcmp(
-                (back as *const ()) as *const core::ffi::c_void,
-                (here as *const ()) as *const core::ffi::c_void,
-                len as usize,
-            ) as i32
-        }) != 0
-        {
+        if (unsafe { memcmp(back as *const (), here as *const (), len as size_t) }) != 0 {
             let _ = std::io::Write::flush(&mut std::io::stdout());
             unsafe {
                 slate_support::fprintf(
@@ -6653,135 +4137,14 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
                     slate_support::fprintf(
                         slate_support::stderr(),
                         c"(%02x %02x)".as_ptr(),
-                        (*__v3 as u32) as i32,
-                        (*__v4 as u32) as i32,
+                        *__v3 as i32,
+                        *__v4 as i32,
                     )
                 };
                 unsafe { fflush(std::ptr::null_mut()) };
                 let __v5: u32 = len.wrapping_sub(1);
                 len = __v5;
                 if __v5 == 0 {
-                    break;
-                }
-            }
-            unsafe { z_error(c"invalid match".as_ptr() as *mut c_char) };
-        }
-    }
-    #[cfg(target_os = "macos")]
-    {
-        if (unsafe { memcmp(back as *const (), here as *const (), len as c_ulong) }) != 0 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe {
-                slate_support::fprintf(
-                    slate_support::stderr(),
-                    c" start %u, match %d, length %d\n".as_ptr(),
-                    start,
-                    r#match as i32,
-                    length,
-                )
-            };
-            unsafe { fflush(std::ptr::null_mut()) };
-            loop {
-                let __v7: *mut u8 = back;
-                back = unsafe { __v7.add(1) };
-                let __v9: *mut u8 = here;
-                here = unsafe { __v9.add(1) };
-                let _ = std::io::Write::flush(&mut std::io::stdout());
-                unsafe {
-                    slate_support::fprintf(
-                        slate_support::stderr(),
-                        c"(%02x %02x)".as_ptr(),
-                        (*__v7 as u32) as i32,
-                        (*__v9 as u32) as i32,
-                    )
-                };
-                unsafe { fflush(std::ptr::null_mut()) };
-                let __v10: u32 = len.wrapping_sub(1);
-                len = __v10;
-                if __v10 == 0 {
-                    break;
-                }
-            }
-            unsafe { z_error(c"invalid match".as_ptr() as *mut c_char) };
-        }
-    }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        if (unsafe {
-            memcmp(
-                (back as *const ()) as *const core::ffi::c_void,
-                (here as *const ()) as *const core::ffi::c_void,
-                (len as u64) as usize,
-            ) as i32
-        }) != 0
-        {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe {
-                slate_support::fprintf(
-                    slate_support::stderr(),
-                    c" start %u, match %d, length %d\n".as_ptr(),
-                    start,
-                    r#match as i32,
-                    length,
-                )
-            };
-            unsafe { fflush(std::ptr::null_mut()) };
-            loop {
-                let __v11: *mut u8 = back;
-                back = unsafe { __v11.add(1) };
-                let __v15: *mut u8 = here;
-                here = unsafe { __v15.add(1) };
-                let _ = std::io::Write::flush(&mut std::io::stdout());
-                unsafe {
-                    slate_support::fprintf(
-                        slate_support::stderr(),
-                        c"(%02x %02x)".as_ptr(),
-                        (*__v11 as u32) as i32,
-                        (*__v15 as u32) as i32,
-                    )
-                };
-                unsafe { fflush(std::ptr::null_mut()) };
-                let __v17: u32 = len.wrapping_sub(1);
-                len = __v17;
-                if __v17 == 0 {
-                    break;
-                }
-            }
-            unsafe { z_error(c"invalid match".as_ptr() as *mut c_char) };
-        }
-    }
-    #[cfg(all(target_arch = "arm", windows))]
-    {
-        if (unsafe { memcmp(back as *const (), here as *const (), len) }) != 0 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe {
-                slate_support::fprintf(
-                    slate_support::stderr(),
-                    c" start %u, match %d, length %d\n".as_ptr(),
-                    start,
-                    r#match as i32,
-                    length,
-                )
-            };
-            unsafe { fflush(std::ptr::null_mut()) };
-            loop {
-                let __v18: *mut u8 = back;
-                back = unsafe { __v18.add(1) };
-                let __v19: *mut u8 = here;
-                here = unsafe { __v19.add(1) };
-                let _ = std::io::Write::flush(&mut std::io::stdout());
-                unsafe {
-                    slate_support::fprintf(
-                        slate_support::stderr(),
-                        c"(%02x %02x)".as_ptr(),
-                        (*__v18 as u32) as i32,
-                        (*__v19 as u32) as i32,
-                    )
-                };
-                unsafe { fflush(std::ptr::null_mut()) };
-                let __v21: u32 = len.wrapping_sub(1);
-                len = __v21;
-                if __v21 == 0 {
                     break;
                 }
             }
@@ -6813,7 +4176,7 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
                 start = __v14.wrapping_add(1);
                 unsafe {
                     slate_support::__sputc(
-                        (*unsafe { (*s).window }.add(__v14 as usize) as u32) as i32,
+                        *unsafe { (*s).window }.add(__v14 as usize) as i32,
                         slate_support::stderr(),
                     )
                 }
@@ -6822,7 +4185,7 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
                 start = __v16.wrapping_add(1);
                 unsafe {
                     slate_support::putc(
-                        (*unsafe { (*s).window }.add(__v16 as usize) as u32) as i32,
+                        *unsafe { (*s).window }.add(__v16 as usize) as i32,
                         slate_support::stderr(),
                     )
                 }
@@ -6831,7 +4194,7 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
             {
                 unsafe {
                     slate_support::putc(
-                        (*unsafe { (*s).window }.add(__v1 as usize) as u32) as i32,
+                        *unsafe { (*s).window }.add(__v1 as usize) as i32,
                         slate_support::stderr(),
                     )
                 };
@@ -6897,8 +4260,7 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
         have = unsafe { (*(*s).strm).avail_out }.wrapping_sub(have);
         #[cfg(all(target_pointer_width = "64", unix))]
         {
-            left = ((((unsafe { (*s).strstart }) as c_long) - unsafe { (*s).block_start }) as i32)
-                as u32;
+            left = (((unsafe { (*s).strstart }) as c_long) - unsafe { (*s).block_start }) as u32;
         }
         #[cfg(any(target_pointer_width = "32", windows))]
         {
@@ -6975,58 +4337,25 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
             if left > len {
                 left = len;
             }
-            #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+            #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
                         ((unsafe { (*s).window }.offset((*s).block_start as isize) as *const ())
                             as *const core::ffi::c_void) as *const u8,
                         (((*(*s).strm).next_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                        ((left as c_ulong) as usize) as usize,
+                        ((left as size_t) as usize) as usize,
                     )
                 };
             }
-            #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-            {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        ((unsafe { (*s).window }.offset((*s).block_start as isize) as *const ())
-                            as *const core::ffi::c_void) as *const u8,
-                        (((*(*s).strm).next_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                        (left as usize) as usize,
-                    )
-                };
-            }
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
                         (unsafe { (*s).window }.offset((*s).block_start as isize) as *const ())
                             as *const u8,
                         ((*(*s).strm).next_out as *mut ()) as *mut u8,
-                        (left as c_ulong) as usize,
-                    )
-                };
-            }
-            #[cfg(all(target_pointer_width = "64", windows))]
-            {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        ((unsafe { (*s).window }.offset((*s).block_start as isize) as *const ())
-                            as *const core::ffi::c_void) as *const u8,
-                        (((*(*s).strm).next_out as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                        ((left as u64) as usize) as usize,
-                    )
-                };
-            }
-            #[cfg(all(target_arch = "arm", windows))]
-            {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        (unsafe { (*s).window }.offset((*s).block_start as isize) as *const ())
-                            as *const u8,
-                        ((*(*s).strm).next_out as *mut ()) as *mut u8,
-                        left as usize,
+                        (left as size_t) as usize,
                     )
                 };
             }
@@ -7097,7 +4426,7 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                 (*s).matches = 2;
             }
             // clear hash
-            #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+            #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
@@ -7105,53 +4434,18 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                             as *const ()) as *const core::ffi::c_void)
                             as *const u8,
                         (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                        (((*s).w_size as c_ulong) as usize) as usize,
+                        (((*s).w_size as size_t) as usize) as usize,
                     )
                 };
             }
-            #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-            {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        ((unsafe { (*(*s).strm).next_in }.offset(-((*s).w_size as isize))
-                            as *const ()) as *const core::ffi::c_void)
-                            as *const u8,
-                        (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                        ((*s).w_size as usize) as usize,
-                    )
-                };
-            }
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
                         (unsafe { (*(*s).strm).next_in }.offset(-((*s).w_size as isize))
                             as *const ()) as *const u8,
                         ((*s).window as *mut ()) as *mut u8,
-                        ((*s).w_size as c_ulong) as usize,
-                    )
-                };
-            }
-            #[cfg(all(target_pointer_width = "64", windows))]
-            {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        ((unsafe { (*(*s).strm).next_in }.offset(-((*s).w_size as isize))
-                            as *const ()) as *const core::ffi::c_void)
-                            as *const u8,
-                        (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                        (((*s).w_size as u64) as usize) as usize,
-                    )
-                };
-            }
-            #[cfg(all(target_arch = "arm", windows))]
-            {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        (unsafe { (*(*s).strm).next_in }.offset(-((*s).w_size as isize))
-                            as *const ()) as *const u8,
-                        ((*s).window as *mut ()) as *mut u8,
-                        (*s).w_size as usize,
+                        ((*s).w_size as size_t) as usize,
                     )
                 };
             }
@@ -7170,7 +4464,7 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                 unsafe {
                     (*s).strstart = __v33.wrapping_sub((*s).w_size);
                 }
-                #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+                #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
                 {
                     unsafe {
                         std::ptr::copy_nonoverlapping(
@@ -7178,53 +4472,18 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                                 as *const core::ffi::c_void)
                                 as *const u8,
                             (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                            (((*s).strstart as c_ulong) as usize) as usize,
+                            (((*s).strstart as size_t) as usize) as usize,
                         )
                     };
                 }
-                #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-                {
-                    unsafe {
-                        std::ptr::copy_nonoverlapping(
-                            ((unsafe { (*s).window }.offset((*s).w_size as isize) as *const ())
-                                as *const core::ffi::c_void)
-                                as *const u8,
-                            (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                            ((*s).strstart as usize) as usize,
-                        )
-                    };
-                }
-                #[cfg(target_os = "macos")]
+                #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
                 {
                     unsafe {
                         std::ptr::copy_nonoverlapping(
                             (unsafe { (*s).window }.offset((*s).w_size as isize) as *const ())
                                 as *const u8,
                             ((*s).window as *mut ()) as *mut u8,
-                            ((*s).strstart as c_ulong) as usize,
-                        )
-                    };
-                }
-                #[cfg(all(target_pointer_width = "64", windows))]
-                {
-                    unsafe {
-                        std::ptr::copy_nonoverlapping(
-                            ((unsafe { (*s).window }.offset((*s).w_size as isize) as *const ())
-                                as *const core::ffi::c_void)
-                                as *const u8,
-                            (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                            (((*s).strstart as u64) as usize) as usize,
-                        )
-                    };
-                }
-                #[cfg(all(target_arch = "arm", windows))]
-                {
-                    unsafe {
-                        std::ptr::copy_nonoverlapping(
-                            (unsafe { (*s).window }.offset((*s).w_size as isize) as *const ())
-                                as *const u8,
-                            ((*s).window as *mut ()) as *mut u8,
-                            (*s).strstart as usize,
+                            ((*s).strstart as size_t) as usize,
                         )
                     };
                 }
@@ -7241,7 +4500,7 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                     }
                 }
             }
-            #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+            #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
@@ -7249,23 +4508,11 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                             as *const core::ffi::c_void) as *const u8,
                         ((unsafe { (*s).window }.offset((*s).strstart as isize) as *mut ())
                             as *mut core::ffi::c_void) as *mut u8,
-                        ((used as c_ulong) as usize) as usize,
+                        ((used as size_t) as usize) as usize,
                     )
                 };
             }
-            #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-            {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        ((unsafe { (*(*s).strm).next_in }.sub(used as usize) as *const ())
-                            as *const core::ffi::c_void) as *const u8,
-                        ((unsafe { (*s).window }.offset((*s).strstart as isize) as *mut ())
-                            as *mut core::ffi::c_void) as *mut u8,
-                        (used as usize) as usize,
-                    )
-                };
-            }
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
             {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
@@ -7273,31 +4520,7 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
                             as *const u8,
                         (unsafe { (*s).window }.offset((*s).strstart as isize) as *mut ())
                             as *mut u8,
-                        (used as c_ulong) as usize,
-                    )
-                };
-            }
-            #[cfg(all(target_pointer_width = "64", windows))]
-            {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        ((unsafe { (*(*s).strm).next_in }.sub(used as usize) as *const ())
-                            as *const core::ffi::c_void) as *const u8,
-                        ((unsafe { (*s).window }.offset((*s).strstart as isize) as *mut ())
-                            as *mut core::ffi::c_void) as *mut u8,
-                        ((used as u64) as usize) as usize,
-                    )
-                };
-            }
-            #[cfg(all(target_arch = "arm", windows))]
-            {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        (unsafe { (*(*s).strm).next_in }.sub(used as usize) as *const ())
-                            as *const u8,
-                        (unsafe { (*s).window }.offset((*s).strstart as isize) as *mut ())
-                            as *mut u8,
-                        used as usize,
+                        (used as size_t) as usize,
                     )
                 };
             }
@@ -7359,56 +4582,24 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
         unsafe {
             (*s).strstart = __v48.wrapping_sub((*s).w_size);
         }
-        #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
+        #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
                     ((unsafe { (*s).window }.offset((*s).w_size as isize) as *const ())
                         as *const core::ffi::c_void) as *const u8,
                     (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                    (((*s).strstart as c_ulong) as usize) as usize,
+                    (((*s).strstart as size_t) as usize) as usize,
                 )
             };
         }
-        #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-        {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    ((unsafe { (*s).window }.offset((*s).w_size as isize) as *const ())
-                        as *const core::ffi::c_void) as *const u8,
-                    (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                    ((*s).strstart as usize) as usize,
-                )
-            };
-        }
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
         {
             unsafe {
                 std::ptr::copy_nonoverlapping(
                     (unsafe { (*s).window }.offset((*s).w_size as isize) as *const ()) as *const u8,
                     ((*s).window as *mut ()) as *mut u8,
-                    ((*s).strstart as c_ulong) as usize,
-                )
-            };
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    ((unsafe { (*s).window }.offset((*s).w_size as isize) as *const ())
-                        as *const core::ffi::c_void) as *const u8,
-                    (((*s).window as *mut ()) as *mut core::ffi::c_void) as *mut u8,
-                    (((*s).strstart as u64) as usize) as usize,
-                )
-            };
-        }
-        #[cfg(all(target_arch = "arm", windows))]
-        {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    (unsafe { (*s).window }.offset((*s).w_size as isize) as *const ()) as *const u8,
-                    ((*s).window as *mut ()) as *mut u8,
-                    (*s).strstart as usize,
+                    ((*s).strstart as size_t) as usize,
                 )
             };
         }
@@ -7466,8 +4657,7 @@ extern "C-unwind" fn deflate_stored(s: *mut internal_state, flush: i32) -> u32 {
     min_block = MIN!(have, unsafe { (*s).w_size });
     #[cfg(all(target_pointer_width = "64", unix))]
     {
-        left =
-            ((((unsafe { (*s).strstart }) as c_long) - unsafe { (*s).block_start }) as i32) as u32;
+        left = (((unsafe { (*s).strstart }) as c_long) - unsafe { (*s).block_start }) as u32;
     }
     #[cfg(any(target_pointer_width = "32", windows))]
     {
@@ -7547,14 +4737,7 @@ extern "C-unwind" fn deflate_fast(s: *mut internal_state, flush: i32) -> u32 {
         // dictionary, and set hash_head to the head of the hash chain:
         hash_head = 0;
         if (unsafe { (*s).lookahead }) >= 3 {
-            #[cfg(not(feature = "fastest"))]
-            {
-                INSERT_STRING!(s, unsafe { (*s).strstart }, hash_head);
-            }
-            #[cfg(feature = "fastest")]
-            {
-                INSERT_STRING__2!(s, unsafe { (*s).strstart }, hash_head);
-            }
+            INSERT_STRING!(s, unsafe { (*s).strstart }, hash_head);
         }
         // Find the longest match, discarding those <= prev_length.
         // At this point we have always match_length < MIN_MATCH
@@ -7576,25 +4759,16 @@ extern "C-unwind" fn deflate_fast(s: *mut internal_state, flush: i32) -> u32 {
                     unsafe { (*s).match_start },
                     (unsafe { (*s).match_length }) as i32,
                 );
-                _tr_tally_dist__3!(
+                _tr_tally_dist__2!(
                     s,
                     unsafe { (*s).strstart }.wrapping_sub(unsafe { (*s).match_start }),
                     unsafe { (*s).match_length }.wrapping_sub(3),
                     bflush
                 );
             }
-            #[cfg(all(not(feature = "lit-mem"), not(feature = "zlib-debug")))]
+            #[cfg(not(feature = "zlib-debug"))]
             {
                 _tr_tally_dist!(
-                    s,
-                    unsafe { (*s).strstart }.wrapping_sub(unsafe { (*s).match_start }),
-                    unsafe { (*s).match_length }.wrapping_sub(3),
-                    bflush
-                );
-            }
-            #[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
-            {
-                _tr_tally_dist__2!(
                     s,
                     unsafe { (*s).strstart }.wrapping_sub(unsafe { (*s).match_start }),
                     unsafe { (*s).match_length }.wrapping_sub(3),
@@ -7682,28 +4856,12 @@ extern "C-unwind" fn deflate_fast(s: *mut internal_state, flush: i32) -> u32 {
                     c"%c".as_ptr() as *mut c_char,
                     unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) }
                 );
-                _tr_tally_lit__2!(
-                    s,
-                    unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
-                    bflush
-                );
             }
-            #[cfg(all(not(feature = "lit-mem"), not(feature = "zlib-debug")))]
-            {
-                _tr_tally_lit__3!(
-                    s,
-                    unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
-                    bflush
-                );
-            }
-            #[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
-            {
-                _tr_tally_lit!(
-                    s,
-                    unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
-                    bflush
-                );
-            }
+            _tr_tally_lit!(
+                s,
+                unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
+                bflush
+            );
             let __v29: u32 = unsafe { (*s).lookahead };
             unsafe {
                 (*s).lookahead = __v29.wrapping_sub(1);
@@ -7714,22 +4872,7 @@ extern "C-unwind" fn deflate_fast(s: *mut internal_state, flush: i32) -> u32 {
             }
         }
         if bflush != 0 {
-            #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
-            {
-                FLUSH_BLOCK__3!(s, 0i32);
-            }
-            #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
-            {
-                FLUSH_BLOCK__4!(s, 0i32);
-            }
-            #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
-            {
-                FLUSH_BLOCK!(s, 0i32);
-            }
-            #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
-            {
-                FLUSH_BLOCK__2!(s, 0i32);
-            }
+            FLUSH_BLOCK!(s, 0i32);
         }
     }
     unsafe {
@@ -7740,41 +4883,11 @@ extern "C-unwind" fn deflate_fast(s: *mut internal_state, flush: i32) -> u32 {
         };
     }
     if flush == 4 {
-        #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
-        {
-            FLUSH_BLOCK__3!(s, 1i32);
-        }
-        #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
-        {
-            FLUSH_BLOCK__4!(s, 1i32);
-        }
-        #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
-        {
-            FLUSH_BLOCK!(s, 1i32);
-        }
-        #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
-        {
-            FLUSH_BLOCK__2!(s, 1i32);
-        }
+        FLUSH_BLOCK!(s, 1i32);
         return 3;
     }
     if (unsafe { (*s).sym_next }) != 0 {
-        #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
-        {
-            FLUSH_BLOCK__3!(s, 0i32);
-        }
-        #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
-        {
-            FLUSH_BLOCK__4!(s, 0i32);
-        }
-        #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
-        {
-            FLUSH_BLOCK!(s, 0i32);
-        }
-        #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
-        {
-            FLUSH_BLOCK__2!(s, 0i32);
-        }
+        FLUSH_BLOCK!(s, 0i32);
     }
     1
 }
@@ -7863,7 +4976,7 @@ extern "C-unwind" fn deflate_slow(s: *mut internal_state, flush: i32) -> u32 {
                     unsafe { (*s).prev_match },
                     (unsafe { (*s).prev_length }) as i32,
                 );
-                _tr_tally_dist__3!(
+                _tr_tally_dist__2!(
                     s,
                     unsafe { (*s).strstart }
                         .wrapping_sub(1)
@@ -7872,20 +4985,9 @@ extern "C-unwind" fn deflate_slow(s: *mut internal_state, flush: i32) -> u32 {
                     bflush
                 );
             }
-            #[cfg(all(not(feature = "lit-mem"), not(feature = "zlib-debug")))]
+            #[cfg(not(feature = "zlib-debug"))]
             {
                 _tr_tally_dist!(
-                    s,
-                    unsafe { (*s).strstart }
-                        .wrapping_sub(1)
-                        .wrapping_sub(unsafe { (*s).prev_match }),
-                    unsafe { (*s).prev_length }.wrapping_sub(3),
-                    bflush
-                );
-            }
-            #[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
-            {
-                _tr_tally_dist__2!(
                     s,
                     unsafe { (*s).strstart }
                         .wrapping_sub(1)
@@ -7935,22 +5037,7 @@ extern "C-unwind" fn deflate_slow(s: *mut internal_state, flush: i32) -> u32 {
                 (*s).strstart = __v24.wrapping_add(1);
             }
             if bflush != 0 {
-                #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
-                {
-                    FLUSH_BLOCK__3!(s, 0i32);
-                }
-                #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
-                {
-                    FLUSH_BLOCK__4!(s, 0i32);
-                }
-                #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
-                {
-                    FLUSH_BLOCK!(s, 0i32);
-                }
-                #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
-                {
-                    FLUSH_BLOCK__2!(s, 0i32);
-                }
+                FLUSH_BLOCK!(s, 0i32);
             }
         } else {
             if (unsafe { (*s).match_available }) != 0 {
@@ -7967,57 +5054,17 @@ extern "C-unwind" fn deflate_slow(s: *mut internal_state, flush: i32) -> u32 {
                                 .offset(unsafe { (*s).strstart }.wrapping_sub(1) as isize)
                         }
                     );
-                    _tr_tally_lit__2!(
-                        s,
-                        unsafe {
-                            *unsafe { (*s).window }
-                                .offset(unsafe { (*s).strstart }.wrapping_sub(1) as isize)
-                        },
-                        bflush
-                    );
                 }
-                #[cfg(all(not(feature = "lit-mem"), not(feature = "zlib-debug")))]
-                {
-                    _tr_tally_lit__3!(
-                        s,
-                        unsafe {
-                            *unsafe { (*s).window }
-                                .offset(unsafe { (*s).strstart }.wrapping_sub(1) as isize)
-                        },
-                        bflush
-                    );
-                }
-                #[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
-                {
-                    _tr_tally_lit!(
-                        s,
-                        unsafe {
-                            *unsafe { (*s).window }
-                                .offset(unsafe { (*s).strstart }.wrapping_sub(1) as isize)
-                        },
-                        bflush
-                    );
-                }
+                _tr_tally_lit!(
+                    s,
+                    unsafe {
+                        *unsafe { (*s).window }
+                            .offset(unsafe { (*s).strstart }.wrapping_sub(1) as isize)
+                    },
+                    bflush
+                );
                 if bflush != 0 {
-                    #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
-                    {
-                        FLUSH_BLOCK_ONLY__3!(s, 0i32);
-                    }
-                    #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
-                    {
-                        FLUSH_BLOCK_ONLY__4!(s, 0i32);
-                    }
-                    #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
-                    {
-                        FLUSH_BLOCK_ONLY!(s, 0i32);
-                    }
-                    #[cfg(all(
-                        any(target_pointer_width = "32", windows),
-                        not(feature = "zlib-debug")
-                    ))]
-                    {
-                        FLUSH_BLOCK_ONLY__2!(s, 0i32);
-                    }
+                    FLUSH_BLOCK_ONLY!(s, 0i32);
                 }
                 let __v27: u32 = unsafe { (*s).strstart };
                 unsafe {
@@ -8062,37 +5109,14 @@ extern "C-unwind" fn deflate_slow(s: *mut internal_state, flush: i32) -> u32 {
                         .offset(unsafe { (*s).strstart }.wrapping_sub(1) as isize)
                 }
             );
-            _tr_tally_lit__2!(
-                s,
-                unsafe {
-                    *unsafe { (*s).window }
-                        .offset(unsafe { (*s).strstart }.wrapping_sub(1) as isize)
-                },
-                bflush
-            );
         }
-        #[cfg(all(not(feature = "lit-mem"), not(feature = "zlib-debug")))]
-        {
-            _tr_tally_lit__3!(
-                s,
-                unsafe {
-                    *unsafe { (*s).window }
-                        .offset(unsafe { (*s).strstart }.wrapping_sub(1) as isize)
-                },
-                bflush
-            );
-        }
-        #[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
-        {
-            _tr_tally_lit!(
-                s,
-                unsafe {
-                    *unsafe { (*s).window }
-                        .offset(unsafe { (*s).strstart }.wrapping_sub(1) as isize)
-                },
-                bflush
-            );
-        }
+        _tr_tally_lit!(
+            s,
+            unsafe {
+                *unsafe { (*s).window }.offset(unsafe { (*s).strstart }.wrapping_sub(1) as isize)
+            },
+            bflush
+        );
         unsafe {
             (*s).match_available = 0;
         }
@@ -8105,41 +5129,11 @@ extern "C-unwind" fn deflate_slow(s: *mut internal_state, flush: i32) -> u32 {
         };
     }
     if flush == 4 {
-        #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
-        {
-            FLUSH_BLOCK__3!(s, 1i32);
-        }
-        #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
-        {
-            FLUSH_BLOCK__4!(s, 1i32);
-        }
-        #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
-        {
-            FLUSH_BLOCK!(s, 1i32);
-        }
-        #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
-        {
-            FLUSH_BLOCK__2!(s, 1i32);
-        }
+        FLUSH_BLOCK!(s, 1i32);
         return 3;
     }
     if (unsafe { (*s).sym_next }) != 0 {
-        #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
-        {
-            FLUSH_BLOCK__3!(s, 0i32);
-        }
-        #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
-        {
-            FLUSH_BLOCK__4!(s, 0i32);
-        }
-        #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
-        {
-            FLUSH_BLOCK!(s, 0i32);
-        }
-        #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
-        {
-            FLUSH_BLOCK__2!(s, 0i32);
-        }
+        FLUSH_BLOCK!(s, 0i32);
     }
     1
 }
@@ -8175,11 +5169,11 @@ fn deflate_rle(s: *mut internal_state, flush: i32) -> u32 {
             let __v1: *mut u8 = scan;
             let __v2: *mut u8 = unsafe { __v1.add(1) };
             scan = __v2;
-            let __v3: bool = if prev == ((((unsafe { *__v2 }) as u32) as i32) as u32) {
+            let __v3: bool = if prev == (((unsafe { *__v2 }) as i32) as u32) {
                 let __v4: *mut u8 = scan;
                 let __v5: *mut u8 = unsafe { __v4.add(1) };
                 scan = __v5;
-                prev == ((((unsafe { *__v5 }) as u32) as i32) as u32)
+                prev == (((unsafe { *__v5 }) as i32) as u32)
             } else {
                 false
             };
@@ -8187,7 +5181,7 @@ fn deflate_rle(s: *mut internal_state, flush: i32) -> u32 {
                 let __v7: *mut u8 = scan;
                 let __v8: *mut u8 = unsafe { __v7.add(1) };
                 scan = __v8;
-                prev == ((((unsafe { *__v8 }) as u32) as i32) as u32)
+                prev == (((unsafe { *__v8 }) as i32) as u32)
             } else {
                 false
             };
@@ -8202,11 +5196,11 @@ fn deflate_rle(s: *mut internal_state, flush: i32) -> u32 {
                     let __v10: *mut u8 = scan;
                     let __v11: *mut u8 = unsafe { __v10.add(1) };
                     scan = __v11;
-                    let __v12: bool = if prev == ((((unsafe { *__v11 }) as u32) as i32) as u32) {
+                    let __v12: bool = if prev == (((unsafe { *__v11 }) as i32) as u32) {
                         let __v13: *mut u8 = scan;
                         let __v14: *mut u8 = unsafe { __v13.add(1) };
                         scan = __v14;
-                        prev == ((((unsafe { *__v14 }) as u32) as i32) as u32)
+                        prev == (((unsafe { *__v14 }) as i32) as u32)
                     } else {
                         false
                     };
@@ -8214,7 +5208,7 @@ fn deflate_rle(s: *mut internal_state, flush: i32) -> u32 {
                         let __v16: *mut u8 = scan;
                         let __v17: *mut u8 = unsafe { __v16.add(1) };
                         scan = __v17;
-                        prev == ((((unsafe { *__v17 }) as u32) as i32) as u32)
+                        prev == (((unsafe { *__v17 }) as i32) as u32)
                     } else {
                         false
                     };
@@ -8222,7 +5216,7 @@ fn deflate_rle(s: *mut internal_state, flush: i32) -> u32 {
                         let __v19: *mut u8 = scan;
                         let __v20: *mut u8 = unsafe { __v19.add(1) };
                         scan = __v20;
-                        prev == ((((unsafe { *__v20 }) as u32) as i32) as u32)
+                        prev == (((unsafe { *__v20 }) as i32) as u32)
                     } else {
                         false
                     };
@@ -8230,7 +5224,7 @@ fn deflate_rle(s: *mut internal_state, flush: i32) -> u32 {
                         let __v22: *mut u8 = scan;
                         let __v23: *mut u8 = unsafe { __v22.add(1) };
                         scan = __v23;
-                        prev == ((((unsafe { *__v23 }) as u32) as i32) as u32)
+                        prev == (((unsafe { *__v23 }) as i32) as u32)
                     } else {
                         false
                     };
@@ -8238,7 +5232,7 @@ fn deflate_rle(s: *mut internal_state, flush: i32) -> u32 {
                         let __v25: *mut u8 = scan;
                         let __v26: *mut u8 = unsafe { __v25.add(1) };
                         scan = __v26;
-                        prev == ((((unsafe { *__v26 }) as u32) as i32) as u32)
+                        prev == (((unsafe { *__v26 }) as i32) as u32)
                     } else {
                         false
                     };
@@ -8246,7 +5240,7 @@ fn deflate_rle(s: *mut internal_state, flush: i32) -> u32 {
                         let __v28: *mut u8 = scan;
                         let __v29: *mut u8 = unsafe { __v28.add(1) };
                         scan = __v29;
-                        prev == ((((unsafe { *__v29 }) as u32) as i32) as u32)
+                        prev == (((unsafe { *__v29 }) as i32) as u32)
                     } else {
                         false
                     };
@@ -8254,7 +5248,7 @@ fn deflate_rle(s: *mut internal_state, flush: i32) -> u32 {
                         let __v31: *mut u8 = scan;
                         let __v32: *mut u8 = unsafe { __v31.add(1) };
                         scan = __v32;
-                        prev == ((((unsafe { *__v32 }) as u32) as i32) as u32)
+                        prev == (((unsafe { *__v32 }) as i32) as u32)
                     } else {
                         false
                     };
@@ -8263,23 +5257,8 @@ fn deflate_rle(s: *mut internal_state, flush: i32) -> u32 {
                     }
                 }
                 unsafe {
-                    #[cfg(all(target_pointer_width = "64", unix))]
-                    {
-                        (*s).match_length = 258u32.wrapping_sub(
-                            ((strend.offset_from(scan as *mut u8) as c_long) as i32) as u32,
-                        );
-                    }
-                    #[cfg(target_pointer_width = "32")]
-                    {
-                        (*s).match_length = 258u32
-                            .wrapping_sub((strend.offset_from(scan as *mut u8) as i32) as u32);
-                    }
-                    #[cfg(all(target_pointer_width = "64", windows))]
-                    {
-                        (*s).match_length = 258u32.wrapping_sub(
-                            ((strend.offset_from(scan as *mut u8) as i64) as i32) as u32,
-                        );
-                    }
+                    (*s).match_length = 258u32
+                        .wrapping_sub((strend.offset_from(scan as *mut u8) as ptrdiff_t) as u32);
                 }
                 if (unsafe { (*s).match_length }) > unsafe { (*s).lookahead } {
                     unsafe {
@@ -8308,31 +5287,13 @@ fn deflate_rle(s: *mut internal_state, flush: i32) -> u32 {
                     unsafe { (*s).strstart }.wrapping_sub(1),
                     (unsafe { (*s).match_length }) as i32,
                 );
-                _tr_tally_dist__4!(
-                    s,
-                    1i32,
-                    unsafe { (*s).match_length }.wrapping_sub(3),
-                    bflush
-                );
             }
-            #[cfg(all(not(feature = "lit-mem"), not(feature = "zlib-debug")))]
-            {
-                _tr_tally_dist!(
-                    s,
-                    1i32,
-                    unsafe { (*s).match_length }.wrapping_sub(3),
-                    bflush
-                );
-            }
-            #[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
-            {
-                _tr_tally_dist__2!(
-                    s,
-                    1i32,
-                    unsafe { (*s).match_length }.wrapping_sub(3),
-                    bflush
-                );
-            }
+            _tr_tally_dist!(
+                s,
+                1i32,
+                unsafe { (*s).match_length }.wrapping_sub(3),
+                bflush
+            );
             let __v34: u32 = unsafe { (*s).lookahead };
             unsafe {
                 (*s).lookahead = __v34.wrapping_sub((*s).match_length);
@@ -8353,28 +5314,12 @@ fn deflate_rle(s: *mut internal_state, flush: i32) -> u32 {
                     c"%c".as_ptr() as *mut c_char,
                     unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) }
                 );
-                _tr_tally_lit__2!(
-                    s,
-                    unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
-                    bflush
-                );
             }
-            #[cfg(all(not(feature = "lit-mem"), not(feature = "zlib-debug")))]
-            {
-                _tr_tally_lit__3!(
-                    s,
-                    unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
-                    bflush
-                );
-            }
-            #[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
-            {
-                _tr_tally_lit!(
-                    s,
-                    unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
-                    bflush
-                );
-            }
+            _tr_tally_lit!(
+                s,
+                unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
+                bflush
+            );
             let __v40: u32 = unsafe { (*s).lookahead };
             unsafe {
                 (*s).lookahead = __v40.wrapping_sub(1);
@@ -8385,63 +5330,18 @@ fn deflate_rle(s: *mut internal_state, flush: i32) -> u32 {
             }
         }
         if bflush != 0 {
-            #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
-            {
-                FLUSH_BLOCK__3!(s, 0i32);
-            }
-            #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
-            {
-                FLUSH_BLOCK__4!(s, 0i32);
-            }
-            #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
-            {
-                FLUSH_BLOCK!(s, 0i32);
-            }
-            #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
-            {
-                FLUSH_BLOCK__2!(s, 0i32);
-            }
+            FLUSH_BLOCK!(s, 0i32);
         }
     }
     unsafe {
         (*s).insert = 0;
     }
     if flush == 4 {
-        #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
-        {
-            FLUSH_BLOCK__3!(s, 1i32);
-        }
-        #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
-        {
-            FLUSH_BLOCK__4!(s, 1i32);
-        }
-        #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
-        {
-            FLUSH_BLOCK!(s, 1i32);
-        }
-        #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
-        {
-            FLUSH_BLOCK__2!(s, 1i32);
-        }
+        FLUSH_BLOCK!(s, 1i32);
         return 3;
     }
     if (unsafe { (*s).sym_next }) != 0 {
-        #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
-        {
-            FLUSH_BLOCK__3!(s, 0i32);
-        }
-        #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
-        {
-            FLUSH_BLOCK__4!(s, 0i32);
-        }
-        #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
-        {
-            FLUSH_BLOCK!(s, 0i32);
-        }
-        #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
-        {
-            FLUSH_BLOCK__2!(s, 0i32);
-        }
+        FLUSH_BLOCK!(s, 0i32);
     }
     1
 }
@@ -8472,28 +5372,12 @@ fn deflate_huff(s: *mut internal_state, flush: i32) -> u32 {
                 c"%c".as_ptr() as *mut c_char,
                 unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) }
             );
-            _tr_tally_lit__2!(
-                s,
-                unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
-                bflush
-            );
         }
-        #[cfg(all(not(feature = "lit-mem"), not(feature = "zlib-debug")))]
-        {
-            _tr_tally_lit__3!(
-                s,
-                unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
-                bflush
-            );
-        }
-        #[cfg(all(feature = "lit-mem", not(feature = "zlib-debug")))]
-        {
-            _tr_tally_lit!(
-                s,
-                unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
-                bflush
-            );
-        }
+        _tr_tally_lit!(
+            s,
+            unsafe { *unsafe { (*s).window }.offset((*s).strstart as isize) },
+            bflush
+        );
         let __v2: u32 = unsafe { (*s).lookahead };
         unsafe {
             (*s).lookahead = __v2.wrapping_sub(1);
@@ -8503,63 +5387,18 @@ fn deflate_huff(s: *mut internal_state, flush: i32) -> u32 {
             (*s).strstart = __v5.wrapping_add(1);
         }
         if bflush != 0 {
-            #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
-            {
-                FLUSH_BLOCK__3!(s, 0i32);
-            }
-            #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
-            {
-                FLUSH_BLOCK__4!(s, 0i32);
-            }
-            #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
-            {
-                FLUSH_BLOCK!(s, 0i32);
-            }
-            #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
-            {
-                FLUSH_BLOCK__2!(s, 0i32);
-            }
+            FLUSH_BLOCK!(s, 0i32);
         }
     }
     unsafe {
         (*s).insert = 0;
     }
     if flush == 4 {
-        #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
-        {
-            FLUSH_BLOCK__3!(s, 1i32);
-        }
-        #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
-        {
-            FLUSH_BLOCK__4!(s, 1i32);
-        }
-        #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
-        {
-            FLUSH_BLOCK!(s, 1i32);
-        }
-        #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
-        {
-            FLUSH_BLOCK__2!(s, 1i32);
-        }
+        FLUSH_BLOCK!(s, 1i32);
         return 3;
     }
     if (unsafe { (*s).sym_next }) != 0 {
-        #[cfg(all(target_pointer_width = "64", unix, feature = "zlib-debug"))]
-        {
-            FLUSH_BLOCK__3!(s, 0i32);
-        }
-        #[cfg(all(any(target_pointer_width = "32", windows), feature = "zlib-debug"))]
-        {
-            FLUSH_BLOCK__4!(s, 0i32);
-        }
-        #[cfg(all(target_pointer_width = "64", unix, not(feature = "zlib-debug")))]
-        {
-            FLUSH_BLOCK!(s, 0i32);
-        }
-        #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "zlib-debug")))]
-        {
-            FLUSH_BLOCK__2!(s, 0i32);
-        }
+        FLUSH_BLOCK!(s, 0i32);
     }
     1
 }

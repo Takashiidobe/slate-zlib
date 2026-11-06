@@ -336,13 +336,11 @@ target windows-arm32: 159 compiles
   zutil.c: [no-gzip,no-gzcompress,fastest,zlib-debug,pkzip-bug,no-vsnprintf] 64 compiled
 total: 2544 compiles across 16 targets
 unit adler32: 29 items, 10 gated, 0 duplicated functions
+  hoisted fn:adler32_combine_: 2 variants
   hoisted fn:adler32_combine: 2 variants
   hoisted fn:adler32_combine64: 2 variants
-  spliced fn:adler32_z: 2 variants
-  spliced fn:adler32_combine_: 3 variants
-unit compress: 21 items, 6 gated, 1 duplicated functions
-  duplicated fn:compressBound_z: 2 variants
-  spliced fn:compress2_z: 3 variants
+unit compress: 20 items, 2 gated, 0 duplicated functions
+  hoisted fn:compressBound_z: 2 variants
   spliced fn:compressBound: 3 variants
 unit crc32: 56 items, 31 gated, 2 duplicated functions
   duplicated fn:byte_swap: 2 variants
@@ -353,37 +351,36 @@ unit crc32: 56 items, 31 gated, 2 duplicated functions
   hoisted fn:crc32_combine64: 2 variants
   hoisted fn:crc32_combine: 2 variants
   spliced fn:crc_word_big: 2 variants
-  spliced fn:crc32_z: 4 variants
-unit deflate: 153 items, 72 gated, 1 duplicated functions
-  duplicated fn:longest_match: 12 variants
+  spliced fn:crc32_z: 3 variants
+unit deflate: 135 items, 51 gated, 1 duplicated functions
+  duplicated fn:longest_match: 4 variants
   spliced record:internal_state: 4 variants
   spliced fn:slide_hash: 2 variants
-  spliced fn:read_buf: 10 variants
-  spliced fn:fill_window: 20 variants
-  spliced fn:deflateInit2_: 56 variants
+  spliced fn:read_buf: 4 variants
+  spliced fn:fill_window: 8 variants
+  spliced fn:deflateInit2_: 8 variants
   spliced fn:deflateStateCheck: 2 variants
-  spliced fn:deflateSetDictionary: 10 variants
-  spliced fn:deflateGetDictionary: 5 variants
+  spliced fn:deflateSetDictionary: 2 variants
+  spliced fn:deflateGetDictionary: 2 variants
   spliced fn:deflateResetKeep: 3 variants
-  spliced fn:lm_init: 5 variants
   spliced fn:deflatePrime: 2 variants
-  spliced fn:deflateParams: 10 variants
+  spliced fn:deflateParams: 4 variants
   spliced fn:deflateBound_z: 4 variants
   spliced fn:deflateBound: 3 variants
-  spliced fn:flush_pending: 5 variants
-  spliced fn:deflate: 11 variants
-  spliced fn:deflateCopy: 10 variants
-  spliced fn:check_match: 6 variants
-  spliced fn:deflate_stored: 12 variants
-  spliced fn:deflate_fast: 24 variants
-  spliced fn:deflate_slow: 12 variants
-  spliced fn:deflate_rle: 9 variants
-  spliced fn:deflate_huff: 6 variants
+  spliced fn:flush_pending: 2 variants
+  spliced fn:deflate: 5 variants
+  spliced fn:deflateCopy: 8 variants
+  spliced fn:check_match: 3 variants
+  spliced fn:deflate_stored: 10 variants
+  spliced fn:deflate_fast: 12 variants
+  spliced fn:deflate_slow: 6 variants
+  spliced fn:deflate_rle: 3 variants
+  spliced fn:deflate_huff: 3 variants
 unit gzclose: 12 items, 9 gated, 1 duplicated functions
   duplicated fn:gzclose: 2 variants
   spliced record:gzFile_s: 2 variants
   spliced record:__SlateRecord_gzguts_h_203: 2 variants
-unit gzlib: 89 items, 65 gated, 2 duplicated functions
+unit gzlib: 87 items, 63 gated, 2 duplicated functions
   duplicated fn:gzbuffer: 2 variants
   duplicated fn:gz_intmax: 2 variants
   hoisted fn:_vsprintf_l: 2 variants
@@ -395,66 +392,62 @@ unit gzlib: 89 items, 65 gated, 2 duplicated functions
   spliced record:gzFile_s: 2 variants
   spliced record:__SlateRecord_gzguts_h_203: 2 variants
   spliced fn:sprintf: 3 variants
-  spliced fn:gz_open: 56 variants
-  spliced fn:gzdopen: 14 variants
+  spliced fn:gz_open: 36 variants
+  spliced fn:gzdopen: 10 variants
   spliced fn:gzrewind: 7 variants
-  spliced fn:gzseek64: 8 variants
+  spliced fn:gzseek64: 7 variants
   spliced fn:gzoffset64: 7 variants
   spliced fn:gz_error: 12 variants
-unit gzread: 59 items, 29 gated, 0 duplicated functions
+unit gzread: 56 items, 24 gated, 0 duplicated functions
   spliced record:gzFile_s: 2 variants
   spliced record:__SlateRecord_gzguts_h_203: 2 variants
   spliced fn:gz_load: 6 variants
-  spliced fn:gz_look: 6 variants
-  spliced fn:gz_skip: 4 variants
+  spliced fn:gz_look: 3 variants
+  spliced fn:gz_skip: 3 variants
   spliced fn:gz_read: 6 variants
-  spliced fn:gzread: 2 variants
   spliced fn:gzfread: 2 variants
-  spliced fn:gzgetc: 2 variants
-  spliced fn:gzgets: 6 variants
+  spliced fn:gzgets: 5 variants
   spliced fn:gzclose_r: 4 variants
-unit gzwrite: 73 items, 45 gated, 0 duplicated functions
+unit gzwrite: 70 items, 40 gated, 0 duplicated functions
   spliced record:gzFile_s: 2 variants
   spliced record:__SlateRecord_gzguts_h_203: 2 variants
-  spliced fn:gz_init: 5 variants
-  spliced fn:gz_comp: 7 variants
-  spliced fn:gz_zero: 6 variants
+  spliced fn:gz_init: 2 variants
+  spliced fn:gz_comp: 6 variants
+  spliced fn:gz_zero: 5 variants
   spliced fn:gz_write: 6 variants
-  spliced fn:gzwrite: 2 variants
   spliced fn:gzfwrite: 2 variants
-  spliced fn:gzputc: 3 variants
   spliced fn:gzputs: 5 variants
-  spliced fn:gz_vacate: 5 variants
-  spliced fn:gzvprintf: 9 variants
+  spliced fn:gz_vacate: 2 variants
+  spliced fn:gzvprintf: 5 variants
   spliced fn:gzprintf: 5 variants
   spliced fn:gzclose_w: 4 variants
-unit inflate: 86 items, 27 gated, 0 duplicated functions
+unit inflate: 87 items, 24 gated, 0 duplicated functions
+  hoisted fn:inflateCodesUsed: 2 variants
   spliced record:inflate_state: 2 variants
   spliced fn:inflateResetKeep: 2 variants
   spliced fn:inflateReset2: 2 variants
-  spliced fn:inflateInit2_: 14 variants
+  spliced fn:inflateInit2_: 2 variants
   spliced fn:inflatePrime: 2 variants
-  spliced fn:updatewindow: 5 variants
-  spliced fn:inflate: 160 variants
+  spliced fn:updatewindow: 2 variants
+  spliced fn:inflate: 128 variants
   spliced fn:inflateEnd: 2 variants
-  spliced fn:inflateGetDictionary: 5 variants
+  spliced fn:inflateGetDictionary: 2 variants
   spliced fn:inflateSetDictionary: 2 variants
-  spliced fn:inflateCopy: 10 variants
+  spliced fn:inflateCopy: 4 variants
   spliced fn:inflateUndermine: 2 variants
   spliced fn:inflateMark: 2 variants
-  spliced fn:inflateCodesUsed: 3 variants
-unit infback: 51 items, 14 gated, 0 duplicated functions
+unit infback: 50 items, 11 gated, 0 duplicated functions
   spliced record:inflate_state: 2 variants
-  spliced fn:inflateBackInit_: 10 variants
-  spliced fn:inflateBack: 20 variants
+  spliced fn:inflateBackInit_: 2 variants
+  spliced fn:inflateBack: 16 variants
   spliced fn:inflateBackEnd: 2 variants
-unit inftrees: 22 items, 5 gated, 0 duplicated functions
+unit inftrees: 22 items, 4 gated, 0 duplicated functions
   spliced record:inflate_state: 2 variants
-  spliced fn:inflate_table: 6 variants
-unit inffast: 16 items, 6 gated, 0 duplicated functions
+  spliced fn:inflate_table: 2 variants
+unit inffast: 16 items, 5 gated, 0 duplicated functions
   spliced record:inflate_state: 2 variants
   spliced fn:inflate_fast: 24 variants
-unit trees: 102 items, 37 gated, 1 duplicated functions
+unit trees: 102 items, 36 gated, 1 duplicated functions
   duplicated fn:tr_static_init: 2 variants
   spliced record:internal_state: 4 variants
   spliced fn:bi_windup: 2 variants
@@ -464,17 +457,16 @@ unit trees: 102 items, 37 gated, 1 duplicated functions
   spliced fn:send_tree: 2 variants
   spliced fn:build_bl_tree: 2 variants
   spliced fn:send_all_trees: 2 variants
-  spliced fn:_tr_stored_block: 10 variants
+  spliced fn:_tr_stored_block: 6 variants
   spliced fn:_tr_align: 2 variants
-  spliced fn:compress_block: 8 variants
+  spliced fn:compress_block: 6 variants
   spliced fn:_tr_flush_block: 2 variants
   spliced fn:_tr_tally: 4 variants
-unit uncompr: 17 items, 3 gated, 0 duplicated functions
-  spliced fn:uncompress2_z: 3 variants
-unit zutil: 36 items, 16 gated, 0 duplicated functions
+unit uncompr: 15 items, 0 gated, 0 duplicated functions
+unit zutil: 36 items, 15 gated, 0 duplicated functions
   spliced fn:zlibCompileFlags: 128 variants
   spliced fn:z_error: 2 variants
-  spliced fn:zcalloc: 7 variants
+  spliced fn:zcalloc: 4 variants
   spliced fn:zcfree: 4 variants
 macros: 58 function-like, 53 lifted at least once (expansions counted per distinct compile)
   inline control_transfer: 20544

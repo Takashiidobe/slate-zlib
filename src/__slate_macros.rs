@@ -49,7 +49,7 @@ macro_rules! DROPBITS__2 {
     ($n:expr, $hold:expr, $bits:expr) => {
         loop {
             let __v: c_ulong = $hold;
-            let __v2: c_ulong = __v >> ((($n) as u32) as i32);
+            let __v2: c_ulong = __v >> (($n) as i32);
             $hold = __v2;
             let __v3: u32 = $bits;
             let __v4: u32 = __v3.wrapping_sub(($n) as u32);
@@ -61,39 +61,21 @@ macro_rules! DROPBITS__2 {
     };
 }
 
-#[cfg(all(target_pointer_width = "32", windows))]
+#[cfg(unix)]
 macro_rules! GT_OFF {
     ($x:expr) => {{
-        let __v: bool = (std::mem::size_of::<i32>() as u32) == (std::mem::size_of::<i64>() as u32)
+        let __v: bool = (std::mem::size_of::<i32>() as size_t)
+            == (std::mem::size_of::<off_t>() as size_t)
             && ($x) > unsafe { gz_intmax() };
         __v
     }};
 }
 
-#[cfg(all(target_pointer_width = "64", unix))]
-macro_rules! GT_OFF__2 {
+#[cfg(windows)]
+macro_rules! GT_OFF {
     ($x:expr) => {{
-        let __v: bool = (std::mem::size_of::<i32>() as c_ulong)
-            == (std::mem::size_of::<off_t>() as c_ulong)
-            && ($x) > unsafe { gz_intmax() };
-        __v
-    }};
-}
-
-#[cfg(all(target_pointer_width = "64", windows))]
-macro_rules! GT_OFF__3 {
-    ($x:expr) => {{
-        let __v: bool = (std::mem::size_of::<i32>() as u64) == (std::mem::size_of::<i64>() as u64)
-            && ($x) > unsafe { gz_intmax() };
-        __v
-    }};
-}
-
-#[cfg(all(target_pointer_width = "32", unix))]
-macro_rules! GT_OFF__4 {
-    ($x:expr) => {{
-        let __v: bool = (std::mem::size_of::<i32>() as u32)
-            == (std::mem::size_of::<off_t>() as u32)
+        let __v: bool = (std::mem::size_of::<i32>() as size_t)
+            == (std::mem::size_of::<i64>() as size_t)
             && ($x) > unsafe { gz_intmax() };
         __v
     }};
@@ -193,9 +175,7 @@ macro_rules! Tracevv__2 {
     ($x__0:expr, $x__1:expr, $x__2:expr) => {
         if (unsafe { z_verbose }) > 1 {
             let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe {
-                slate_support::fprintf($x__0, ($x__1) as *const c_char, (($x__2) as u32) as i32)
-            };
+            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char, ($x__2) as i32) };
             unsafe { fflush(std::ptr::null_mut()) };
         }
     };
@@ -212,26 +192,17 @@ macro_rules! Tracevv__3 {
     };
 }
 
-#[cfg(target_pointer_width = "64")]
+macro_rules! ZALLOC {
+    ($strm:expr, $items:expr, $size:expr) => {
+        unsafe { unsafe { (*$strm).zalloc }.unwrap()((*$strm).opaque, $items, ($size) as u32) }
+    };
+}
+
 macro_rules! ZALLOC__2 {
     ($strm:expr, $items:expr, $size:expr) => {
         unsafe {
             unsafe { (*$strm).zalloc }.unwrap()((*$strm).opaque, ($items) as u32, ($size) as u32)
         }
-    };
-}
-
-#[cfg(target_pointer_width = "32")]
-macro_rules! ZALLOC__3 {
-    ($strm:expr, $items:expr, $size:expr) => {
-        unsafe { unsafe { (*$strm).zalloc }.unwrap()((*$strm).opaque, $items, $size) }
-    };
-}
-
-#[cfg(target_pointer_width = "32")]
-macro_rules! ZALLOC__4 {
-    ($strm:expr, $items:expr, $size:expr) => {
-        unsafe { unsafe { (*$strm).zalloc }.unwrap()((*$strm).opaque, ($items) as u32, $size) }
     };
 }
 
@@ -268,7 +239,7 @@ macro_rules! zmemzero {
 }
 
 #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
-macro_rules! zmemzero__2 {
+macro_rules! zmemzero {
     ($dest:expr, $len:expr) => {
         unsafe { std::ptr::write_bytes((($dest) as *mut ()) as *mut u8, 0u8, ($len) as usize) };
     };
@@ -282,7 +253,7 @@ macro_rules! zstrerror {
 }
 
 #[cfg(any(target_os = "macos", all(target_arch = "arm", windows)))]
-macro_rules! zstrerror__2 {
+macro_rules! zstrerror {
     () => {
         unsafe { strerror(*slate_support::errno_location()) }
     };

@@ -8,9 +8,8 @@ unsafe extern "C" {
 }
 
 use core::ffi::c_char;
-#[cfg(all(target_pointer_width = "64", unix))]
-use core::ffi::c_long;
 use core::ffi::c_ulong;
+use slate_support::ptrdiff_t;
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -245,10 +244,7 @@ extern "C-unwind" fn inflate_fast(strm: *mut z_stream_s, start: u32) {
                                                     if op & 64 == 0 {
                                                         // 2nd level length code
                                                         here = lcode
-                                                            .offset(
-                                                                (((*here).val as u32) as i32)
-                                                                    as isize,
-                                                            )
+                                                            .offset(((*here).val as i32) as isize)
                                                             .add(
                                                                 (hold
                                                                     & ((1u32 << op).wrapping_sub(1)
@@ -309,9 +305,7 @@ extern "C-unwind" fn inflate_fast(strm: *mut z_stream_s, start: u32) {
                                                 if op & 64 == 0 {
                                                     // 2nd level distance code
                                                     here = dcode
-                                                        .offset(
-                                                            (((*here).val as u32) as i32) as isize,
-                                                        )
+                                                        .offset(((*here).val as i32) as isize)
                                                         .add(
                                                             (hold
                                                                 & ((1u32 << op).wrapping_sub(1)
@@ -356,24 +350,8 @@ extern "C-unwind" fn inflate_fast(strm: *mut z_stream_s, start: u32) {
                                                     dist
                                                 );
                                             }
-                                            #[cfg(all(target_pointer_width = "64", unix))]
-                                            {
-                                                op = ((out.offset_from(beg as *mut u8) as c_long)
-                                                    as i32)
-                                                    as u32;
-                                            }
-                                            #[cfg(target_pointer_width = "32")]
-                                            {
-                                                op =
-                                                    (out.offset_from(beg as *mut u8) as i32) as u32;
-                                            }
-                                            #[cfg(all(target_pointer_width = "64", windows))]
-                                            {
-                                                op = ((out.offset_from(beg as *mut u8) as i64)
-                                                    as i32)
-                                                    as u32;
-                                            }
-                                            // max distance in output
+                                            op = (out.offset_from(beg as *mut u8) as ptrdiff_t)
+                                                as u32; // max distance in output
                                             if dist > op {
                                                 // see if copy from window
                                                 op = dist.wrapping_sub(op); // distance back in window
@@ -614,8 +592,8 @@ extern "C-unwind" fn inflate_fast(strm: *mut z_stream_s, start: u32) {
                                     {
                                         Tracevv__2!(
                                             slate_support::stderr(),
-                                            if (((*here).val as u32) as i32) >= 32
-                                                && (((*here).val as u32) as i32) < 127
+                                            if ((*here).val as i32) >= 32
+                                                && ((*here).val as i32) < 127
                                             {
                                                 c"inflate:         literal '%c'\n".as_ptr()
                                                     as *mut c_char
@@ -686,9 +664,7 @@ extern "C-unwind" fn inflate_fast(strm: *mut z_stream_s, start: u32) {
                                                 if op & 64 == 0 {
                                                     // 2nd level length code
                                                     here = lcode
-                                                        .offset(
-                                                            (((*here).val as u32) as i32) as isize,
-                                                        )
+                                                        .offset(((*here).val as i32) as isize)
                                                         .add(
                                                             (hold
                                                                 & ((1u32 << op).wrapping_sub(1)
@@ -747,7 +723,7 @@ extern "C-unwind" fn inflate_fast(strm: *mut z_stream_s, start: u32) {
                                             if op & 64 == 0 {
                                                 // 2nd level distance code
                                                 here = dcode
-                                                    .offset((((*here).val as u32) as i32) as isize)
+                                                    .offset(((*here).val as i32) as isize)
                                                     .add(
                                                         (hold
                                                             & ((1u32 << op).wrapping_sub(1)
@@ -787,21 +763,7 @@ extern "C-unwind" fn inflate_fast(strm: *mut z_stream_s, start: u32) {
                                             dist
                                         );
                                     }
-                                    #[cfg(all(target_pointer_width = "64", unix))]
-                                    {
-                                        op = ((out.offset_from(beg as *mut u8) as c_long) as i32)
-                                            as u32;
-                                    }
-                                    #[cfg(target_pointer_width = "32")]
-                                    {
-                                        op = (out.offset_from(beg as *mut u8) as i32) as u32;
-                                    }
-                                    #[cfg(all(target_pointer_width = "64", windows))]
-                                    {
-                                        op = ((out.offset_from(beg as *mut u8) as i64) as i32)
-                                            as u32;
-                                    }
-                                    // max distance in output
+                                    op = (out.offset_from(beg as *mut u8) as ptrdiff_t) as u32; // max distance in output
                                     if dist > op {
                                         // see if copy from window
                                         op = dist.wrapping_sub(op); // distance back in window
@@ -1032,8 +994,7 @@ extern "C-unwind" fn inflate_fast(strm: *mut z_stream_s, start: u32) {
                                 {
                                     Tracevv__2!(
                                         slate_support::stderr(),
-                                        if (((*here).val as u32) as i32) >= 32
-                                            && (((*here).val as u32) as i32) < 127
+                                        if ((*here).val as i32) >= 32 && ((*here).val as i32) < 127
                                         {
                                             c"inflate:         literal '%c'\n".as_ptr()
                                                 as *mut c_char
@@ -1093,44 +1054,31 @@ extern "C-unwind" fn inflate_fast(strm: *mut z_stream_s, start: u32) {
         // update state and return
         (*strm).next_in = r#in;
         (*strm).next_out = out;
-        #[cfg(all(target_pointer_width = "64", unix))]
+        #[cfg(target_pointer_width = "64")]
         {
-            (*strm).avail_in = ((if r#in < last {
-                5 + (last.offset_from(r#in as *mut u8) as c_long)
+            (*strm).avail_in = (if r#in < last {
+                5 + (last.offset_from(r#in as *mut u8) as ptrdiff_t)
             } else {
-                5 - (r#in.offset_from(last as *mut u8) as c_long)
-            }) as i32) as u32;
-            (*strm).avail_out = ((if out < end {
-                257 + (end.offset_from(out as *mut u8) as c_long)
+                5 - (r#in.offset_from(last as *mut u8) as ptrdiff_t)
+            }) as u32;
+            (*strm).avail_out = (if out < end {
+                257 + (end.offset_from(out as *mut u8) as ptrdiff_t)
             } else {
-                257 - (out.offset_from(end as *mut u8) as c_long)
-            }) as i32) as u32;
+                257 - (out.offset_from(end as *mut u8) as ptrdiff_t)
+            }) as u32;
         }
         #[cfg(target_pointer_width = "32")]
         {
             (*strm).avail_in = (if r#in < last {
-                5 + (last.offset_from(r#in as *mut u8) as i32)
+                5 + ((last.offset_from(r#in as *mut u8) as ptrdiff_t) as i32)
             } else {
-                5 - (r#in.offset_from(last as *mut u8) as i32)
+                5 - ((r#in.offset_from(last as *mut u8) as ptrdiff_t) as i32)
             }) as u32;
             (*strm).avail_out = (if out < end {
-                257 + (end.offset_from(out as *mut u8) as i32)
+                257 + ((end.offset_from(out as *mut u8) as ptrdiff_t) as i32)
             } else {
-                257 - (out.offset_from(end as *mut u8) as i32)
+                257 - ((out.offset_from(end as *mut u8) as ptrdiff_t) as i32)
             }) as u32;
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            (*strm).avail_in = ((if r#in < last {
-                5 + (last.offset_from(r#in as *mut u8) as i64)
-            } else {
-                5 - (r#in.offset_from(last as *mut u8) as i64)
-            }) as i32) as u32;
-            (*strm).avail_out = ((if out < end {
-                257 + (end.offset_from(out as *mut u8) as i64)
-            } else {
-                257 - (out.offset_from(end as *mut u8) as i64)
-            }) as i32) as u32;
         }
         (*state).hold = hold;
         (*state).bits = bits;

@@ -2,9 +2,8 @@
 //! Copyright (C) 1995-2026 Mark Adler
 //! For conditions of distribution and use, see copyright notice in zlib.h
 use core::ffi::c_char;
-#[cfg(all(target_pointer_width = "64", unix))]
-use core::ffi::c_long;
 use core::ffi::c_ulong;
+use slate_support::ptrdiff_t;
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -222,18 +221,17 @@ extern "C-unwind" fn inflate_table(
     }
     while sym < codes {
         let __v3: *mut u16 = unsafe {
-            (count.0.as_mut_ptr() as *mut u16)
-                .offset(((*lens.add(sym as usize) as u32) as i32) as isize)
+            (count.0.as_mut_ptr() as *mut u16).offset((*lens.add(sym as usize) as i32) as isize)
         };
         unsafe {
-            *__v3 = ((((*__v3 as u32) as i32) + 1) as i16) as u16;
+            *__v3 = ((*__v3 as i32) + 1) as u16;
         }
         sym = sym.wrapping_add(1);
     }
     // bound code lengths, force root to be within code lengths
     root = unsafe { *bits };
     while max >= 1 {
-        if ((count.0[max as usize] as u32) as i32) != 0 {
+        if (count.0[max as usize] as i32) != 0 {
             break;
         }
         max = max.wrapping_sub(1);
@@ -267,7 +265,7 @@ extern "C-unwind" fn inflate_table(
         return 0; // no symbols, but wait for decoding to report error
     }
     while min < max {
-        if ((count.0[min as usize] as u32) as i32) != 0 {
+        if (count.0[min as usize] as i32) != 0 {
             break;
         }
         min = min.wrapping_add(1);
@@ -278,7 +276,7 @@ extern "C-unwind" fn inflate_table(
     len = 1;
     while len <= 15 {
         left <<= 1i32;
-        left -= (count.0[len as usize] as u32) as i32;
+        left -= count.0[len as usize] as i32;
         if left < 0 {
             return -1;
         }
@@ -293,25 +291,23 @@ extern "C-unwind" fn inflate_table(
     offs.0[1] = 0;
     len = 1;
     while len < 15 {
-        offs.0[len.wrapping_add(1) as usize] = ((((offs.0[len as usize] as u32) as i32)
-            + ((count.0[len as usize] as u32) as i32))
-            as i16) as u16;
+        offs.0[len.wrapping_add(1) as usize] =
+            ((offs.0[len as usize] as i32) + (count.0[len as usize] as i32)) as u16;
         len = len.wrapping_add(1);
     }
     // sort symbols by length, by symbol order within each length
     sym = 0;
     while sym < codes {
-        if (((unsafe { *lens.add(sym as usize) }) as u32) as i32) != 0 {
+        if ((unsafe { *lens.add(sym as usize) }) as i32) != 0 {
             let __v31: *mut u16 = unsafe {
-                (offs.0.as_mut_ptr() as *mut u16)
-                    .offset(((*lens.add(sym as usize) as u32) as i32) as isize)
+                (offs.0.as_mut_ptr() as *mut u16).offset((*lens.add(sym as usize) as i32) as isize)
             };
             let __v32: u16 = unsafe { *__v31 };
             unsafe {
-                *__v31 = ((((__v32 as u32) as i32) + 1) as i16) as u16;
+                *__v31 = ((__v32 as i32) + 1) as u16;
             }
             unsafe {
-                *work.offset(((__v32 as u32) as i32) as isize) = sym as u16;
+                *work.offset((__v32 as i32) as isize) = sym as u16;
             }
         }
         sym = sym.wrapping_add(1);
@@ -383,22 +379,19 @@ extern "C-unwind" fn inflate_table(
     loop {
         // create table entry
         here.bits = len.wrapping_sub(drop) as u8;
-        if ((((unsafe { *work.add(sym as usize) }) as u32) as i32) as u32).wrapping_add(1) < r#match
-        {
+        if (((unsafe { *work.add(sym as usize) }) as i32) as u32).wrapping_add(1) < r#match {
             here.op = 0;
             here.val = unsafe { *work.add(sym as usize) };
         } else {
-            if ((((unsafe { *work.add(sym as usize) }) as u32) as i32) as u32) >= r#match {
+            if (((unsafe { *work.add(sym as usize) }) as i32) as u32) >= r#match {
                 here.op = (unsafe {
                     *extra.offset(
-                        (((*work.add(sym as usize) as u32) as i32) as u32).wrapping_sub(r#match)
-                            as isize,
+                        ((*work.add(sym as usize) as i32) as u32).wrapping_sub(r#match) as isize,
                     )
                 }) as u8;
                 here.val = unsafe {
                     *base.offset(
-                        (((*work.add(sym as usize) as u32) as i32) as u32).wrapping_sub(r#match)
-                            as isize,
+                        ((*work.add(sym as usize) as i32) as u32).wrapping_sub(r#match) as isize,
                     )
                 };
             } else {
@@ -433,16 +426,15 @@ extern "C-unwind" fn inflate_table(
         // go to next symbol, update count, len
         sym = sym.wrapping_add(1);
         let __v50: *mut u16 = unsafe { (count.0.as_mut_ptr() as *mut u16).add(len as usize) };
-        let __v52: u16 = (((((unsafe { *__v50 }) as u32) as i32) - 1) as i16) as u16;
+        let __v52: u16 = (((unsafe { *__v50 }) as i32) - 1) as u16;
         unsafe {
             *__v50 = __v52;
         }
-        if ((__v52 as u32) as i32) == 0 {
+        if (__v52 as i32) == 0 {
             if len == max {
                 break;
             }
-            len = (unsafe { *lens.offset(((*work.add(sym as usize) as u32) as i32) as isize) })
-                as u32;
+            len = (unsafe { *lens.offset((*work.add(sym as usize) as i32) as isize) }) as u32;
         }
         // create new sub-table if needed
         if len > root && huff & mask != low {
@@ -457,7 +449,7 @@ extern "C-unwind" fn inflate_table(
             curr = len.wrapping_sub(drop);
             left = 1i32 << curr;
             while curr.wrapping_add(drop) < max {
-                left -= (count.0[curr.wrapping_add(drop) as usize] as u32) as i32;
+                left -= count.0[curr.wrapping_add(drop) as usize] as i32;
                 if left <= 0 {
                     break;
                 }
@@ -487,24 +479,9 @@ extern "C-unwind" fn inflate_table(
                 (*unsafe { *table }.add(low as usize)).bits = root as u8;
             }
             unsafe {
-                #[cfg(all(target_pointer_width = "64", unix))]
-                {
-                    (*unsafe { *table }.add(low as usize)).val =
-                        ((next.offset_from(*table as *mut __SlateRecord_inftrees_h_28) as c_long)
-                            as i16) as u16;
-                }
-                #[cfg(target_pointer_width = "32")]
-                {
-                    (*unsafe { *table }.add(low as usize)).val =
-                        ((next.offset_from(*table as *mut __SlateRecord_inftrees_h_28) as i32)
-                            as i16) as u16;
-                }
-                #[cfg(all(target_pointer_width = "64", windows))]
-                {
-                    (*unsafe { *table }.add(low as usize)).val =
-                        ((next.offset_from(*table as *mut __SlateRecord_inftrees_h_28) as i64)
-                            as i16) as u16;
-                }
+                (*unsafe { *table }.add(low as usize)).val =
+                    (next.offset_from(*table as *mut __SlateRecord_inftrees_h_28) as ptrdiff_t)
+                        as u16;
             }
         }
     }

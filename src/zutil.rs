@@ -1,7 +1,7 @@
 //! zutil.c -- target dependent utility functions for the compression library
 //! Copyright (C) 1995-2026 Jean-loup Gailly
 //! For conditions of distribution and use, see copyright notice in zlib.h
-macro_rules! ERR_MSG__2 {
+macro_rules! ERR_MSG {
     ($err:expr) => {
         unsafe {
             z_errmsg.0[(if ($err) < -6 || ($err) > 2 {
@@ -44,11 +44,6 @@ use core::ffi::c_long;
 use core::ffi::c_ulong;
 #[cfg(unix)]
 use slate_support::off_t;
-#[cfg(any(
-    target_os = "macos",
-    target_os = "android",
-    all(target_arch = "arm", windows)
-))]
 use slate_support::size_t;
 
 #[cfg(target_arch = "x86_64")]
@@ -240,7 +235,7 @@ extern "C-unwind" fn z_error(m: *mut c_char) {
 /// uncompress()
 #[unsafe(no_mangle)]
 extern "C-unwind" fn zError(err: i32) -> *const c_char {
-    ERR_MSG__2!(err) as *const c_char
+    ERR_MSG!(err) as *const c_char
 }
 
 #[unsafe(no_mangle)]
@@ -250,37 +245,24 @@ extern "C-unwind" fn zError(err: i32) -> *const c_char {
 )]
 extern "C-unwind" fn zcalloc(opaque: *mut (), items: u32, size: u32) -> *mut () {
     #[cfg(any(
-        all(target_os = "linux", target_pointer_width = "64"),
-        target_os = "freebsd"
+        target_os = "linux",
+        target_os = "freebsd",
+        all(not(target_arch = "arm"), windows)
     ))]
-    let __v0: *mut () = if (std::mem::size_of::<u32>() as c_ulong) > 2 {
-        unsafe { malloc((items.wrapping_mul(size) as c_ulong) as usize) as *mut () }
+    let __v0: *mut () = if (std::mem::size_of::<u32>() as size_t) > 2 {
+        unsafe { malloc((items.wrapping_mul(size) as size_t) as usize) as *mut () }
     } else {
-        unsafe { calloc((items as c_ulong) as usize, (size as c_ulong) as usize) as *mut () }
+        unsafe { calloc((items as size_t) as usize, (size as size_t) as usize) as *mut () }
     };
-    #[cfg(any(target_arch = "x86", all(target_arch = "arm", unix)))]
-    let __v0: *mut () = if (std::mem::size_of::<u32>() as u32) > 2 {
-        unsafe { malloc(items.wrapping_mul(size) as usize) as *mut () }
+    #[cfg(any(
+        target_os = "macos",
+        target_os = "android",
+        all(target_arch = "arm", windows)
+    ))]
+    let __v0: *mut () = if (std::mem::size_of::<u32>() as size_t) > 2 {
+        unsafe { malloc(items.wrapping_mul(size) as size_t) }
     } else {
-        unsafe { calloc(items as usize, size as usize) as *mut () }
-    };
-    #[cfg(any(target_os = "macos", target_os = "android"))]
-    let __v0: *mut () = if (std::mem::size_of::<u32>() as c_ulong) > 2 {
-        unsafe { malloc(items.wrapping_mul(size) as c_ulong) }
-    } else {
-        unsafe { calloc(items as c_ulong, size as c_ulong) }
-    };
-    #[cfg(all(target_pointer_width = "64", windows))]
-    let __v0: *mut () = if (std::mem::size_of::<u32>() as u64) > 2 {
-        unsafe { malloc((items.wrapping_mul(size) as u64) as usize) as *mut () }
-    } else {
-        unsafe { calloc((items as u64) as usize, (size as u64) as usize) as *mut () }
-    };
-    #[cfg(all(target_arch = "arm", windows))]
-    let __v0: *mut () = if (std::mem::size_of::<u32>() as u32) > 2 {
-        unsafe { malloc(items.wrapping_mul(size)) }
-    } else {
-        unsafe { calloc(items, size) }
+        unsafe { calloc(items as size_t, size as size_t) }
     };
     __v0
 }

@@ -1,36 +1,7 @@
 //! compress.c -- compress a memory buffer
 //! Copyright (C) 1995-2026 Jean-loup Gailly, Mark Adler
 //! For conditions of distribution and use, see copyright notice in zlib.h
-#[cfg(all(target_pointer_width = "64", windows))]
-macro_rules! deflateInit__3 {
-    ($strm:expr, $level:expr) => {
-        unsafe {
-            deflateInit_(
-                $strm,
-                $level,
-                c"1.3.2.1-motley".as_ptr(),
-                std::mem::size_of::<z_stream_s>() as i32,
-            )
-        }
-    };
-}
-
-#[cfg(target_pointer_width = "32")]
 macro_rules! deflateInit {
-    ($strm:expr, $level:expr) => {
-        unsafe {
-            deflateInit_(
-                $strm,
-                $level,
-                c"1.3.2.1-motley".as_ptr(),
-                std::mem::size_of::<z_stream_s>() as i32,
-            )
-        }
-    };
-}
-
-#[cfg(all(target_pointer_width = "64", unix))]
-macro_rules! deflateInit__2 {
     ($strm:expr, $level:expr) => {
         unsafe {
             deflateInit_(
@@ -50,9 +21,8 @@ unsafe extern "C" {
 }
 
 use core::ffi::c_char;
-#[cfg(all(target_pointer_width = "64", unix))]
-use core::ffi::c_long;
 use core::ffi::c_ulong;
+use slate_support::ptrdiff_t;
 use slate_support::size_t;
 
 #[repr(C)]
@@ -102,23 +72,11 @@ extern "C-unwind" fn compress2_z(
     let mut err: i32 = 0;
     let max: u32 = 4294967295u32;
     let mut left: size_t = 0;
-    #[cfg(target_pointer_width = "64")]
+    if sourceLen > 0 && source.is_null()
+        || destLen.is_null()
+        || (unsafe { *destLen }) > 0 && dest.is_null()
     {
-        if sourceLen > 0 && source.is_null()
-            || destLen.is_null()
-            || (unsafe { *destLen }) > 0 && dest.is_null()
-        {
-            return -2;
-        }
-    }
-    #[cfg(target_pointer_width = "32")]
-    {
-        if (sourceLen as u32) > 0 && source.is_null()
-            || destLen.is_null()
-            || ((unsafe { *destLen }) as u32) > 0 && dest.is_null()
-        {
-            return -2;
-        }
+        return -2;
     }
     left = unsafe { *destLen };
     unsafe {
@@ -127,18 +85,7 @@ extern "C-unwind" fn compress2_z(
     stream.zalloc = None;
     stream.zfree = None;
     stream.opaque = std::ptr::null_mut::<()>();
-    #[cfg(all(target_pointer_width = "64", unix))]
-    {
-        err = deflateInit__2!(std::ptr::addr_of_mut!(stream), level);
-    }
-    #[cfg(target_pointer_width = "32")]
-    {
-        err = deflateInit!(std::ptr::addr_of_mut!(stream), level);
-    }
-    #[cfg(all(target_pointer_width = "64", windows))]
-    {
-        err = deflateInit__3!(std::ptr::addr_of_mut!(stream), level);
-    }
+    err = deflateInit!(std::ptr::addr_of_mut!(stream), level);
     if err != 0 {
         return err;
     }
@@ -148,44 +95,20 @@ extern "C-unwind" fn compress2_z(
     stream.avail_in = 0;
     loop {
         if stream.avail_out == 0 {
-            #[cfg(target_pointer_width = "64")]
-            {
-                stream.avail_out = if left > (max as size_t) {
-                    max
-                } else {
-                    left as u32
-                };
-                left = left.wrapping_sub(stream.avail_out as size_t);
-            }
-            #[cfg(target_pointer_width = "32")]
-            {
-                stream.avail_out = if (left as u32) > ((max as size_t) as u32) {
-                    max
-                } else {
-                    left as u32
-                };
-                left = (left as u32).wrapping_sub(stream.avail_out) as size_t;
-            }
+            stream.avail_out = if left > (max as size_t) {
+                max
+            } else {
+                left as u32
+            };
+            left = left.wrapping_sub(stream.avail_out as size_t);
         }
         if stream.avail_in == 0 {
-            #[cfg(target_pointer_width = "64")]
-            {
-                stream.avail_in = if sourceLen > (max as size_t) {
-                    max
-                } else {
-                    sourceLen as u32
-                };
-                sourceLen = sourceLen.wrapping_sub(stream.avail_in as size_t);
-            }
-            #[cfg(target_pointer_width = "32")]
-            {
-                stream.avail_in = if (sourceLen as u32) > ((max as size_t) as u32) {
-                    max
-                } else {
-                    sourceLen as u32
-                };
-                sourceLen = (sourceLen as u32).wrapping_sub(stream.avail_in) as size_t;
-            }
+            stream.avail_in = if sourceLen > (max as size_t) {
+                max
+            } else {
+                sourceLen as u32
+            };
+            sourceLen = sourceLen.wrapping_sub(stream.avail_in as size_t);
         }
         err = unsafe {
             deflate(
@@ -198,18 +121,7 @@ extern "C-unwind" fn compress2_z(
         }
     }
     unsafe {
-        #[cfg(all(target_pointer_width = "64", unix))]
-        {
-            *destLen = (stream.next_out.offset_from(dest as *mut u8) as c_long) as size_t;
-        }
-        #[cfg(target_pointer_width = "32")]
-        {
-            *destLen = (stream.next_out.offset_from(dest as *mut u8) as i32) as size_t;
-        }
-        #[cfg(all(target_pointer_width = "64", windows))]
-        {
-            *destLen = (stream.next_out.offset_from(dest as *mut u8) as i64) as size_t;
-        }
+        *destLen = (stream.next_out.offset_from(dest as *mut u8) as ptrdiff_t) as size_t;
     }
     unsafe { deflateEnd(std::ptr::addr_of_mut!(stream)) };
     if err == 1 { 0 } else { err }
@@ -259,6 +171,11 @@ extern "C-unwind" fn compress(
 }
 
 #[cfg(target_pointer_width = "64")]
+const __SLATE_HOIST_compressBound_z: size_t = (18446744073709551615 as size_t);
+
+#[cfg(target_pointer_width = "32")]
+const __SLATE_HOIST_compressBound_z: size_t = (4294967295 as size_t);
+
 ///   If the default memLevel or windowBits for deflateInit() is changed, then
 /// this function needs to be updated.
 #[unsafe(no_mangle)]
@@ -269,27 +186,10 @@ extern "C-unwind" fn compressBound_z(sourceLen: size_t) -> size_t {
         .wrapping_add(sourceLen >> 25i32)
         .wrapping_add(13);
     if bound < sourceLen {
-        (18446744073709551615 as size_t)
+        __SLATE_HOIST_compressBound_z
     } else {
         bound
     }
-}
-
-#[cfg(target_pointer_width = "32")]
-///   If the default memLevel or windowBits for deflateInit() is changed, then
-/// this function needs to be updated.
-#[unsafe(no_mangle)]
-extern "C-unwind" fn compressBound_z(sourceLen: size_t) -> size_t {
-    let bound: size_t = (sourceLen as u32)
-        .wrapping_add((sourceLen as u32) >> 12i32)
-        .wrapping_add((sourceLen as u32) >> 14i32)
-        .wrapping_add((sourceLen as u32) >> 25i32)
-        .wrapping_add(13) as size_t;
-    (if (bound as u32) < (sourceLen as u32) {
-        4294967295u32
-    } else {
-        bound as u32
-    }) as size_t
 }
 
 #[unsafe(no_mangle)]
@@ -305,7 +205,7 @@ extern "C-unwind" fn compressBound(sourceLen: c_ulong) -> c_ulong {
     }
     #[cfg(target_pointer_width = "32")]
     {
-        if (bound as c_ulong) != ((bound as u32) as c_ulong) {
+        if (bound as c_ulong) != (bound as c_ulong) {
             (4294967295 as c_ulong)
         } else {
             bound as c_ulong

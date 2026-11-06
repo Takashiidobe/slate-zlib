@@ -12,7 +12,7 @@ macro_rules! DO1 {
     ($buf:expr, $i:expr, $adler:expr, $sum2:expr) => {
         let __v: c_ulong = $adler;
         let __v2: c_ulong =
-            __v.wrapping_add((((unsafe { *$buf.offset(($i) as isize) }) as u32) as i32) as c_ulong);
+            __v.wrapping_add(((unsafe { *$buf.offset(($i) as isize) }) as i32) as c_ulong);
         $adler = __v2;
         let __v3: c_ulong = $sum2;
         let __v4: c_ulong = __v3.wrapping_add($adler);
@@ -49,17 +49,17 @@ macro_rules! MOD28 {
     };
 }
 
-#[cfg(windows)]
+#[cfg(all(target_pointer_width = "64", unix))]
 macro_rules! MOD63 {
     ($a:expr) => {
-        let __v: i64 = $a;
-        let __v2: i64 = __v % 65521;
+        let __v: off_t = $a;
+        let __v2: off_t = __v % 65521;
         $a = __v2;
     };
 }
 
 #[cfg(all(target_pointer_width = "32", unix))]
-macro_rules! MOD63__2 {
+macro_rules! MOD63 {
     ($a:expr) => {
         let __v: off_t = $a;
         let __v2: off_t = ((__v as c_ulong) % 65521) as off_t;
@@ -67,11 +67,11 @@ macro_rules! MOD63__2 {
     };
 }
 
-#[cfg(all(target_pointer_width = "64", unix))]
-macro_rules! MOD63__3 {
+#[cfg(windows)]
+macro_rules! MOD63 {
     ($a:expr) => {
-        let __v: off_t = $a;
-        let __v2: off_t = __v % 65521;
+        let __v: i64 = $a;
+        let __v2: i64 = __v % 65521;
         $a = __v2;
     };
 }
@@ -103,162 +103,78 @@ extern "C-unwind" fn adler32_z(mut adler: c_ulong, mut buf: *const u8, mut len: 
     sum2 = adler >> 16i32 & 65535;
     adler &= 65535;
     // in case user likes doing a byte at a time, keep it fast
-    #[cfg(target_pointer_width = "64")]
-    {
-        if len == 1 {
-            adler = adler.wrapping_add((((unsafe { *buf.add(0) }) as u32) as i32) as c_ulong);
-            if adler >= 65521 {
-                adler = adler.wrapping_sub(65521);
-            }
-            sum2 = sum2.wrapping_add(adler);
-            if sum2 >= 65521 {
-                sum2 = sum2.wrapping_sub(65521);
-            }
-            return adler | sum2 << 16i32;
+    if len == 1 {
+        adler = adler.wrapping_add(((unsafe { *buf.add(0) }) as i32) as c_ulong);
+        if adler >= 65521 {
+            adler = adler.wrapping_sub(65521);
         }
-    }
-    #[cfg(target_pointer_width = "32")]
-    {
-        if (len as u32) == 1 {
-            adler = adler.wrapping_add((((unsafe { *buf.add(0) }) as u32) as i32) as c_ulong);
-            if adler >= 65521 {
-                adler = adler.wrapping_sub(65521);
-            }
-            sum2 = sum2.wrapping_add(adler);
-            if sum2 >= 65521 {
-                sum2 = sum2.wrapping_sub(65521);
-            }
-            return adler | sum2 << 16i32;
+        sum2 = sum2.wrapping_add(adler);
+        if sum2 >= 65521 {
+            sum2 = sum2.wrapping_sub(65521);
         }
+        return adler | sum2 << 16i32;
     }
     // initial Adler-32 value (deferred check for len == 1 speed)
     if buf.is_null() {
         return 1;
     }
     // in case short lengths are provided, keep it somewhat fast
-    #[cfg(target_pointer_width = "64")]
-    {
-        if len < 16 {
-            loop {
-                let __v17: size_t = len;
-                len = __v17.wrapping_sub(1);
-                if __v17 == 0 {
-                    break;
-                }
-                let __v10: *const u8 = buf;
-                buf = unsafe { __v10.add(1) };
-                let __v12: u8 = unsafe { *__v10 };
-                adler = adler.wrapping_add(((__v12 as u32) as i32) as c_ulong);
-                sum2 = sum2.wrapping_add(adler);
+    if len < 16 {
+        loop {
+            let __v17: size_t = len;
+            len = __v17.wrapping_sub(1);
+            if __v17 == 0 {
+                break;
             }
-            if adler >= 65521 {
-                adler = adler.wrapping_sub(65521);
-            }
-            MOD28!(sum2); // only added so many BASE's
-            return adler | sum2 << 16i32;
+            let __v10: *const u8 = buf;
+            buf = unsafe { __v10.add(1) };
+            let __v12: u8 = unsafe { *__v10 };
+            adler = adler.wrapping_add((__v12 as i32) as c_ulong);
+            sum2 = sum2.wrapping_add(adler);
         }
-    }
-    #[cfg(target_pointer_width = "32")]
-    {
-        if (len as u32) < 16 {
-            loop {
-                let __v1: size_t = len;
-                len = (__v1 as u32).wrapping_sub(1) as size_t;
-                if __v1 == 0 {
-                    break;
-                }
-                let __v2: *const u8 = buf;
-                buf = unsafe { __v2.add(1) };
-                let __v3: u8 = unsafe { *__v2 };
-                adler = adler.wrapping_add(((__v3 as u32) as i32) as c_ulong);
-                sum2 = sum2.wrapping_add(adler);
-            }
-            if adler >= 65521 {
-                adler = adler.wrapping_sub(65521);
-            }
-            MOD28!(sum2); // only added so many BASE's
-            return adler | sum2 << 16i32;
+        if adler >= 65521 {
+            adler = adler.wrapping_sub(65521);
         }
+        MOD28!(sum2); // only added so many BASE's
+        return adler | sum2 << 16i32;
     }
     // do length NMAX blocks -- requires just one modulo operation
-    #[cfg(target_pointer_width = "64")]
-    {
-        while len >= 5552 {
-            len = len.wrapping_sub(5552);
-            n = 347u32; // NMAX is divisible by 16
-            loop {
-                DO16!(buf, adler, sum2);
-                // 16 sums unrolled
-                let __v90: *const u8 = buf;
-                buf = unsafe { __v90.add(16) };
-                let __v94: u32 = n.wrapping_sub(1);
-                n = __v94;
-                if __v94 == 0 {
-                    break;
-                }
+    while len >= 5552 {
+        len = len.wrapping_sub(5552);
+        n = 347u32; // NMAX is divisible by 16
+        loop {
+            DO16!(buf, adler, sum2);
+            // 16 sums unrolled
+            let __v90: *const u8 = buf;
+            buf = unsafe { __v90.add(16) };
+            let __v94: u32 = n.wrapping_sub(1);
+            n = __v94;
+            if __v94 == 0 {
+                break;
             }
-            MOD!(adler);
-            MOD!(sum2);
         }
-    }
-    #[cfg(target_pointer_width = "32")]
-    {
-        while (len as u32) >= 5552 {
-            len = (len as u32).wrapping_sub(5552) as size_t;
-            n = 347u32; // NMAX is divisible by 16
-            loop {
-                DO16!(buf, adler, sum2);
-                // 16 sums unrolled
-                let __v4: *const u8 = buf;
-                buf = unsafe { __v4.add(16) };
-                let __v5: u32 = n.wrapping_sub(1);
-                n = __v5;
-                if __v5 == 0 {
-                    break;
-                }
-            }
-            MOD!(adler);
-            MOD!(sum2);
-        }
+        MOD!(adler);
+        MOD!(sum2);
     }
     // do remaining bytes (less than NMAX, still just one modulo)
     if len != 0 {
         // avoid modulos if none remaining
-        #[cfg(target_pointer_width = "64")]
-        {
-            while len >= 16 {
-                len = len.wrapping_sub(16);
-                DO16!(buf, adler, sum2);
-                let __v166: *const u8 = buf;
-                buf = unsafe { __v166.add(16) };
-            }
-        }
-        #[cfg(target_pointer_width = "32")]
-        {
-            while (len as u32) >= 16 {
-                len = (len as u32).wrapping_sub(16) as size_t;
-                DO16!(buf, adler, sum2);
-                let __v6: *const u8 = buf;
-                buf = unsafe { __v6.add(16) };
-            }
+        while len >= 16 {
+            len = len.wrapping_sub(16);
+            DO16!(buf, adler, sum2);
+            let __v166: *const u8 = buf;
+            buf = unsafe { __v166.add(16) };
         }
         loop {
             let __v176: size_t = len;
-            #[cfg(target_pointer_width = "64")]
-            {
-                len = __v176.wrapping_sub(1);
-            }
-            #[cfg(target_pointer_width = "32")]
-            {
-                len = (__v176 as u32).wrapping_sub(1) as size_t;
-            }
+            len = __v176.wrapping_sub(1);
             if __v176 == 0 {
                 break;
             }
             let __v169: *const u8 = buf;
             buf = unsafe { __v169.add(1) };
             let __v171: u8 = unsafe { *__v169 };
-            adler = adler.wrapping_add(((__v171 as u32) as i32) as c_ulong);
+            adler = adler.wrapping_add((__v171 as i32) as c_ulong);
             sum2 = sum2.wrapping_add(adler);
         }
         MOD!(adler);
@@ -274,15 +190,15 @@ extern "C-unwind" fn adler32(adler: c_ulong, buf: *const u8, len: u32) -> c_ulon
 }
 
 #[cfg(unix)]
-type __SlateParam_adler32_combine__2 = off_t;
+type __SlateHoist_adler32_combine_ = off_t;
 
 #[cfg(windows)]
-type __SlateParam_adler32_combine__2 = i64;
+type __SlateHoist_adler32_combine_ = i64;
 
 fn adler32_combine_(
     adler1: c_ulong,
     adler2: c_ulong,
-    mut len2: __SlateParam_adler32_combine__2,
+    mut len2: __SlateHoist_adler32_combine_,
 ) -> c_ulong {
     let mut sum1: c_ulong = 0;
     let mut sum2: c_ulong = 0;
@@ -292,27 +208,8 @@ fn adler32_combine_(
         return 4294967295;
     }
     // the derivation of this formula is left as an exercise for the reader
-    #[cfg(all(target_pointer_width = "64", unix))]
-    {
-        MOD63__3!(len2);
-    }
-    #[cfg(all(target_pointer_width = "32", unix))]
-    {
-        MOD63__2!(len2);
-    }
-    #[cfg(windows)]
-    {
-        MOD63!(len2);
-    }
-    // assumes len2 >= 0
-    #[cfg(any(target_pointer_width = "64", windows))]
-    {
-        rem = (len2 as i32) as u32;
-    }
-    #[cfg(all(target_pointer_width = "32", unix))]
-    {
-        rem = len2 as u32;
-    }
+    MOD63!(len2); // assumes len2 >= 0
+    rem = len2 as u32;
     sum1 = adler1 & 65535;
     sum2 = (rem as c_ulong).wrapping_mul(sum1);
     MOD!(sum2);
