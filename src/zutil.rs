@@ -224,14 +224,7 @@ static mut z_verbose: i32 = 0;
 #[unsafe(no_mangle)]
 extern "C-unwind" fn z_error(m: *mut c_char) {
     let _ = std::io::Write::flush(&mut std::io::stdout());
-    #[cfg(unix)]
-    {
-        unsafe { slate_support::fprintf(slate_support::stderr(), c"%s\n".as_ptr(), m) };
-    }
-    #[cfg(windows)]
-    {
-        unsafe { slate_support::fprintf(slate_support::stderr(), c"%s\n".as_ptr(), m) };
-    }
+    unsafe { slate_support::fprintf(slate_support::stderr(), c"%s\n".as_ptr(), m) };
     unsafe { fflush(std::ptr::null_mut()) };
     #[cfg(not(any(target_os = "macos", all(target_arch = "arm", windows))))]
     {

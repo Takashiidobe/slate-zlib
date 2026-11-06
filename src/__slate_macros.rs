@@ -13,6 +13,54 @@ macro_rules! BITS {
     };
 }
 
+macro_rules! BYTEBITS {
+    ($hold:expr, $bits:expr) => {
+        loop {
+            let __v: c_ulong = $hold;
+            let __v2: c_ulong = __v >> (($bits) & 7);
+            $hold = __v2;
+            let __v3: u32 = $bits;
+            let __v4: u32 = __v3.wrapping_sub(($bits) & 7);
+            $bits = __v4;
+            if true {
+                break;
+            }
+        }
+    };
+}
+
+macro_rules! DROPBITS {
+    ($n:expr, $hold:expr, $bits:expr) => {
+        loop {
+            let __v: c_ulong = $hold;
+            let __v2: c_ulong = __v >> $n;
+            $hold = __v2;
+            let __v3: u32 = $bits;
+            let __v4: u32 = __v3.wrapping_sub(($n) as u32);
+            $bits = __v4;
+            if true {
+                break;
+            }
+        }
+    };
+}
+
+macro_rules! DROPBITS__2 {
+    ($n:expr, $hold:expr, $bits:expr) => {
+        loop {
+            let __v: c_ulong = $hold;
+            let __v2: c_ulong = __v >> ((($n) as u32) as i32);
+            $hold = __v2;
+            let __v3: u32 = $bits;
+            let __v4: u32 = __v3.wrapping_sub(($n) as u32);
+            $bits = __v4;
+            if true {
+                break;
+            }
+        }
+    };
+}
+
 #[cfg(all(target_pointer_width = "32", windows))]
 macro_rules! GT_OFF {
     ($x:expr) => {{
@@ -107,7 +155,7 @@ macro_rules! RESTORE {
     };
 }
 
-#[cfg(all(unix, feature = "zlib-debug"))]
+#[cfg(feature = "zlib-debug")]
 macro_rules! Tracev {
     ($x__0:expr, $x__1:expr) => {
         if (unsafe { z_verbose }) > 0 {
@@ -118,18 +166,7 @@ macro_rules! Tracev {
     };
 }
 
-#[cfg(all(windows, feature = "zlib-debug"))]
-macro_rules! Tracev {
-    ($x__0:expr, $x__1:expr) => {
-        if (unsafe { z_verbose }) > 0 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char) };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
-#[cfg(all(unix, feature = "zlib-debug"))]
+#[cfg(feature = "zlib-debug")]
 macro_rules! Tracev__2 {
     ($x__0:expr, $x__1:expr, $x__2:expr) => {
         if (unsafe { z_verbose }) > 0 {
@@ -140,18 +177,7 @@ macro_rules! Tracev__2 {
     };
 }
 
-#[cfg(all(windows, feature = "zlib-debug"))]
-macro_rules! Tracev__2 {
-    ($x__0:expr, $x__1:expr, $x__2:expr) => {
-        if (unsafe { z_verbose }) > 0 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char, $x__2) };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
-#[cfg(all(unix, feature = "zlib-debug"))]
+#[cfg(feature = "zlib-debug")]
 macro_rules! Tracevv {
     ($x__0:expr, $x__1:expr, $x__2:expr) => {
         if (unsafe { z_verbose }) > 1 {
@@ -162,18 +188,7 @@ macro_rules! Tracevv {
     };
 }
 
-#[cfg(all(windows, feature = "zlib-debug"))]
-macro_rules! Tracevv {
-    ($x__0:expr, $x__1:expr, $x__2:expr) => {
-        if (unsafe { z_verbose }) > 1 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char, $x__2) };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
-#[cfg(all(unix, feature = "zlib-debug"))]
+#[cfg(feature = "zlib-debug")]
 macro_rules! Tracevv__2 {
     ($x__0:expr, $x__1:expr, $x__2:expr) => {
         if (unsafe { z_verbose }) > 1 {
@@ -186,31 +201,7 @@ macro_rules! Tracevv__2 {
     };
 }
 
-#[cfg(all(windows, feature = "zlib-debug"))]
-macro_rules! Tracevv__2 {
-    ($x__0:expr, $x__1:expr, $x__2:expr) => {
-        if (unsafe { z_verbose }) > 1 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe {
-                slate_support::fprintf($x__0, ($x__1) as *const c_char, (($x__2) as u32) as i32)
-            };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
-#[cfg(all(unix, feature = "zlib-debug"))]
-macro_rules! Tracevv__3 {
-    ($x__0:expr, $x__1:expr) => {
-        if (unsafe { z_verbose }) > 1 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char) };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
-#[cfg(all(windows, feature = "zlib-debug"))]
+#[cfg(feature = "zlib-debug")]
 macro_rules! Tracevv__3 {
     ($x__0:expr, $x__1:expr) => {
         if (unsafe { z_verbose }) > 1 {

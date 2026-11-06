@@ -35,18 +35,19 @@ macro_rules! CRC4 {
     };
 }
 
-#[cfg(all(unix, feature = "zlib-debug", feature = "inflate-allow-invalid"))]
-macro_rules! Trace {
-    ($x__0:expr, $x__1:expr) => {
-        if (unsafe { z_verbose }) >= 0 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char) };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
+#[cfg(all(any(target_pointer_width = "32", windows), not(feature = "no-gzip")))]
+macro_rules! UPDATE_CHECK__2 {
+    ($check:expr, $buf:expr, $len:expr, $state:expr) => {{
+        let __v: u32 = if (unsafe { (*$state).flags }) != 0 {
+            unsafe { crc32($check, ($buf) as *const u8, $len) }
+        } else {
+            unsafe { adler32($check, ($buf) as *const u8, $len) }
+        };
+        __v
+    }};
 }
 
-#[cfg(all(windows, feature = "zlib-debug", feature = "inflate-allow-invalid"))]
+#[cfg(all(feature = "zlib-debug", feature = "inflate-allow-invalid"))]
 macro_rules! Trace {
     ($x__0:expr, $x__1:expr) => {
         if (unsafe { z_verbose }) >= 0 {
@@ -62,6 +63,18 @@ macro_rules! UPDATE_CHECK {
     ($check:expr, $buf:expr, $len:expr) => {
         unsafe { adler32($check, ($buf) as *const u8, $len) }
     };
+}
+
+#[cfg(all(target_pointer_width = "64", unix, not(feature = "no-gzip")))]
+macro_rules! UPDATE_CHECK__3 {
+    ($check:expr, $buf:expr, $len:expr, $state:expr) => {{
+        let __v: u64 = if (unsafe { (*$state).flags }) != 0 {
+            unsafe { crc32($check, ($buf) as *const u8, $len) }
+        } else {
+            unsafe { adler32($check, ($buf) as *const u8, $len) }
+        };
+        __v
+    }};
 }
 
 #[cfg(target_pointer_width = "64")]
@@ -994,16 +1007,8 @@ fn updatewindow(strm: *mut z_stream_s, end: *const u8, mut copy: u32) -> i32 {
 // will return Z_BUF_ERROR if it has not reached the end of the stream.
 #[unsafe(no_mangle)]
 extern "C-unwind" fn inflate(strm: *mut z_stream_s, flush: i32) -> i32 {
-    #[cfg(all(target_pointer_width = "64", unix, not(feature = "no-gzip")))]
-    let mut __v1: u64 = unsafe { std::mem::zeroed() };
-    #[cfg(all(target_pointer_width = "64", unix, not(feature = "no-gzip")))]
-    let mut __v25: u64 = unsafe { std::mem::zeroed() };
-    #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "no-gzip")))]
-    let mut __v1: u32 = unsafe { std::mem::zeroed() };
-    #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "no-gzip")))]
-    let mut __v25: u32 = unsafe { std::mem::zeroed() };
     #[cfg(not(feature = "no-gzip"))]
-    let mut __v382: bool = unsafe { std::mem::zeroed() };
+    let mut __v292: bool = unsafe { std::mem::zeroed() };
     #[cfg(not(feature = "no-gzip"))]
     let mut hbuf: [u8; 4] = unsafe { std::mem::zeroed() };
     // return code
@@ -1013,11 +1018,11 @@ extern "C-unwind" fn inflate(strm: *mut z_stream_s, flush: i32) -> i32 {
     // parent table entry
     let mut last: std::mem::MaybeUninit<__SlateRecord_inftrees_h_28> =
         std::mem::MaybeUninit::uninit();
-    let __slate_slot_436: *mut __SlateRecord_inftrees_h_28 =
+    let __slate_slot_342: *mut __SlateRecord_inftrees_h_28 =
         std::ptr::addr_of_mut!(last) as *mut __SlateRecord_inftrees_h_28; // current decoding table entry
     let mut here: std::mem::MaybeUninit<__SlateRecord_inftrees_h_28> =
         std::mem::MaybeUninit::uninit();
-    let __slate_slot_437: *mut __SlateRecord_inftrees_h_28 =
+    let __slate_slot_343: *mut __SlateRecord_inftrees_h_28 =
         std::ptr::addr_of_mut!(here) as *mut __SlateRecord_inftrees_h_28; // where to copy match bytes from
     let mut from: *mut u8 = unsafe { std::mem::zeroed() };
     // number of stored or match bytes to copy
@@ -1056,48 +1061,48 @@ extern "C-unwind" fn inflate(strm: *mut z_stream_s, flush: i32) -> i32 {
             r#in = have;
             out = left;
             ret = 0;
-            '__join_10: {
-                '__join_214: {
-                    '__join_14: {
-                        '__join_15: {
-                            '__join_16: {
-                                '__join_13: {
-                                    '__loop_352: loop {
-                                        '__join_247: {
-                                            '__join_259: {
-                                                '__join_271: {
-                                                    '__join_285: {
-                                                        '__join_298: {
-                                                            '__join_305: {
-                                                                '__join_314: {
-                                                                    '__join_226: {
-                                                                        '__join_228: {
-                                                                            '__join_231: {
-                                                                                '__join_199: {
+            '__join_7: {
+                '__join_185: {
+                    '__join_11: {
+                        '__join_12: {
+                            '__join_13: {
+                                '__join_10: {
+                                    '__loop_319: loop {
+                                        '__join_215: {
+                                            '__join_227: {
+                                                '__join_239: {
+                                                    '__join_253: {
+                                                        '__join_266: {
+                                                            '__join_273: {
+                                                                '__join_282: {
+                                                                    '__join_194: {
+                                                                        '__join_196: {
+                                                                            '__join_199: {
+                                                                                '__join_171: {
                                                                                     #[cfg(
                                                                                         feature = "no-gzip"
                                                                                     )]
                                                                                     {
-                                                                                        '__join_116: {
+                                                                                        '__join_108: {
                                                                                             let __t2: u32 = (*state).mode as u32;
                                                                                             if __t2 == 16180 {
 if (*state).wrap == 0 {
 (*state).mode = 16192;
-continue '__loop_352;
+continue '__loop_319;
 } else {
-'__loop_233: loop {
+'__loop_206: loop {
 if bits < 16 {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v4: *mut u8 = next;
-next = __v4.add(1);
-hold = hold.wrapping_add((*__v4 as c_ulong) << bits);
+let __v254: *mut u8 = next;
+next = __v254.add(1);
+hold = hold.wrapping_add((*__v254 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_233;
+continue '__loop_206;
 }
 }
 }
@@ -1110,20 +1115,14 @@ break;
 if ((BITS!(8i32, hold) << 8i32) as c_ulong).wrapping_add(hold >> 8i32) % 31 != 0 {
 (*strm).msg = c"incorrect header check".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 if BITS!(4i32, hold) != 8 {
 (*strm).msg = c"unknown compression method".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
-loop {
-hold >>= 4i32;
-bits = bits.wrapping_sub(4);
-if true {
-break;
-}
-}
+DROPBITS!(4i32, hold, bits);
 len = BITS!(4i32, hold).wrapping_add(8);
 if (*state).wbits == 0 {
 (*state).wbits = len;
@@ -1131,7 +1130,7 @@ if (*state).wbits == 0 {
 if len > 15 || len > (*state).wbits {
 (*strm).msg = c"invalid window size".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 (*state).dmax = 1u32 << len;
 (*state).flags = 0;
@@ -1141,33 +1140,33 @@ continue '__loop_352;
 Tracev!(slate_support::stderr(), c"inflate:   zlib header ok\n".as_ptr() as *mut c_char);
 }
 #[cfg(all(target_pointer_width = "64", unix))]
-let __v5: u64 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
+let __v247: u64 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
 #[cfg(any(target_pointer_width = "32", windows))]
-let __v5: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
-(*state).check = __v5;
-(*strm).adler = __v5;
+let __v247: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
+(*state).check = __v247;
+(*strm).adler = __v247;
 (*state).mode = (if hold & 512 != 0 { 16189i32 } else { 16191i32 }) as u32;
 INITBITS!(hold, bits);
-continue '__loop_352;
+continue '__loop_319;
 }
 }
 }
 }
 } else {
 if __t2 == 16189 {
-'__loop_219: loop {
+'__loop_193: loop {
 if bits < 32 {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v332: *mut u8 = next;
-next = __v332.add(1);
-hold = hold.wrapping_add((*__v332 as c_ulong) << bits);
+let __v244: *mut u8 = next;
+next = __v244.add(1);
+hold = hold.wrapping_add((*__v244 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_219;
+continue '__loop_193;
 }
 }
 }
@@ -1178,47 +1177,40 @@ break;
 }
 }
 #[cfg(all(target_pointer_width = "64", unix))]
-let __v325: u64 = ZSWAP32!(hold);
+let __v237: u64 = ZSWAP32!(hold);
 #[cfg(any(target_pointer_width = "32", windows))]
-let __v325: u32 = ZSWAP32!(hold);
-(*state).check = __v325;
-(*strm).adler = __v325;
+let __v237: u32 = ZSWAP32!(hold);
+(*state).check = __v237;
+(*strm).adler = __v237;
 INITBITS!(hold, bits);
 (*state).mode = 16190;
 // fallthrough
-break '__join_271;
+break '__join_239;
 } else {
 if __t2 == 16190 {
-break '__join_271;
+break '__join_239;
 } else {
 if __t2 == 16191 {
-break '__join_259;
+break '__join_227;
 } else {
 if __t2 == 16192 {
-break '__join_247;
+break '__join_215;
 } else {
 if __t2 == 16193 {
-loop {
-hold >>= bits & 7;
-bits = bits.wrapping_sub(bits & 7);
-if true {
-break;
-}
-}
-// go to byte boundary
-'__loop_191: loop {
+BYTEBITS!(hold, bits); // go to byte boundary
+'__loop_169: loop {
 if bits < 32 {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v292: *mut u8 = next;
-next = __v292.add(1);
-hold = hold.wrapping_add((*__v292 as c_ulong) << bits);
+let __v3: *mut u8 = next;
+next = __v3.add(1);
+hold = hold.wrapping_add((*__v3 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_191;
+continue '__loop_169;
 }
 }
 }
@@ -1231,7 +1223,7 @@ break;
 if hold & 65535 != hold >> 16i32 ^ 65535 {
 (*strm).msg = c"invalid stored block lengths".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 (*state).length = (hold as u32) & 65535;
 #[cfg(feature = "zlib-debug")]
@@ -1241,33 +1233,33 @@ Tracev__2!(slate_support::stderr(), c"inflate:       stored length %u\n".as_ptr(
 INITBITS!(hold, bits);
 (*state).mode = 16194;
 if flush == 6 {
-break '__join_10;
+break '__join_7;
 } else {
 // fallthrough
-break '__join_298;
+break '__join_266;
 }
 }
 } else {
 if __t2 == 16194 {
-break '__join_298;
+break '__join_266;
 } else {
 if __t2 == 16195 {
-break '__join_285;
+break '__join_253;
 } else {
 if __t2 == 16196 {
-'__loop_174: loop {
+'__loop_152: loop {
 if bits < 14 {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v272: *mut u8 = next;
-next = __v272.add(1);
-hold = hold.wrapping_add((*__v272 as c_ulong) << bits);
+let __v4: *mut u8 = next;
+next = __v4.add(1);
+hold = hold.wrapping_add((*__v4 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_174;
+continue '__loop_152;
 }
 }
 }
@@ -1278,35 +1270,17 @@ break;
 }
 }
 (*state).nlen = BITS!(5i32, hold).wrapping_add(257);
-loop {
-hold >>= 5i32;
-bits = bits.wrapping_sub(5);
-if true {
-break;
-}
-}
+DROPBITS!(5i32, hold, bits);
 (*state).ndist = BITS!(5i32, hold).wrapping_add(1);
-loop {
-hold >>= 5i32;
-bits = bits.wrapping_sub(5);
-if true {
-break;
-}
-}
+DROPBITS!(5i32, hold, bits);
 (*state).ncode = BITS!(4i32, hold).wrapping_add(4);
-loop {
-hold >>= 4i32;
-bits = bits.wrapping_sub(4);
-if true {
-break;
-}
-}
+DROPBITS!(4i32, hold, bits);
 #[cfg(not(feature = "pkzip-bug"))]
 {
 if (*state).nlen > 286 || (*state).ndist > 30 {
 (*strm).msg = c"too many length or distance symbols".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 #[cfg(feature = "zlib-debug")]
 {
@@ -1329,36 +1303,36 @@ Tracev!(slate_support::stderr(), c"inflate:       table sizes ok\n".as_ptr() as 
 } else {
 if __t2 != 16197 {
 if __t2 == 16198 {
-break '__join_116;
+break '__join_108;
 } else {
 if __t2 == 16199 {
-break '__join_199;
+break '__join_171;
 } else {
 if __t2 == 16200 {
-break '__join_231;
+break '__join_199;
 } else {
 if __t2 == 16201 {
-break '__join_228;
+break '__join_196;
 } else {
 if __t2 == 16202 {
-break '__join_226;
+break '__join_194;
 } else {
 if __t2 == 16203 {
-break '__join_314;
+break '__join_282;
 } else {
 if __t2 == 16204 {
-break '__join_305;
+break '__join_273;
 } else {
 if __t2 == 16205 {
 if left == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 let __v35: *mut u8 = put;
 put = __v35.add(1);
 *__v35 = (*state).length as u8;
 left = left.wrapping_sub(1);
 (*state).mode = 16200;
-continue '__loop_352;
+continue '__loop_319;
 }
 } else {
 if __t2 == 16206 {
@@ -1367,7 +1341,7 @@ if (*state).wrap != 0 {
 if bits < 32 {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
 let __v29: *mut u8 = next;
@@ -1408,27 +1382,27 @@ out = left;
 if (*state).wrap & 4 != 0 && ZSWAP32!(hold) != (*state).check {
 (*strm).msg = c"incorrect data check".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
-break '__join_16;
+break '__join_13;
 }
 } else {
-break '__join_15;
+break '__join_12;
 }
 } else {
 if __t2 == 16208 {
-break '__join_14;
+break '__join_11;
 } else {
 if __t2 == 16209 {
-break '__join_13;
+break '__join_10;
 } else {
 if __t2 == 16210 {
 return -4;
 } else {
 if __t2 == 16211 {
-break '__loop_352;
+break '__loop_319;
 } else {
-break '__loop_352;
+break '__loop_319;
 }
 }
 }
@@ -1452,20 +1426,20 @@ break '__loop_352;
 }
 }
 }
-                                                                                            '__loop_157: while (*state).have < (*state).ncode {
-'__loop_161: loop {
+                                                                                            while (*state).have < (*state).ncode {
+'__loop_5: loop {
 if bits < 3 {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v251: *mut u8 = next;
-next = __v251.add(1);
-hold = hold.wrapping_add((*__v251 as c_ulong) << bits);
+let __v195: *mut u8 = next;
+next = __v195.add(1);
+hold = hold.wrapping_add((*__v195 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_161;
+continue '__loop_5;
 }
 }
 }
@@ -1475,26 +1449,20 @@ break;
 }
 }
 }
-let __v243: u32 = (*state).have;
-(*state).have = __v243.wrapping_add(1);
-*((*state).lens.as_mut_ptr() as *mut u16).offset(((order.0[__v243 as usize] as u32) as i32) as isize) = BITS!(3i32, hold) as u16;
-loop {
-hold >>= 3i32;
-bits = bits.wrapping_sub(3);
-if true {
-continue '__loop_157;
-}
-}
+let __v187: u32 = (*state).have;
+(*state).have = __v187.wrapping_add(1);
+*((*state).lens.as_mut_ptr() as *mut u16).offset(((order.0[__v187 as usize] as u32) as i32) as isize) = BITS!(3i32, hold) as u16;
+DROPBITS!(3i32, hold, bits);
 }
                                                                                             while (*state).have < 19 {
-let __v236: u32 = (*state).have;
-(*state).have = __v236.wrapping_add(1);
-*((*state).lens.as_mut_ptr() as *mut u16).offset(((order.0[__v236 as usize] as u32) as i32) as isize) = 0;
+let __v184: u32 = (*state).have;
+(*state).have = __v184.wrapping_add(1);
+*((*state).lens.as_mut_ptr() as *mut u16).offset(((order.0[__v184 as usize] as u32) as i32) as isize) = 0;
 }
                                                                                             (*state).next = (*state).codes.as_mut_ptr() as *mut __SlateRecord_inftrees_h_28;
-                                                                                            let __v234: *const __SlateRecord_inftrees_h_28 = (*state).next as *const __SlateRecord_inftrees_h_28;
-                                                                                            (*state).distcode = __v234;
-                                                                                            (*state).lencode = __v234;
+                                                                                            let __v182: *const __SlateRecord_inftrees_h_28 = (*state).next as *const __SlateRecord_inftrees_h_28;
+                                                                                            (*state).distcode = __v182;
+                                                                                            (*state).lencode = __v182;
                                                                                             (*state).lenbits = 7;
                                                                                             ret = inflate_table(0u32, (*state).lens.as_mut_ptr() as *mut u16, 19u32, std::ptr::addr_of_mut!((*state).next), std::ptr::addr_of_mut!((*state).lenbits), (*state).work.as_mut_ptr() as *mut u16);
                                                                                             if ret
@@ -1502,7 +1470,7 @@ let __v236: u32 = (*state).have;
                                                                                             {
                                                                                                 (*strm).msg = c"invalid code lengths set".as_ptr() as *mut c_char;
                                                                                                 (*state).mode = 16209;
-                                                                                                continue '__loop_352;
+                                                                                                continue '__loop_319;
                                                                                             } else {
                                                                                                 #[cfg(feature = "zlib-debug")]
                                                                                                 {
@@ -1514,36 +1482,36 @@ let __v236: u32 = (*state).have;
                                                                                             }
                                                                                         }
                                                                                     }
-                                                                                    '__join_200: {
-                                                                                        '__join_64: {
+                                                                                    '__join_172: {
+                                                                                        '__join_58: {
                                                                                             #[cfg(not(feature = "no-gzip"))]
                                                                                             {
-                                                                                                '__join_75: {
-                                                                                                    '__join_89: {
-                                                                                                        '__join_98: {
-                                                                                                            '__join_120: {
-                                                                                                                '__join_121: {
-                                                                                                                    '__join_131: {
-                                                                                                                        '__join_172: {
+                                                                                                '__join_67: {
+                                                                                                    '__join_79: {
+                                                                                                        '__join_86: {
+                                                                                                            '__join_106: {
+                                                                                                                '__join_107: {
+                                                                                                                    '__join_117: {
+                                                                                                                        '__join_151: {
                                                                                                                             let __t1: u32 = (*state).mode as u32;
                                                                                                                             if __t1 == 16180 {
 if (*state).wrap == 0 {
 (*state).mode = 16192;
-continue '__loop_352;
+continue '__loop_319;
 } else {
-'__loop_347: loop {
+'__loop_314: loop {
 if bits < 16 {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v430: *mut u8 = next;
-next = __v430.add(1);
-hold = hold.wrapping_add((*__v430 as c_ulong) << bits);
+let __v336: *mut u8 = next;
+next = __v336.add(1);
+hold = hold.wrapping_add((*__v336 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_347;
+continue '__loop_314;
 }
 }
 }
@@ -1562,7 +1530,7 @@ if (*state).wbits == 0 {
 CRC2!((*state).check, hold, hbuf);
 INITBITS!(hold, bits);
 (*state).mode = 16181;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 if !unsafe { (*state).head }.is_null() {
 (*(*state).head).done = -1;
@@ -1570,21 +1538,15 @@ if !unsafe { (*state).head }.is_null() {
 if (*state).wrap & 1 == 0 || ((BITS!(8i32, hold) << 8i32) as c_ulong).wrapping_add(hold >> 8i32) % 31 != 0 {
 (*strm).msg = c"incorrect header check".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 // check if zlib header allowed
 if BITS!(4i32, hold) != 8 {
 (*strm).msg = c"unknown compression method".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
-loop {
-hold >>= 4i32;
-bits = bits.wrapping_sub(4);
-if true {
-break;
-}
-}
+DROPBITS!(4i32, hold, bits);
 len = BITS!(4i32, hold).wrapping_add(8);
 if (*state).wbits == 0 {
 (*state).wbits = len;
@@ -1592,7 +1554,7 @@ if (*state).wbits == 0 {
 if len > 15 || len > (*state).wbits {
 (*strm).msg = c"invalid window size".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 (*state).dmax = 1u32 << len;
 (*state).flags = 0;
@@ -1602,14 +1564,14 @@ continue '__loop_352;
 Tracev!(slate_support::stderr(), c"inflate:   zlib header ok\n".as_ptr() as *mut c_char);
 }
 #[cfg(all(target_pointer_width = "64", unix))]
-let __v419: u64 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
+let __v329: u64 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
 #[cfg(any(target_pointer_width = "32", windows))]
-let __v419: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
-(*state).check = __v419;
-(*strm).adler = __v419;
+let __v329: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
+(*state).check = __v329;
+(*strm).adler = __v329;
 (*state).mode = (if hold & 512 != 0 { 16189i32 } else { 16191i32 }) as u32;
 INITBITS!(hold, bits);
-continue '__loop_352;
+continue '__loop_319;
 }
 }
 }
@@ -1617,19 +1579,19 @@ continue '__loop_352;
 }
 } else {
 if __t1 == 16181 {
-'__loop_327: loop {
+'__loop_295: loop {
 if bits < 16 {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v416: *mut u8 = next;
-next = __v416.add(1);
-hold = hold.wrapping_add((*__v416 as c_ulong) << bits);
+let __v326: *mut u8 = next;
+next = __v326.add(1);
+hold = hold.wrapping_add((*__v326 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_327;
+continue '__loop_295;
 }
 }
 }
@@ -1650,12 +1612,12 @@ break;
 if (*state).flags & 255 != 8 {
 (*strm).msg = c"unknown compression method".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 if (*state).flags & 57344 != 0 {
 (*strm).msg = c"unknown header flags set".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 if !unsafe { (*state).head }.is_null() {
 #[cfg(all(target_pointer_width = "64", unix))]
@@ -1673,45 +1635,45 @@ CRC2!((*state).check, hold, hbuf);
 INITBITS!(hold, bits);
 (*state).mode = 16182;
 // fallthrough
-break '__join_314;
+break '__join_282;
 }
 }
 } else {
 if __t1 == 16182 {
-break '__join_314;
+break '__join_282;
 } else {
 if __t1 == 16183 {
-break '__join_305;
+break '__join_273;
 } else {
 if __t1 == 16184 {
-break '__join_298;
+break '__join_266;
 } else {
 if __t1 == 16185 {
-break '__join_285;
+break '__join_253;
 } else {
 if __t1 == 16186 {
-break '__join_271;
+break '__join_239;
 } else {
 if __t1 == 16187 {
-break '__join_259;
+break '__join_227;
 } else {
 if __t1 == 16188 {
-break '__join_247;
+break '__join_215;
 } else {
 if __t1 == 16189 {
-'__loop_234: loop {
+'__loop_202: loop {
 if bits < 32 {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v343: *mut u8 = next;
-next = __v343.add(1);
-hold = hold.wrapping_add((*__v343 as c_ulong) << bits);
+let __v253: *mut u8 = next;
+next = __v253.add(1);
+hold = hold.wrapping_add((*__v253 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_234;
+continue '__loop_202;
 }
 }
 }
@@ -1722,47 +1684,40 @@ break;
 }
 }
 #[cfg(all(target_pointer_width = "64", unix))]
-let __v336: u64 = ZSWAP32!(hold);
+let __v246: u64 = ZSWAP32!(hold);
 #[cfg(any(target_pointer_width = "32", windows))]
-let __v336: u32 = ZSWAP32!(hold);
-(*state).check = __v336;
-(*strm).adler = __v336;
+let __v246: u32 = ZSWAP32!(hold);
+(*state).check = __v246;
+(*strm).adler = __v246;
 INITBITS!(hold, bits);
 (*state).mode = 16190;
 // fallthrough
-break '__join_231;
+break '__join_199;
 } else {
 if __t1 == 16190 {
-break '__join_231;
+break '__join_199;
 } else {
 if __t1 == 16191 {
-break '__join_228;
+break '__join_196;
 } else {
 if __t1 == 16192 {
-break '__join_226;
+break '__join_194;
 } else {
 if __t1 == 16193 {
-loop {
-hold >>= bits & 7;
-bits = bits.wrapping_sub(bits & 7);
-if true {
-break;
-}
-}
-// go to byte boundary
-'__loop_206: loop {
+BYTEBITS!(hold, bits); // go to byte boundary
+'__loop_178: loop {
 if bits < 32 {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v303: *mut u8 = next;
-next = __v303.add(1);
-hold = hold.wrapping_add((*__v303 as c_ulong) << bits);
+let __v233: *mut u8 = next;
+next = __v233.add(1);
+hold = hold.wrapping_add((*__v233 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_206;
+continue '__loop_178;
 }
 }
 }
@@ -1775,7 +1730,7 @@ break;
 if hold & 65535 != hold >> 16i32 ^ 65535 {
 (*strm).msg = c"invalid stored block lengths".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 (*state).length = (hold as u32) & 65535;
 #[cfg(feature = "zlib-debug")]
@@ -1785,33 +1740,33 @@ Tracev__2!(slate_support::stderr(), c"inflate:       stored length %u\n".as_ptr(
 INITBITS!(hold, bits);
 (*state).mode = 16194;
 if flush == 6 {
-break '__join_10;
+break '__join_7;
 } else {
 // fallthrough
-break '__join_200;
+break '__join_172;
 }
 }
 } else {
 if __t1 == 16194 {
-break '__join_200;
+break '__join_172;
 } else {
 if __t1 == 16195 {
-break '__join_199;
+break '__join_171;
 } else {
 if __t1 == 16196 {
-'__loop_189: loop {
+'__loop_161: loop {
 if bits < 14 {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v283: *mut u8 = next;
-next = __v283.add(1);
-hold = hold.wrapping_add((*__v283 as c_ulong) << bits);
+let __v213: *mut u8 = next;
+next = __v213.add(1);
+hold = hold.wrapping_add((*__v213 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_189;
+continue '__loop_161;
 }
 }
 }
@@ -1822,35 +1777,17 @@ break;
 }
 }
 (*state).nlen = BITS!(5i32, hold).wrapping_add(257);
-loop {
-hold >>= 5i32;
-bits = bits.wrapping_sub(5);
-if true {
-break;
-}
-}
+DROPBITS!(5i32, hold, bits);
 (*state).ndist = BITS!(5i32, hold).wrapping_add(1);
-loop {
-hold >>= 5i32;
-bits = bits.wrapping_sub(5);
-if true {
-break;
-}
-}
+DROPBITS!(5i32, hold, bits);
 (*state).ncode = BITS!(4i32, hold).wrapping_add(4);
-loop {
-hold >>= 4i32;
-bits = bits.wrapping_sub(4);
-if true {
-break;
-}
-}
+DROPBITS!(4i32, hold, bits);
 #[cfg(not(feature = "pkzip-bug"))]
 {
 if (*state).nlen > 286 || (*state).ndist > 30 {
 (*strm).msg = c"too many length or distance symbols".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 #[cfg(feature = "zlib-debug")]
 {
@@ -1859,7 +1796,7 @@ Tracev!(slate_support::stderr(), c"inflate:       table sizes ok\n".as_ptr() as 
 (*state).have = 0;
 (*state).mode = 16197;
 // fallthrough
-break '__join_172;
+break '__join_151;
 }
 }
 #[cfg(all(feature = "zlib-debug", feature = "pkzip-bug"))]
@@ -1870,60 +1807,60 @@ Tracev!(slate_support::stderr(), c"inflate:       table sizes ok\n".as_ptr() as 
 {
 (*state).have = 0;
 (*state).mode = 16197;
-break '__join_172;
+break '__join_151;
 }
 } else {
 if __t1 == 16197 {
-break '__join_172;
+break '__join_151;
 } else {
 if __t1 == 16198 {
-break '__join_131;
+break '__join_117;
 } else {
 if __t1 == 16199 {
-break '__join_121;
+break '__join_107;
 } else {
 if __t1 == 16200 {
-break '__join_120;
+break '__join_106;
 } else {
 if __t1 == 16201 {
-break '__join_98;
+break '__join_86;
 } else {
 if __t1 == 16202 {
-break '__join_89;
+break '__join_79;
 } else {
 if __t1 == 16203 {
-break '__join_75;
+break '__join_67;
 } else {
 if __t1 == 16204 {
-break '__join_64;
+break '__join_58;
 } else {
 if __t1 == 16205 {
 if left == 0 {
-break '__join_10;
+break '__join_7;
 } else {
-let __v46: *mut u8 = put;
-put = __v46.add(1);
-*__v46 = (*state).length as u8;
+let __v44: *mut u8 = put;
+put = __v44.add(1);
+*__v44 = (*state).length as u8;
 left = left.wrapping_sub(1);
 (*state).mode = 16200;
-continue '__loop_352;
+continue '__loop_319;
 }
 } else {
 if __t1 == 16206 {
 if (*state).wrap != 0 {
-'__loop_34: loop {
+'__loop_28: loop {
 if bits < 32 {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v40: *mut u8 = next;
-next = __v40.add(1);
-hold = hold.wrapping_add((*__v40 as c_ulong) << bits);
+let __v38: *mut u8 = next;
+next = __v38.add(1);
+hold = hold.wrapping_add((*__v38 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_34;
+continue '__loop_28;
 }
 }
 }
@@ -1935,33 +1872,28 @@ break;
 }
 out = out.wrapping_sub(left);
 #[cfg(all(target_pointer_width = "64", unix))]
-let __v30: u64 = (*strm).total_out;
+let __v28: u64 = (*strm).total_out;
 #[cfg(any(target_pointer_width = "32", windows))]
-let __v30: u32 = (*strm).total_out;
-(*strm).total_out = __v30.wrapping_add(out as c_ulong);
+let __v28: u32 = (*strm).total_out;
+(*strm).total_out = __v28.wrapping_add(out as c_ulong);
 #[cfg(all(target_pointer_width = "64", unix))]
-let __v27: u64 = (*state).total;
+let __v25: u64 = (*state).total;
 #[cfg(any(target_pointer_width = "32", windows))]
-let __v27: u32 = (*state).total;
-(*state).total = __v27.wrapping_add(out as c_ulong);
+let __v25: u32 = (*state).total;
+(*state).total = __v25.wrapping_add(out as c_ulong);
 if (*state).wrap & 4 != 0 && out != 0 {
-if (*state).flags != 0 {
-__v25 = crc32((*state).check, put.sub(out as usize) as *const u8, out);
-} else {
-__v25 = adler32((*state).check, put.sub(out as usize) as *const u8, out);
-}
 #[cfg(all(target_pointer_width = "64", unix))]
-let __v24: u64 = __v25 as c_ulong;
+let __v23: u64 = UPDATE_CHECK__3!(unsafe { (*state).check }, put.sub(out as usize), out, state);
 #[cfg(any(target_pointer_width = "32", windows))]
-let __v24: u32 = __v25 as c_ulong;
-(*state).check = __v24;
-(*strm).adler = __v24;
+let __v23: u32 = UPDATE_CHECK__2!(unsafe { (*state).check }, put.sub(out as usize), out, state);
+(*state).check = __v23;
+(*strm).adler = __v23;
 }
 out = left;
 if (*state).wrap & 4 != 0 && (if (*state).flags != 0 { hold } else { ZSWAP32!(hold) }) != (*state).check {
 (*strm).msg = c"incorrect data check".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 INITBITS!(hold, bits);
 #[cfg(feature = "zlib-debug")]
@@ -1975,18 +1907,18 @@ Tracev!(slate_support::stderr(), c"inflate:   check matches trailer\n".as_ptr() 
 } else {
 if __t1 != 16207 {
 if __t1 == 16208 {
-break '__join_14;
+break '__join_11;
 } else {
 if __t1 == 16209 {
-break '__join_13;
+break '__join_10;
 } else {
 if __t1 == 16210 {
 return -4;
 } else {
 if __t1 == 16211 {
-break '__loop_352;
+break '__loop_319;
 } else {
-break '__loop_352;
+break '__loop_319;
 }
 }
 }
@@ -2020,19 +1952,19 @@ break '__loop_352;
 }
 }
                                                                                                                             if (*state).wrap != 0 && (*state).flags != 0 {
-'__loop_20: loop {
+'__loop_17: loop {
 if bits < 32 {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v21: *mut u8 = next;
-next = __v21.add(1);
-hold = hold.wrapping_add((*__v21 as c_ulong) << bits);
+let __v20: *mut u8 = next;
+next = __v20.add(1);
+hold = hold.wrapping_add((*__v20 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_20;
+continue '__loop_17;
 }
 }
 }
@@ -2045,28 +1977,28 @@ break;
 if (*state).wrap & 4 != 0 && hold != (*state).total & 4294967295 {
 (*strm).msg = c"incorrect length check".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
-break '__join_16;
+break '__join_13;
 }
 } else {
-break '__join_15;
+break '__join_12;
 }
                                                                                                                         }
-                                                                                                                        '__loop_172: while (*state).have < (*state).ncode {
-'__loop_176: loop {
+                                                                                                                        while (*state).have < (*state).ncode {
+'__loop_154: loop {
 if bits < 3 {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v262: *mut u8 = next;
-next = __v262.add(1);
-hold = hold.wrapping_add((*__v262 as c_ulong) << bits);
+let __v204: *mut u8 = next;
+next = __v204.add(1);
+hold = hold.wrapping_add((*__v204 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_176;
+continue '__loop_154;
 }
 }
 }
@@ -2076,32 +2008,26 @@ break;
 }
 }
 }
-let __v254: u32 = (*state).have;
-(*state).have = __v254.wrapping_add(1);
-*((*state).lens.as_mut_ptr() as *mut u16).offset(((order.0[__v254 as usize] as u32) as i32) as isize) = BITS!(3i32, hold) as u16;
-loop {
-hold >>= 3i32;
-bits = bits.wrapping_sub(3);
-if true {
-continue '__loop_172;
-}
-}
+let __v196: u32 = (*state).have;
+(*state).have = __v196.wrapping_add(1);
+*((*state).lens.as_mut_ptr() as *mut u16).offset(((order.0[__v196 as usize] as u32) as i32) as isize) = BITS!(3i32, hold) as u16;
+DROPBITS!(3i32, hold, bits);
 }
                                                                                                                         while (*state).have < 19 {
-let __v247: u32 = (*state).have;
-(*state).have = __v247.wrapping_add(1);
-*((*state).lens.as_mut_ptr() as *mut u16).offset(((order.0[__v247 as usize] as u32) as i32) as isize) = 0;
+let __v193: u32 = (*state).have;
+(*state).have = __v193.wrapping_add(1);
+*((*state).lens.as_mut_ptr() as *mut u16).offset(((order.0[__v193 as usize] as u32) as i32) as isize) = 0;
 }
                                                                                                                         (*state).next = (*state).codes.as_mut_ptr() as *mut __SlateRecord_inftrees_h_28;
-                                                                                                                        let __v245: *const __SlateRecord_inftrees_h_28 = (*state).next as *const __SlateRecord_inftrees_h_28;
-                                                                                                                        (*state).distcode = __v245;
-                                                                                                                        (*state).lencode = __v245;
+                                                                                                                        let __v191: *const __SlateRecord_inftrees_h_28 = (*state).next as *const __SlateRecord_inftrees_h_28;
+                                                                                                                        (*state).distcode = __v191;
+                                                                                                                        (*state).lencode = __v191;
                                                                                                                         (*state).lenbits = 7;
                                                                                                                         ret = inflate_table(0u32, (*state).lens.as_mut_ptr() as *mut u16, 19u32, std::ptr::addr_of_mut!((*state).next), std::ptr::addr_of_mut!((*state).lenbits), (*state).work.as_mut_ptr() as *mut u16);
                                                                                                                         if ret != 0 {
 (*strm).msg = c"invalid code lengths set".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 #[cfg(feature = "zlib-debug")]
 {
@@ -2112,57 +2038,51 @@ Tracev!(slate_support::stderr(), c"inflate:       code lengths ok\n".as_ptr() as
 // fallthrough
 }
                                                                                                                     }
-                                                                                                                    '__join_130: {
-                                                                                                                        '__join_140: {
-                                                                                                                            '__loop_131: loop {
+                                                                                                                    '__join_116: {
+                                                                                                                        '__join_124: {
+                                                                                                                            '__loop_117: loop {
                                                                                                                                 if (*state).have < unsafe { (*state).nlen }.wrapping_add((*state).ndist) {
-'__loop_166: loop {
-*__slate_slot_437 = *unsafe { (*state).lencode }.offset(BITS!(unsafe { (*state).lenbits }, hold) as isize);
-if ((*__slate_slot_437).bits as u32) <= bits {
+'__loop_145: loop {
+*__slate_slot_343 = *unsafe { (*state).lencode }.offset(BITS!(unsafe { (*state).lenbits }, hold) as isize);
+if ((*__slate_slot_343).bits as u32) <= bits {
 break;
 } else {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v242: *mut u8 = next;
-next = __v242.add(1);
-hold = hold.wrapping_add((*__v242 as c_ulong) << bits);
+let __v188: *mut u8 = next;
+next = __v188.add(1);
+hold = hold.wrapping_add((*__v188 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_166;
+continue '__loop_145;
 }
 }
 }
 }
 }
-if (((*__slate_slot_437).val as u32) as i32) < 16 {
-loop {
-hold >>= ((*__slate_slot_437).bits as u32) as i32;
-bits = bits.wrapping_sub((*__slate_slot_437).bits as u32);
-if true {
-break;
-}
-}
-let __v174: u32 = (*state).have;
-(*state).have = __v174.wrapping_add(1);
-*((*state).lens.as_mut_ptr() as *mut u16).add(__v174 as usize) = (*__slate_slot_437).val;
+if (((*__slate_slot_343).val as u32) as i32) < 16 {
+DROPBITS__2!((*__slate_slot_343).bits, hold, bits);
+let __v148: u32 = (*state).have;
+(*state).have = __v148.wrapping_add(1);
+*((*state).lens.as_mut_ptr() as *mut u16).add(__v148 as usize) = (*__slate_slot_343).val;
 } else {
-if (((*__slate_slot_437).val as u32) as i32) == 16 {
-'__loop_144: loop {
-if bits < (((((*__slate_slot_437).bits as u32) as i32) + 2) as u32) {
+if (((*__slate_slot_343).val as u32) as i32) == 16 {
+'__loop_127: loop {
+if bits < (((((*__slate_slot_343).bits as u32) as i32) + 2) as u32) {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v199: *mut u8 = next;
-next = __v199.add(1);
-hold = hold.wrapping_add((*__v199 as c_ulong) << bits);
+let __v161: *mut u8 = next;
+next = __v161.add(1);
+hold = hold.wrapping_add((*__v161 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_144;
+continue '__loop_127;
 }
 }
 }
@@ -2172,41 +2092,29 @@ break;
 }
 }
 }
-loop {
-hold >>= ((*__slate_slot_437).bits as u32) as i32;
-bits = bits.wrapping_sub((*__slate_slot_437).bits as u32);
-if true {
-break;
-}
-}
+DROPBITS__2!((*__slate_slot_343).bits, hold, bits);
 if (*state).have == 0 {
-break '__join_140;
+break '__join_124;
 } else {
 len = *((*state).lens.as_mut_ptr() as *mut u16).offset(unsafe { (*state).have }.wrapping_sub(1) as isize) as u32;
 copy = 3u32.wrapping_add(BITS!(2i32, hold));
-loop {
-hold >>= 2i32;
-bits = bits.wrapping_sub(2);
-if true {
-break;
-}
-}
+DROPBITS!(2i32, hold, bits);
 }
 } else {
-if (((*__slate_slot_437).val as u32) as i32) == 17 {
-'__loop_151: loop {
-if bits < (((((*__slate_slot_437).bits as u32) as i32) + 3) as u32) {
+if (((*__slate_slot_343).val as u32) as i32) == 17 {
+'__loop_132: loop {
+if bits < (((((*__slate_slot_343).bits as u32) as i32) + 3) as u32) {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v216: *mut u8 = next;
-next = __v216.add(1);
-hold = hold.wrapping_add((*__v216 as c_ulong) << bits);
+let __v170: *mut u8 = next;
+next = __v170.add(1);
+hold = hold.wrapping_add((*__v170 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_151;
+continue '__loop_132;
 }
 }
 }
@@ -2216,36 +2124,24 @@ break;
 }
 }
 }
-loop {
-hold >>= ((*__slate_slot_437).bits as u32) as i32;
-bits = bits.wrapping_sub((*__slate_slot_437).bits as u32);
-if true {
-break;
-}
-}
+DROPBITS__2!((*__slate_slot_343).bits, hold, bits);
 len = 0;
 copy = 3u32.wrapping_add(BITS!(3i32, hold));
-loop {
-hold >>= 3i32;
-bits = bits.wrapping_sub(3);
-if true {
-break;
-}
-}
+DROPBITS!(3i32, hold, bits);
 } else {
-'__loop_158: loop {
-if bits < (((((*__slate_slot_437).bits as u32) as i32) + 7) as u32) {
+'__loop_137: loop {
+if bits < (((((*__slate_slot_343).bits as u32) as i32) + 7) as u32) {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v233: *mut u8 = next;
-next = __v233.add(1);
-hold = hold.wrapping_add((*__v233 as c_ulong) << bits);
+let __v179: *mut u8 = next;
+next = __v179.add(1);
+hold = hold.wrapping_add((*__v179 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_158;
+continue '__loop_137;
 }
 }
 }
@@ -2255,60 +2151,48 @@ break;
 }
 }
 }
-loop {
-hold >>= ((*__slate_slot_437).bits as u32) as i32;
-bits = bits.wrapping_sub((*__slate_slot_437).bits as u32);
-if true {
-break;
-}
-}
+DROPBITS__2!((*__slate_slot_343).bits, hold, bits);
 len = 0;
 copy = 11u32.wrapping_add(BITS!(7i32, hold));
-loop {
-hold >>= 7i32;
-bits = bits.wrapping_sub(7);
-if true {
-break;
-}
-}
+DROPBITS!(7i32, hold, bits);
 }
 }
 if unsafe { (*state).have }.wrapping_add(copy) > unsafe { (*state).nlen }.wrapping_add((*state).ndist) {
 break;
 } else {
 loop {
-let __v181: u32 = copy;
-copy = __v181.wrapping_sub(1);
-if __v181 != 0 {
-let __v183: u32 = (*state).have;
-(*state).have = __v183.wrapping_add(1);
-*((*state).lens.as_mut_ptr() as *mut u16).add(__v183 as usize) = len as u16;
+let __v151: u32 = copy;
+copy = __v151.wrapping_sub(1);
+if __v151 != 0 {
+let __v153: u32 = (*state).have;
+(*state).have = __v153.wrapping_add(1);
+*((*state).lens.as_mut_ptr() as *mut u16).add(__v153 as usize) = len as u16;
 } else {
-continue '__loop_131;
+continue '__loop_117;
 }
 }
 }
 }
 } else {
-break '__join_130;
+break '__join_116;
 }
                                                                                                                             }
                                                                                                                             (*strm).msg = c"invalid bit length repeat".as_ptr() as *mut c_char;
                                                                                                                             (*state).mode = 16209;
-                                                                                                                            break '__join_130;
+                                                                                                                            break '__join_116;
                                                                                                                         }
                                                                                                                         (*strm).msg = c"invalid bit length repeat".as_ptr() as *mut c_char;
                                                                                                                         (*state).mode = 16209;
                                                                                                                     }
                                                                                                                     // handle error breaks in while
                                                                                                                     if ((*state).mode as u32) == 16209 {
-continue '__loop_352;
+continue '__loop_319;
 } else {
 // check for end-of-block code (better have one)
 if ((*((*state).lens.as_mut_ptr() as *mut u16).add(256) as u32) as i32) == 0 {
 (*strm).msg = c"invalid code -- missing end-of-block".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 // build code tables -- note: do not change the lenbits or distbits
 // values here (9 and 6) without reading the comments in inftrees.h
@@ -2320,7 +2204,7 @@ ret = inflate_table(1u32, (*state).lens.as_mut_ptr() as *mut u16, (*state).nlen,
 if ret != 0 {
 (*strm).msg = c"invalid literal/lengths set".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 (*state).distcode = (*state).next as *const __SlateRecord_inftrees_h_28;
 (*state).distbits = 6;
@@ -2328,7 +2212,7 @@ ret = inflate_table(2u32, ((*state).lens.as_mut_ptr() as *mut u16).offset((*stat
 if ret != 0 {
 (*strm).msg = c"invalid distances set".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 #[cfg(feature = "zlib-debug")]
 {
@@ -2336,7 +2220,7 @@ Tracev!(slate_support::stderr(), c"inflate:       codes ok\n".as_ptr() as *mut c
 }
 (*state).mode = 16199;
 if flush == 6 {
-break '__join_10;
+break '__join_7;
 }
 // fallthrough
 }
@@ -2353,97 +2237,85 @@ inflate_fast(strm, out);
 LOAD!(put, strm, left, next, have, hold, state, bits);
 if ((*state).mode as u32) == 16191 {
 (*state).back = -1;
-continue '__loop_352;
+continue '__loop_319;
 } else {
-continue '__loop_352;
+continue '__loop_319;
 }
 } else {
 (*state).back = 0;
-'__loop_116: loop {
-*__slate_slot_437 = *unsafe { (*state).lencode }.offset(BITS!(unsafe { (*state).lenbits }, hold) as isize);
-if ((*__slate_slot_437).bits as u32) <= bits {
+'__loop_102: loop {
+*__slate_slot_343 = *unsafe { (*state).lencode }.offset(BITS!(unsafe { (*state).lenbits }, hold) as isize);
+if ((*__slate_slot_343).bits as u32) <= bits {
 break;
 } else {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v170: *mut u8 = next;
-next = __v170.add(1);
-hold = hold.wrapping_add((*__v170 as c_ulong) << bits);
+let __v144: *mut u8 = next;
+next = __v144.add(1);
+hold = hold.wrapping_add((*__v144 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_116;
+continue '__loop_102;
 }
 }
 }
 }
 }
-if (*__slate_slot_437).op != 0 && (((*__slate_slot_437).op as u32) as i32) & 240 == 0 {
-*__slate_slot_436 = *__slate_slot_437;
-'__loop_111: loop {
-*__slate_slot_437 = *unsafe { (*state).lencode }.offset(((((*__slate_slot_436).val as u32) as i32) as u32).wrapping_add(BITS!((((*__slate_slot_436).bits as u32) as i32) + (((*__slate_slot_436).op as u32) as i32), hold) >> (((*__slate_slot_436).bits as u32) as i32)) as isize);
-if (((((*__slate_slot_436).bits as u32) as i32) + (((*__slate_slot_437).bits as u32) as i32)) as u32) <= bits {
+if (*__slate_slot_343).op != 0 && (((*__slate_slot_343).op as u32) as i32) & 240 == 0 {
+*__slate_slot_342 = *__slate_slot_343;
+'__loop_97: loop {
+*__slate_slot_343 = *unsafe { (*state).lencode }.offset(((((*__slate_slot_342).val as u32) as i32) as u32).wrapping_add(BITS!((((*__slate_slot_342).bits as u32) as i32) + (((*__slate_slot_342).op as u32) as i32), hold) >> (((*__slate_slot_342).bits as u32) as i32)) as isize);
+if (((((*__slate_slot_342).bits as u32) as i32) + (((*__slate_slot_343).bits as u32) as i32)) as u32) <= bits {
 break;
 } else {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v161: *mut u8 = next;
-next = __v161.add(1);
-hold = hold.wrapping_add((*__v161 as c_ulong) << bits);
+let __v135: *mut u8 = next;
+next = __v135.add(1);
+hold = hold.wrapping_add((*__v135 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_111;
+continue '__loop_97;
 }
 }
 }
 }
 }
-loop {
-hold >>= ((*__slate_slot_436).bits as u32) as i32;
-bits = bits.wrapping_sub((*__slate_slot_436).bits as u32);
-if true {
-break;
+DROPBITS__2!((*__slate_slot_342).bits, hold, bits);
+(*state).back = (*state).back + (((*__slate_slot_342).bits as u32) as i32);
 }
-}
-(*state).back = (*state).back + (((*__slate_slot_436).bits as u32) as i32);
-}
-loop {
-hold >>= ((*__slate_slot_437).bits as u32) as i32;
-bits = bits.wrapping_sub((*__slate_slot_437).bits as u32);
-if true {
-break;
-}
-}
-(*state).back = (*state).back + (((*__slate_slot_437).bits as u32) as i32);
-(*state).length = (*__slate_slot_437).val as u32;
-if (((*__slate_slot_437).op as u32) as i32) == 0 {
+DROPBITS__2!((*__slate_slot_343).bits, hold, bits);
+(*state).back = (*state).back + (((*__slate_slot_343).bits as u32) as i32);
+(*state).length = (*__slate_slot_343).val as u32;
+if (((*__slate_slot_343).op as u32) as i32) == 0 {
 #[cfg(feature = "zlib-debug")]
 {
-Tracevv__2!(slate_support::stderr(), if (((*__slate_slot_437).val as u32) as i32) >= 32 && (((*__slate_slot_437).val as u32) as i32) < 127 { c"inflate:         literal '%c'\n".as_ptr() as *mut c_char } else { c"inflate:         literal 0x%02x\n".as_ptr() as *mut c_char }, (*__slate_slot_437).val);
+Tracevv__2!(slate_support::stderr(), if (((*__slate_slot_343).val as u32) as i32) >= 32 && (((*__slate_slot_343).val as u32) as i32) < 127 { c"inflate:         literal '%c'\n".as_ptr() as *mut c_char } else { c"inflate:         literal 0x%02x\n".as_ptr() as *mut c_char }, (*__slate_slot_343).val);
 }
 (*state).mode = 16205;
-continue '__loop_352;
+continue '__loop_319;
 } else {
-if (((*__slate_slot_437).op as u32) as i32) & 32 != 0 {
+if (((*__slate_slot_343).op as u32) as i32) & 32 != 0 {
 #[cfg(feature = "zlib-debug")]
 {
 Tracevv__3!(slate_support::stderr(), c"inflate:         end of block\n".as_ptr() as *mut c_char);
 }
 (*state).back = -1;
 (*state).mode = 16191;
-continue '__loop_352;
+continue '__loop_319;
 } else {
-if (((*__slate_slot_437).op as u32) as i32) & 64 != 0 {
+if (((*__slate_slot_343).op as u32) as i32) & 64 != 0 {
 (*strm).msg = c"invalid literal/length code".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
-(*state).extra = ((*__slate_slot_437).op as u32) & 15;
+(*state).extra = ((*__slate_slot_343).op as u32) & 15;
 (*state).mode = 16201;
 // fallthrough
 }
@@ -2452,19 +2324,19 @@ continue '__loop_352;
 }
                                                                                                         }
                                                                                                         if (*state).extra != 0 {
-'__loop_95: loop {
+'__loop_83: loop {
 if bits < ((*state).extra as u32) {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v138: *mut u8 = next;
-next = __v138.add(1);
-hold = hold.wrapping_add((*__v138 as c_ulong) << bits);
+let __v120: *mut u8 = next;
+next = __v120.add(1);
+hold = hold.wrapping_add((*__v120 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_95;
+continue '__loop_83;
 }
 }
 }
@@ -2474,16 +2346,10 @@ break;
 }
 }
 }
-let __v130: u32 = (*state).length;
-let __v129: u32 = __v130.wrapping_add(BITS!(unsafe { (*state).extra }, hold));
-(*state).length = __v129;
-loop {
-hold >>= (*state).extra;
-bits = bits.wrapping_sub((*state).extra as u32);
-if true {
-break;
-}
-}
+let __v112: u32 = (*state).length;
+let __v111: u32 = __v112.wrapping_add(BITS!(unsafe { (*state).extra }, hold));
+(*state).length = __v111;
+DROPBITS!(unsafe { (*state).extra }, hold, bits);
 (*state).back = ((*state).back as u32).wrapping_add((*state).extra) as i32;
 }
                                                                                                         #[cfg(feature = "zlib-debug")]
@@ -2494,92 +2360,80 @@ Tracevv!(slate_support::stderr(), c"inflate:         length %u\n".as_ptr() as *m
                                                                                                         (*state).mode = 16202;
                                                                                                         // fallthrough
                                                                                                     }
-                                                                                                    '__loop_89: loop {
-                                                                                                        *__slate_slot_437 = *unsafe { (*state).distcode }.offset(BITS!(unsafe { (*state).distbits }, hold) as isize);
-                                                                                                        if ((*__slate_slot_437).bits as u32) <= bits {
+                                                                                                    '__loop_79: loop {
+                                                                                                        *__slate_slot_343 = *unsafe { (*state).distcode }.offset(BITS!(unsafe { (*state).distbits }, hold) as isize);
+                                                                                                        if ((*__slate_slot_343).bits as u32) <= bits {
 break;
 } else {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v119: *mut u8 = next;
-next = __v119.add(1);
-hold = hold.wrapping_add((*__v119 as c_ulong) << bits);
+let __v105: *mut u8 = next;
+next = __v105.add(1);
+hold = hold.wrapping_add((*__v105 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_89;
+continue '__loop_79;
 }
 }
 }
 }
                                                                                                     }
-                                                                                                    if (((*__slate_slot_437).op as u32) as i32) & 240 == 0 {
-*__slate_slot_436 = *__slate_slot_437;
-'__loop_84: loop {
-*__slate_slot_437 = *unsafe { (*state).distcode }.offset(((((*__slate_slot_436).val as u32) as i32) as u32).wrapping_add(BITS!((((*__slate_slot_436).bits as u32) as i32) + (((*__slate_slot_436).op as u32) as i32), hold) >> (((*__slate_slot_436).bits as u32) as i32)) as isize);
-if (((((*__slate_slot_436).bits as u32) as i32) + (((*__slate_slot_437).bits as u32) as i32)) as u32) <= bits {
+                                                                                                    if (((*__slate_slot_343).op as u32) as i32) & 240 == 0 {
+*__slate_slot_342 = *__slate_slot_343;
+'__loop_74: loop {
+*__slate_slot_343 = *unsafe { (*state).distcode }.offset(((((*__slate_slot_342).val as u32) as i32) as u32).wrapping_add(BITS!((((*__slate_slot_342).bits as u32) as i32) + (((*__slate_slot_342).op as u32) as i32), hold) >> (((*__slate_slot_342).bits as u32) as i32)) as isize);
+if (((((*__slate_slot_342).bits as u32) as i32) + (((*__slate_slot_343).bits as u32) as i32)) as u32) <= bits {
 break;
 } else {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v110: *mut u8 = next;
-next = __v110.add(1);
-hold = hold.wrapping_add((*__v110 as c_ulong) << bits);
+let __v96: *mut u8 = next;
+next = __v96.add(1);
+hold = hold.wrapping_add((*__v96 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_84;
+continue '__loop_74;
 }
 }
 }
 }
 }
-loop {
-hold >>= ((*__slate_slot_436).bits as u32) as i32;
-bits = bits.wrapping_sub((*__slate_slot_436).bits as u32);
-if true {
-break;
+DROPBITS__2!((*__slate_slot_342).bits, hold, bits);
+(*state).back = (*state).back + (((*__slate_slot_342).bits as u32) as i32);
 }
-}
-(*state).back = (*state).back + (((*__slate_slot_436).bits as u32) as i32);
-}
-                                                                                                    loop {
-                                                                                                        hold >>= ((*__slate_slot_437).bits as u32) as i32;
-                                                                                                        bits = bits.wrapping_sub((*__slate_slot_437).bits as u32);
-                                                                                                        if true {
-break;
-}
-                                                                                                    }
-                                                                                                    (*state).back = (*state).back + (((*__slate_slot_437).bits as u32) as i32);
-                                                                                                    if (((*__slate_slot_437).op as u32) as i32) & 64 != 0 {
+                                                                                                    DROPBITS__2!((*__slate_slot_343).bits, hold, bits);
+                                                                                                    (*state).back = (*state).back + (((*__slate_slot_343).bits as u32) as i32);
+                                                                                                    if (((*__slate_slot_343).op as u32) as i32) & 64 != 0 {
 (*strm).msg = c"invalid distance code".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
-(*state).offset = (*__slate_slot_437).val as u32;
-(*state).extra = ((*__slate_slot_437).op as u32) & 15;
+(*state).offset = (*__slate_slot_343).val as u32;
+(*state).extra = ((*__slate_slot_343).op as u32) & 15;
 (*state).mode = 16203;
 // fallthrough
 }
                                                                                                 }
                                                                                                 if (*state).extra != 0 {
-'__loop_72: loop {
+'__loop_64: loop {
 if bits < ((*state).extra as u32) {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v87: *mut u8 = next;
-next = __v87.add(1);
-hold = hold.wrapping_add((*__v87 as c_ulong) << bits);
+let __v81: *mut u8 = next;
+next = __v81.add(1);
+hold = hold.wrapping_add((*__v81 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_72;
+continue '__loop_64;
 }
 }
 }
@@ -2589,16 +2443,10 @@ break;
 }
 }
 }
-let __v79: u32 = (*state).offset;
-let __v78: u32 = __v79.wrapping_add(BITS!(unsafe { (*state).extra }, hold));
-(*state).offset = __v78;
-loop {
-hold >>= (*state).extra;
-bits = bits.wrapping_sub((*state).extra as u32);
-if true {
-break;
-}
-}
+let __v73: u32 = (*state).offset;
+let __v72: u32 = __v73.wrapping_add(BITS!(unsafe { (*state).extra }, hold));
+(*state).offset = __v72;
+DROPBITS!(unsafe { (*state).extra }, hold, bits);
 (*state).back = ((*state).back as u32).wrapping_add((*state).extra) as i32;
 }
                                                                                             }
@@ -2607,7 +2455,7 @@ break;
                                                                                                 if (*state).offset > (*state).dmax {
 (*strm).msg = c"invalid distance too far back".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 #[cfg(feature = "zlib-debug")]
 {
@@ -2627,138 +2475,49 @@ Tracevv!(slate_support::stderr(), c"inflate:         distance %u\n".as_ptr() as 
                                                                                             }
                                                                                             #[cfg(feature = "no-gzip")]
                                                                                             {
-                                                                                                '__loop_6: loop {
+                                                                                                '__loop_108: loop {
                                                                                                     if (*state).have < unsafe { (*state).nlen }.wrapping_add((*state).ndist) {
-'__loop_7: loop {
-*__slate_slot_437 = *unsafe { (*state).lencode }.offset(BITS!(unsafe { (*state).lenbits }, hold) as isize);
-if ((*__slate_slot_437).bits as u32) <= bits {
-break;
-} else {
-loop {
-if have == 0 {
-break '__join_10;
-} else {
-have = have.wrapping_sub(1);
-let __v231: *mut u8 = next;
-next = __v231.add(1);
-hold = hold.wrapping_add((*__v231 as c_ulong) << bits);
-bits = bits.wrapping_add(8);
-if true {
-continue '__loop_7;
-}
-}
-}
-}
-}
-if (((*__slate_slot_437).val as u32) as i32) < 16 {
-loop {
-hold >>= ((*__slate_slot_437).bits as u32) as i32;
-bits = bits.wrapping_sub((*__slate_slot_437).bits as u32);
-if true {
-break;
-}
-}
-let __v163: u32 = (*state).have;
-(*state).have = __v163.wrapping_add(1);
-*((*state).lens.as_mut_ptr() as *mut u16).add(__v163 as usize) = (*__slate_slot_437).val;
-} else {
-if (((*__slate_slot_437).val as u32) as i32) == 16 {
-'__loop_129: loop {
-if bits < (((((*__slate_slot_437).bits as u32) as i32) + 2) as u32) {
-loop {
-if have == 0 {
-break '__join_10;
-} else {
-have = have.wrapping_sub(1);
-let __v188: *mut u8 = next;
-next = __v188.add(1);
-hold = hold.wrapping_add((*__v188 as c_ulong) << bits);
-bits = bits.wrapping_add(8);
-if true {
-continue '__loop_129;
-}
-}
-}
-} else {
-if true {
-break;
-}
-}
-}
-loop {
-hold >>= ((*__slate_slot_437).bits as u32) as i32;
-bits = bits.wrapping_sub((*__slate_slot_437).bits as u32);
-if true {
-break;
-}
-}
-if (*state).have == 0 {
-break '__join_64;
-} else {
-len = *((*state).lens.as_mut_ptr() as *mut u16).offset(unsafe { (*state).have }.wrapping_sub(1) as isize) as u32;
-copy = 3u32.wrapping_add(BITS!(2i32, hold));
-loop {
-hold >>= 2i32;
-bits = bits.wrapping_sub(2);
-if true {
-break;
-}
-}
-}
-} else {
-if (((*__slate_slot_437).val as u32) as i32) == 17 {
 '__loop_136: loop {
-if bits < (((((*__slate_slot_437).bits as u32) as i32) + 3) as u32) {
+*__slate_slot_343 = *unsafe { (*state).lencode }.offset(BITS!(unsafe { (*state).lenbits }, hold) as isize);
+if ((*__slate_slot_343).bits as u32) <= bits {
+break;
+} else {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v205: *mut u8 = next;
-next = __v205.add(1);
-hold = hold.wrapping_add((*__v205 as c_ulong) << bits);
+let __v6: *mut u8 = next;
+next = __v6.add(1);
+hold = hold.wrapping_add((*__v6 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
 continue '__loop_136;
 }
 }
 }
+}
+}
+if (((*__slate_slot_343).val as u32) as i32) < 16 {
+DROPBITS__2!((*__slate_slot_343).bits, hold, bits);
+let __v139: u32 = (*state).have;
+(*state).have = __v139.wrapping_add(1);
+*((*state).lens.as_mut_ptr() as *mut u16).add(__v139 as usize) = (*__slate_slot_343).val;
 } else {
-if true {
-break;
-}
-}
-}
-loop {
-hold >>= ((*__slate_slot_437).bits as u32) as i32;
-bits = bits.wrapping_sub((*__slate_slot_437).bits as u32);
-if true {
-break;
-}
-}
-len = 0;
-copy = 3u32.wrapping_add(BITS!(3i32, hold));
-loop {
-hold >>= 3i32;
-bits = bits.wrapping_sub(3);
-if true {
-break;
-}
-}
-} else {
-'__loop_143: loop {
-if bits < (((((*__slate_slot_437).bits as u32) as i32) + 7) as u32) {
+if (((*__slate_slot_343).val as u32) as i32) == 16 {
+'__loop_118: loop {
+if bits < (((((*__slate_slot_343).bits as u32) as i32) + 2) as u32) {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v222: *mut u8 = next;
-next = __v222.add(1);
-hold = hold.wrapping_add((*__v222 as c_ulong) << bits);
+let __v152: *mut u8 = next;
+next = __v152.add(1);
+hold = hold.wrapping_add((*__v152 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_143;
+continue '__loop_118;
 }
 }
 }
@@ -2768,47 +2527,94 @@ break;
 }
 }
 }
+DROPBITS__2!((*__slate_slot_343).bits, hold, bits);
+if (*state).have == 0 {
+break '__join_58;
+} else {
+len = *((*state).lens.as_mut_ptr() as *mut u16).offset(unsafe { (*state).have }.wrapping_sub(1) as isize) as u32;
+copy = 3u32.wrapping_add(BITS!(2i32, hold));
+DROPBITS!(2i32, hold, bits);
+}
+} else {
+if (((*__slate_slot_343).val as u32) as i32) == 17 {
+'__loop_123: loop {
+if bits < (((((*__slate_slot_343).bits as u32) as i32) + 3) as u32) {
 loop {
-hold >>= ((*__slate_slot_437).bits as u32) as i32;
-bits = bits.wrapping_sub((*__slate_slot_437).bits as u32);
+if have == 0 {
+break '__join_7;
+} else {
+have = have.wrapping_sub(1);
+let __v7: *mut u8 = next;
+next = __v7.add(1);
+hold = hold.wrapping_add((*__v7 as c_ulong) << bits);
+bits = bits.wrapping_add(8);
+if true {
+continue '__loop_123;
+}
+}
+}
+} else {
 if true {
 break;
 }
 }
+}
+DROPBITS__2!((*__slate_slot_343).bits, hold, bits);
+len = 0;
+copy = 3u32.wrapping_add(BITS!(3i32, hold));
+DROPBITS!(3i32, hold, bits);
+} else {
+'__loop_128: loop {
+if bits < (((((*__slate_slot_343).bits as u32) as i32) + 7) as u32) {
+loop {
+if have == 0 {
+break '__join_7;
+} else {
+have = have.wrapping_sub(1);
+let __v9: *mut u8 = next;
+next = __v9.add(1);
+hold = hold.wrapping_add((*__v9 as c_ulong) << bits);
+bits = bits.wrapping_add(8);
+if true {
+continue '__loop_128;
+}
+}
+}
+} else {
+if true {
+break;
+}
+}
+}
+DROPBITS__2!((*__slate_slot_343).bits, hold, bits);
 len = 0;
 copy = 11u32.wrapping_add(BITS!(7i32, hold));
-loop {
-hold >>= 7i32;
-bits = bits.wrapping_sub(7);
-if true {
-break;
-}
-}
+DROPBITS!(7i32, hold, bits);
 }
 }
 if unsafe { (*state).have }.wrapping_add(copy) > unsafe { (*state).nlen }.wrapping_add((*state).ndist) {
 break;
 } else {
 loop {
-let __v8: u32 = copy;
-copy = __v8.wrapping_sub(1);
-if __v8 != 0 {
-let __v172: u32 = (*state).have;
-(*state).have = __v172.wrapping_add(1);
-*((*state).lens.as_mut_ptr() as *mut u16).add(__v172 as usize) = len as u16;
+let __v142: u32 = copy;
+copy = __v142.wrapping_sub(1);
+if __v142 != 0 {
+let __v10: u32 = (*state).have;
+(*state).have = __v10.wrapping_add(1);
+*((*state).lens.as_mut_ptr() as *mut u16).add(__v10 as usize) = len as u16;
 } else {
-continue '__loop_6;
+continue '__loop_108;
 }
 }
 }
 }
 } else {
-break '__join_200;
+break '__join_172;
 }
                                                                                                 }
                                                                                                 (*strm).msg = c"invalid bit length repeat".as_ptr() as *mut c_char;
                                                                                                 (*state).mode = 16209;
-                                                                                                break '__join_200;
+                                                                                                break '__join_172;
                                                                                             }
                                                                                         }
                                                                                         #[cfg(not(feature = "no-gzip"))]
@@ -2816,7 +2622,7 @@ break '__join_200;
                                                                                             if left
                                                                                                 == 0
                                                                                             {
-                                                                                                break '__join_10;
+                                                                                                break '__join_7;
                                                                                             } else {
                                                                                                 copy = out.wrapping_sub(left);
                                                                                                 if (*state).offset > copy {
@@ -2826,7 +2632,7 @@ if copy > (*state).whave {
 if (*state).sane != 0 {
 (*strm).msg = c"invalid distance too far back".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 #[cfg(all(feature = "zlib-debug", feature = "inflate-allow-invalid"))]
 {
@@ -2844,25 +2650,25 @@ copy = left;
 left = left.wrapping_sub(copy);
 }
 #[cfg(feature = "inflate-allow-invalid")]
-let __v65: u32 = (*state).length;
+let __v63: u32 = (*state).length;
 #[cfg(feature = "inflate-allow-invalid")]
 {
-(*state).length = __v65.wrapping_sub(copy);
+(*state).length = __v63.wrapping_sub(copy);
 loop {
-let __v63: *mut u8 = put;
-put = __v63.add(1);
-*__v63 = 0;
-let __v60: u32 = copy.wrapping_sub(1);
-copy = __v60;
-if __v60 == 0 {
+let __v61: *mut u8 = put;
+put = __v61.add(1);
+*__v61 = 0;
+let __v58: u32 = copy.wrapping_sub(1);
+copy = __v58;
+if __v58 == 0 {
 break;
 }
 }
 if (*state).length == 0 {
 (*state).mode = 16200;
-continue '__loop_352;
+continue '__loop_319;
 } else {
-continue '__loop_352;
+continue '__loop_319;
 }
 }
 }
@@ -2901,25 +2707,25 @@ copy = (*state).length;
 copy = left;
 }
                                                                                                 left = left.wrapping_sub(copy);
-                                                                                                let __v54: u32 = (*state).length;
-                                                                                                (*state).length = __v54.wrapping_sub(copy);
+                                                                                                let __v52: u32 = (*state).length;
+                                                                                                (*state).length = __v52.wrapping_sub(copy);
                                                                                                 loop {
-                                                                                                    let __v52: *mut u8 = from;
-                                                                                                    from = __v52.add(1);
-                                                                                                    let __v50: *mut u8 = put;
-                                                                                                    put = __v50.add(1);
-                                                                                                    *__v50 = *__v52;
-                                                                                                    let __v47: u32 = copy.wrapping_sub(1);
-                                                                                                    copy = __v47;
-                                                                                                    if __v47 == 0 {
+                                                                                                    let __v50: *mut u8 = from;
+                                                                                                    from = __v50.add(1);
+                                                                                                    let __v48: *mut u8 = put;
+                                                                                                    put = __v48.add(1);
+                                                                                                    *__v48 = *__v50;
+                                                                                                    let __v45: u32 = copy.wrapping_sub(1);
+                                                                                                    copy = __v45;
+                                                                                                    if __v45 == 0 {
 break;
 }
                                                                                                 }
                                                                                                 if (*state).length == 0 {
 (*state).mode = 16200;
-continue '__loop_352;
+continue '__loop_319;
 } else {
-continue '__loop_352;
+continue '__loop_319;
 }
                                                                                             }
                                                                                         }
@@ -2946,13 +2752,13 @@ continue '__loop_352;
                                                                                             as u32)
                                                                                             == 16209
                                                                                         {
-                                                                                            continue '__loop_352;
+                                                                                            continue '__loop_319;
                                                                                         } else {
                                                                                             // check for end-of-block code (better have one)
                                                                                             if ((*((*state).lens.as_mut_ptr() as *mut u16).add(256) as u32) as i32) == 0 {
 (*strm).msg = c"invalid code -- missing end-of-block".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 // build code tables -- note: do not change the lenbits or distbits
 // values here (9 and 6) without reading the comments in inftrees.h
@@ -2964,7 +2770,7 @@ ret = inflate_table(1u32, (*state).lens.as_mut_ptr() as *mut u16, (*state).nlen,
 if ret != 0 {
 (*strm).msg = c"invalid literal/lengths set".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 (*state).distcode = (*state).next as *const __SlateRecord_inftrees_h_28;
 (*state).distbits = 6;
@@ -2972,7 +2778,7 @@ ret = inflate_table(2u32, ((*state).lens.as_mut_ptr() as *mut u16).offset((*stat
 if ret != 0 {
 (*strm).msg = c"invalid distances set".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
 #[cfg(feature = "zlib-debug")]
 {
@@ -2980,7 +2786,7 @@ Tracev!(slate_support::stderr(), c"inflate:       codes ok\n".as_ptr() as *mut c
 }
 (*state).mode = 16199;
 if flush == 6 {
-break '__join_10;
+break '__join_7;
 }
 // fallthrough
 }
@@ -3008,7 +2814,7 @@ break '__join_10;
                                                                                         }
                                                                                         if copy == 0
                                                                                         {
-                                                                                            break '__join_10;
+                                                                                            break '__join_7;
                                                                                         } else {
                                                                                             #[cfg(all(not(target_os = "macos"), target_pointer_width = "64", unix))]
                                                                                             {
@@ -3031,14 +2837,14 @@ break '__join_10;
                                                                                                 std::ptr::copy_nonoverlapping(next as *const u8, put as *mut u8, copy as usize);
                                                                                             }
                                                                                             have = have.wrapping_sub(copy);
-                                                                                            let __v294: *mut u8 = next;
-                                                                                            next = __v294.add(copy as usize);
+                                                                                            let __v224: *mut u8 = next;
+                                                                                            next = __v224.add(copy as usize);
                                                                                             left = left.wrapping_sub(copy);
-                                                                                            let __v290: *mut u8 = put;
-                                                                                            put = __v290.add(copy as usize);
-                                                                                            let __v287: u32 = (*state).length;
-                                                                                            (*state).length = __v287.wrapping_sub(copy);
-                                                                                            continue '__loop_352;
+                                                                                            let __v220: *mut u8 = put;
+                                                                                            put = __v220.add(copy as usize);
+                                                                                            let __v217: u32 = (*state).length;
+                                                                                            (*state).length = __v217.wrapping_sub(copy);
+                                                                                            continue '__loop_319;
                                                                                         }
                                                                                     } else {
                                                                                         #[cfg(feature = "zlib-debug")]
@@ -3048,7 +2854,7 @@ break '__join_10;
                                                                                         (*state)
                                                                                             .mode =
                                                                                             16191;
-                                                                                        continue '__loop_352;
+                                                                                        continue '__loop_319;
                                                                                     }
                                                                                 }
                                                                                 #[cfg(
@@ -3076,14 +2882,14 @@ break '__join_10;
                                                                                     return 2;
                                                                                 } else {
                                                                                     #[cfg(all(target_pointer_width = "64", unix))]
-let __v335: u64 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
+let __v245: u64 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
                                                                                     #[cfg(any(target_pointer_width = "32", windows))]
-let __v335: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
+let __v245: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
                                                                                     (*state)
                                                                                         .check =
-                                                                                        __v335;
+                                                                                        __v245;
                                                                                     (*strm).adler =
-                                                                                        __v335;
+                                                                                        __v245;
                                                                                     (*state).mode =
                                                                                         16191;
                                                                                     // fallthrough
@@ -3121,98 +2927,86 @@ let __v335: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
                                                                                         (*state)
                                                                                             .back =
                                                                                             -1;
-                                                                                        continue '__loop_352;
+                                                                                        continue '__loop_319;
                                                                                     } else {
-                                                                                        continue '__loop_352;
+                                                                                        continue '__loop_319;
                                                                                     }
                                                                                 } else {
                                                                                     (*state).back =
                                                                                         0;
-                                                                                    '__loop_101: loop {
-                                                                                        *__slate_slot_437 = *unsafe { (*state).lencode }.offset(BITS!(unsafe { (*state).lenbits }, hold) as isize);
-                                                                                        if ((*__slate_slot_437).bits as u32) <= bits {
+                                                                                    '__loop_93: loop {
+                                                                                        *__slate_slot_343 = *unsafe { (*state).lencode }.offset(BITS!(unsafe { (*state).lenbits }, hold) as isize);
+                                                                                        if ((*__slate_slot_343).bits as u32) <= bits {
 break;
 } else {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v159: *mut u8 = next;
-next = __v159.add(1);
-hold = hold.wrapping_add((*__v159 as c_ulong) << bits);
+let __v11: *mut u8 = next;
+next = __v11.add(1);
+hold = hold.wrapping_add((*__v11 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_101;
+continue '__loop_93;
 }
 }
 }
 }
                                                                                     }
-                                                                                    if (*__slate_slot_437).op != 0 && (((*__slate_slot_437).op as u32) as i32) & 240 == 0 {
-*__slate_slot_436 = *__slate_slot_437;
-'__loop_96: loop {
-*__slate_slot_437 = *unsafe { (*state).lencode }.offset(((((*__slate_slot_436).val as u32) as i32) as u32).wrapping_add(BITS!((((*__slate_slot_436).bits as u32) as i32) + (((*__slate_slot_436).op as u32) as i32), hold) >> (((*__slate_slot_436).bits as u32) as i32)) as isize);
-if (((((*__slate_slot_436).bits as u32) as i32) + (((*__slate_slot_437).bits as u32) as i32)) as u32) <= bits {
+                                                                                    if (*__slate_slot_343).op != 0 && (((*__slate_slot_343).op as u32) as i32) & 240 == 0 {
+*__slate_slot_342 = *__slate_slot_343;
+'__loop_88: loop {
+*__slate_slot_343 = *unsafe { (*state).lencode }.offset(((((*__slate_slot_342).val as u32) as i32) as u32).wrapping_add(BITS!((((*__slate_slot_342).bits as u32) as i32) + (((*__slate_slot_342).op as u32) as i32), hold) >> (((*__slate_slot_342).bits as u32) as i32)) as isize);
+if (((((*__slate_slot_342).bits as u32) as i32) + (((*__slate_slot_343).bits as u32) as i32)) as u32) <= bits {
 break;
 } else {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v150: *mut u8 = next;
-next = __v150.add(1);
-hold = hold.wrapping_add((*__v150 as c_ulong) << bits);
+let __v126: *mut u8 = next;
+next = __v126.add(1);
+hold = hold.wrapping_add((*__v126 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_96;
+continue '__loop_88;
 }
 }
 }
 }
 }
-loop {
-hold >>= ((*__slate_slot_436).bits as u32) as i32;
-bits = bits.wrapping_sub((*__slate_slot_436).bits as u32);
-if true {
-break;
+DROPBITS__2!((*__slate_slot_342).bits, hold, bits);
+(*state).back = (*state).back + (((*__slate_slot_342).bits as u32) as i32);
 }
-}
-(*state).back = (*state).back + (((*__slate_slot_436).bits as u32) as i32);
-}
-                                                                                    loop {
-                                                                                        hold >>= ((*__slate_slot_437).bits as u32) as i32;
-                                                                                        bits = bits.wrapping_sub((*__slate_slot_437).bits as u32);
-                                                                                        if true {
-                                                                                            break;
-                                                                                        }
-                                                                                    }
-                                                                                    (*state).back = (*state).back + (((*__slate_slot_437).bits as u32) as i32);
-                                                                                    (*state).length = (*__slate_slot_437).val as u32;
-                                                                                    if (((*__slate_slot_437).op as u32) as i32) == 0 {
+                                                                                    DROPBITS__2!((*__slate_slot_343).bits, hold, bits);
+                                                                                    (*state).back = (*state).back + (((*__slate_slot_343).bits as u32) as i32);
+                                                                                    (*state).length = (*__slate_slot_343).val as u32;
+                                                                                    if (((*__slate_slot_343).op as u32) as i32) == 0 {
 #[cfg(feature = "zlib-debug")]
 {
-Tracevv__2!(slate_support::stderr(), if (((*__slate_slot_437).val as u32) as i32) >= 32 && (((*__slate_slot_437).val as u32) as i32) < 127 { c"inflate:         literal '%c'\n".as_ptr() as *mut c_char } else { c"inflate:         literal 0x%02x\n".as_ptr() as *mut c_char }, (*__slate_slot_437).val);
+Tracevv__2!(slate_support::stderr(), if (((*__slate_slot_343).val as u32) as i32) >= 32 && (((*__slate_slot_343).val as u32) as i32) < 127 { c"inflate:         literal '%c'\n".as_ptr() as *mut c_char } else { c"inflate:         literal 0x%02x\n".as_ptr() as *mut c_char }, (*__slate_slot_343).val);
 }
 (*state).mode = 16205;
-continue '__loop_352;
+continue '__loop_319;
 } else {
-if (((*__slate_slot_437).op as u32) as i32) & 32 != 0 {
+if (((*__slate_slot_343).op as u32) as i32) & 32 != 0 {
 #[cfg(feature = "zlib-debug")]
 {
 Tracevv__3!(slate_support::stderr(), c"inflate:         end of block\n".as_ptr() as *mut c_char);
 }
 (*state).back = -1;
 (*state).mode = 16191;
-continue '__loop_352;
+continue '__loop_319;
 } else {
-if (((*__slate_slot_437).op as u32) as i32) & 64 != 0 {
+if (((*__slate_slot_343).op as u32) as i32) & 64 != 0 {
 (*strm).msg = c"invalid literal/length code".as_ptr() as *mut c_char;
 (*state).mode = 16209;
-continue '__loop_352;
+continue '__loop_319;
 } else {
-(*state).extra = ((*__slate_slot_437).op as u32) & 15;
+(*state).extra = ((*__slate_slot_343).op as u32) & 15;
 (*state).mode = 16201;
 // fallthrough
 }
@@ -3228,13 +3022,13 @@ continue '__loop_352;
                                                                             if flush == 5
                                                                                 || flush == 6
                                                                             {
-                                                                                break '__join_10;
+                                                                                break '__join_7;
                                                                             }
                                                                         }
                                                                         #[cfg(feature = "no-gzip")]
                                                                         {
                                                                             if (*state).extra != 0 {
-                                                                                '__loop_80: loop {
+                                                                                '__loop_12: loop {
                                                                                     if bits
                                                                                         < ((*state)
                                                                                             .extra
@@ -3244,15 +3038,15 @@ continue '__loop_352;
                                                                                             if have
                                                                                                 == 0
                                                                                             {
-                                                                                                break '__join_10;
+                                                                                                break '__join_7;
                                                                                             } else {
                                                                                                 have = have.wrapping_sub(1);
-                                                                                                let __v127: *mut u8 = next;
-                                                                                                next = __v127.add(1);
-                                                                                                hold = hold.wrapping_add((*__v127 as c_ulong) << bits);
+                                                                                                let __v13: *mut u8 = next;
+                                                                                                next = __v13.add(1);
+                                                                                                hold = hold.wrapping_add((*__v13 as c_ulong) << bits);
                                                                                                 bits = bits.wrapping_add(8);
                                                                                                 if true {
-continue '__loop_80;
+continue '__loop_12;
 }
                                                                                             }
                                                                                         }
@@ -3262,20 +3056,19 @@ continue '__loop_80;
                                                                                         }
                                                                                     }
                                                                                 }
-                                                                                let __v10: u32 =
+                                                                                let __v103: u32 =
                                                                                     (*state).length;
-                                                                                let __v118: u32 = __v10.wrapping_add(BITS!(unsafe { (*state).extra }, hold));
+                                                                                let __v102: u32 = __v103.wrapping_add(BITS!(unsafe { (*state).extra }, hold));
                                                                                 (*state).length =
-                                                                                    __v118;
-                                                                                loop {
-                                                                                    hold >>=
+                                                                                    __v102;
+                                                                                DROPBITS!(
+                                                                                    unsafe {
                                                                                         (*state)
-                                                                                            .extra;
-                                                                                    bits = bits.wrapping_sub((*state).extra as u32);
-                                                                                    if true {
-                                                                                        break;
-                                                                                    }
-                                                                                }
+                                                                                            .extra
+                                                                                    },
+                                                                                    hold,
+                                                                                    bits
+                                                                                );
                                                                                 (*state).back = ((*state).back as u32).wrapping_add((*state).extra) as i32;
                                                                             }
                                                                         }
@@ -3298,34 +3091,25 @@ continue '__loop_80;
                                                                     ))]
                                                                     {
                                                                         if (*state).last != 0 {
-                                                                            loop {
-                                                                                hold >>= bits & 7;
-                                                                                bits = bits
-                                                                                    .wrapping_sub(
-                                                                                        bits & 7,
-                                                                                    );
-                                                                                if true {
-                                                                                    break;
-                                                                                }
-                                                                            }
+                                                                            BYTEBITS!(hold, bits);
                                                                             (*state).mode = 16206;
-                                                                            continue '__loop_352;
+                                                                            continue '__loop_319;
                                                                         } else {
-                                                                            '__loop_221: loop {
+                                                                            '__loop_190: loop {
                                                                                 if bits < 3 {
                                                                                     loop {
                                                                                         if have == 0
                                                                                         {
-                                                                                            break '__join_10;
+                                                                                            break '__join_7;
                                                                                         } else {
                                                                                             have = have.wrapping_sub(1);
-                                                                                            let __v328: *mut u8 = next;
-                                                                                            next = __v328.add(1);
-                                                                                            hold = hold.wrapping_add((*__v328 as c_ulong) << bits);
+                                                                                            let __v242: *mut u8 = next;
+                                                                                            next = __v242.add(1);
+                                                                                            hold = hold.wrapping_add((*__v242 as c_ulong) << bits);
                                                                                             bits = bits.wrapping_add(8);
                                                                                             if true
                                                                                             {
-                                                                                                continue '__loop_221;
+                                                                                                continue '__loop_190;
                                                                                             }
                                                                                         }
                                                                                     }
@@ -3338,16 +3122,9 @@ continue '__loop_80;
                                                                             (*state).last =
                                                                                 BITS!(1i32, hold)
                                                                                     as i32;
-                                                                            loop {
-                                                                                hold >>= 1i32;
-                                                                                bits = bits
-                                                                                    .wrapping_sub(
-                                                                                        1,
-                                                                                    );
-                                                                                if true {
-                                                                                    break;
-                                                                                }
-                                                                            }
+                                                                            DROPBITS!(
+                                                                                1i32, hold, bits
+                                                                            );
                                                                             let __t0: u32 =
                                                                                 BITS!(2i32, hold);
                                                                             if __t0 == 0 {
@@ -3374,7 +3151,7 @@ continue '__loop_80;
                                                                                         16199;
                                                                                     // decode codes
                                                                                     if flush == 6 {
-                                                                                        break '__join_214;
+                                                                                        break '__join_185;
                                                                                     }
                                                                                 } else {
                                                                                     if __t0 == 2 {
@@ -3393,23 +3170,17 @@ continue '__loop_80;
                                                                                     }
                                                                                 }
                                                                             }
-                                                                            loop {
-                                                                                hold >>= 2i32;
-                                                                                bits = bits
-                                                                                    .wrapping_sub(
-                                                                                        2,
-                                                                                    );
-                                                                                if true {
-                                                                                    continue '__loop_352;
-                                                                                }
-                                                                            }
+                                                                            DROPBITS!(
+                                                                                2i32, hold, bits
+                                                                            );
+                                                                            continue '__loop_319;
                                                                         }
                                                                     }
                                                                     #[cfg(feature = "no-gzip")]
                                                                     {
-                                                                        '__loop_74: loop {
-                                                                            *__slate_slot_437 = *unsafe { (*state).distcode }.offset(BITS!(unsafe { (*state).distbits }, hold) as isize);
-                                                                            if ((*__slate_slot_437)
+                                                                        '__loop_70: loop {
+                                                                            *__slate_slot_343 = *unsafe { (*state).distcode }.offset(BITS!(unsafe { (*state).distbits }, hold) as isize);
+                                                                            if ((*__slate_slot_343)
                                                                                 .bits
                                                                                 as u32)
                                                                                 <= bits
@@ -3418,81 +3189,70 @@ continue '__loop_80;
                                                                             } else {
                                                                                 loop {
                                                                                     if have == 0 {
-                                                                                        break '__join_10;
+                                                                                        break '__join_7;
                                                                                     } else {
                                                                                         have = have.wrapping_sub(1);
-                                                                                        let __v108: *mut u8 = next;
-                                                                                        next = __v108.add(1);
-                                                                                        hold = hold.wrapping_add((*__v108 as c_ulong) << bits);
+                                                                                        let __v15: *mut u8 = next;
+                                                                                        next = __v15.add(1);
+                                                                                        hold = hold.wrapping_add((*__v15 as c_ulong) << bits);
                                                                                         bits = bits.wrapping_add(8);
                                                                                         if true {
-                                                                                            continue '__loop_74;
+                                                                                            continue '__loop_70;
                                                                                         }
                                                                                     }
                                                                                 }
                                                                             }
                                                                         }
-                                                                        if (((*__slate_slot_437).op
+                                                                        if (((*__slate_slot_343).op
                                                                             as u32)
                                                                             as i32)
                                                                             & 240
                                                                             == 0
                                                                         {
-                                                                            *__slate_slot_436 =
-                                                                                *__slate_slot_437;
-                                                                            '__loop_69: loop {
-                                                                                *__slate_slot_437 = *unsafe { (*state).distcode }.offset(((((*__slate_slot_436).val as u32) as i32) as u32).wrapping_add(BITS!((((*__slate_slot_436).bits as u32) as i32) + (((*__slate_slot_436).op as u32) as i32), hold) >> (((*__slate_slot_436).bits as u32) as i32)) as isize);
-                                                                                if (((((*__slate_slot_436).bits as u32) as i32) + (((*__slate_slot_437).bits as u32) as i32)) as u32) <= bits {
+                                                                            *__slate_slot_342 =
+                                                                                *__slate_slot_343;
+                                                                            '__loop_65: loop {
+                                                                                *__slate_slot_343 = *unsafe { (*state).distcode }.offset(((((*__slate_slot_342).val as u32) as i32) as u32).wrapping_add(BITS!((((*__slate_slot_342).bits as u32) as i32) + (((*__slate_slot_342).op as u32) as i32), hold) >> (((*__slate_slot_342).bits as u32) as i32)) as isize);
+                                                                                if (((((*__slate_slot_342).bits as u32) as i32) + (((*__slate_slot_343).bits as u32) as i32)) as u32) <= bits {
 break;
 } else {
 loop {
 if have == 0 {
-break '__join_10;
+break '__join_7;
 } else {
 have = have.wrapping_sub(1);
-let __v99: *mut u8 = next;
-next = __v99.add(1);
-hold = hold.wrapping_add((*__v99 as c_ulong) << bits);
+let __v87: *mut u8 = next;
+next = __v87.add(1);
+hold = hold.wrapping_add((*__v87 as c_ulong) << bits);
 bits = bits.wrapping_add(8);
 if true {
-continue '__loop_69;
+continue '__loop_65;
 }
 }
 }
 }
                                                                             }
-                                                                            loop {
-                                                                                hold >>= ((*__slate_slot_436).bits as u32) as i32;
-                                                                                bits = bits.wrapping_sub((*__slate_slot_436).bits as u32);
-                                                                                if true {
-                                                                                    break;
-                                                                                }
-                                                                            }
-                                                                            (*state).back = (*state).back + (((*__slate_slot_436).bits as u32) as i32);
-                                                                        }
-                                                                        loop {
-                                                                            hold >>=
-                                                                                ((*__slate_slot_437)
-                                                                                    .bits
-                                                                                    as u32)
-                                                                                    as i32;
-                                                                            bits = bits
-                                                                                .wrapping_sub(
-                                                                                (*__slate_slot_437)
-                                                                                    .bits
-                                                                                    as u32,
+                                                                            DROPBITS__2!(
+                                                                                (*__slate_slot_342)
+                                                                                    .bits,
+                                                                                hold,
+                                                                                bits
                                                                             );
-                                                                            if true {
-                                                                                break;
-                                                                            }
+                                                                            (*state).back = (*state).back + (((*__slate_slot_342).bits as u32) as i32);
                                                                         }
+                                                                        DROPBITS__2!(
+                                                                            (*__slate_slot_343)
+                                                                                .bits,
+                                                                            hold,
+                                                                            bits
+                                                                        );
                                                                         (*state).back = (*state)
                                                                             .back
-                                                                            + (((*__slate_slot_437)
+                                                                            + (((*__slate_slot_343)
                                                                                 .bits
                                                                                 as u32)
                                                                                 as i32);
-                                                                        if (((*__slate_slot_437).op
+                                                                        if (((*__slate_slot_343).op
                                                                             as u32)
                                                                             as i32)
                                                                             & 64
@@ -3500,14 +3260,14 @@ continue '__loop_69;
                                                                         {
                                                                             (*strm).msg = c"invalid distance code".as_ptr() as *mut c_char;
                                                                             (*state).mode = 16209;
-                                                                            continue '__loop_352;
+                                                                            continue '__loop_319;
                                                                         } else {
                                                                             (*state).offset =
-                                                                                (*__slate_slot_437)
+                                                                                (*__slate_slot_343)
                                                                                     .val
                                                                                     as u32;
                                                                             (*state).extra =
-                                                                                ((*__slate_slot_437)
+                                                                                ((*__slate_slot_343)
                                                                                     .op
                                                                                     as u32)
                                                                                     & 15;
@@ -3518,20 +3278,20 @@ continue '__loop_69;
                                                                 }
                                                                 #[cfg(not(feature = "no-gzip"))]
                                                                 {
-                                                                    '__loop_314: loop {
+                                                                    '__loop_282: loop {
                                                                         if bits < 32 {
                                                                             loop {
                                                                                 if have == 0 {
-                                                                                    break '__join_10;
+                                                                                    break '__join_7;
                                                                                 } else {
                                                                                     have = have.wrapping_sub(1);
-                                                                                    let __v407: *mut u8 = next;
-                                                                                    next = __v407
+                                                                                    let __v317: *mut u8 = next;
+                                                                                    next = __v317
                                                                                         .add(1);
-                                                                                    hold = hold.wrapping_add((*__v407 as c_ulong) << bits);
+                                                                                    hold = hold.wrapping_add((*__v317 as c_ulong) << bits);
                                                                                     bits = bits.wrapping_add(8);
                                                                                     if true {
-                                                                                        continue '__loop_314;
+                                                                                        continue '__loop_282;
                                                                                     }
                                                                                 }
                                                                             }
@@ -3562,22 +3322,22 @@ continue '__loop_69;
                                                                 #[cfg(feature = "no-gzip")]
                                                                 {
                                                                     if (*state).extra != 0 {
-                                                                        '__loop_57: loop {
+                                                                        '__loop_55: loop {
                                                                             if bits
                                                                                 < ((*state).extra
                                                                                     as u32)
                                                                             {
                                                                                 loop {
                                                                                     if have == 0 {
-                                                                                        break '__join_10;
+                                                                                        break '__join_7;
                                                                                     } else {
                                                                                         have = have.wrapping_sub(1);
-                                                                                        let __v76: *mut u8 = next;
-                                                                                        next = __v76.add(1);
-                                                                                        hold = hold.wrapping_add((*__v76 as c_ulong) << bits);
+                                                                                        let __v17: *mut u8 = next;
+                                                                                        next = __v17.add(1);
+                                                                                        hold = hold.wrapping_add((*__v17 as c_ulong) << bits);
                                                                                         bits = bits.wrapping_add(8);
                                                                                         if true {
-                                                                                            continue '__loop_57;
+                                                                                            continue '__loop_55;
                                                                                         }
                                                                                     }
                                                                                 }
@@ -3587,27 +3347,23 @@ continue '__loop_69;
                                                                                 }
                                                                             }
                                                                         }
-                                                                        let __v68: u32 =
+                                                                        let __v64: u32 =
                                                                             (*state).offset;
-                                                                        let __v67: u32 = __v68
+                                                                        let __v18: u32 = __v64
                                                                             .wrapping_add(BITS!(
                                                                                 unsafe {
                                                                                     (*state).extra
                                                                                 },
                                                                                 hold
                                                                             ));
-                                                                        (*state).offset = __v67;
-                                                                        loop {
-                                                                            hold >>= (*state).extra;
-                                                                            bits = bits
-                                                                                .wrapping_sub(
-                                                                                    (*state).extra
-                                                                                        as u32,
-                                                                                );
-                                                                            if true {
-                                                                                break;
-                                                                            }
-                                                                        }
+                                                                        (*state).offset = __v18;
+                                                                        DROPBITS!(
+                                                                            unsafe {
+                                                                                (*state).extra
+                                                                            },
+                                                                            hold,
+                                                                            bits
+                                                                        );
                                                                         (*state).back =
                                                                             ((*state).back as u32)
                                                                                 .wrapping_add(
@@ -3626,7 +3382,7 @@ continue '__loop_69;
                                                                     {
                                                                         (*strm).msg = c"invalid distance too far back".as_ptr() as *mut c_char;
                                                                         (*state).mode = 16209;
-                                                                        continue '__loop_352;
+                                                                        continue '__loop_319;
                                                                     } else {
                                                                         #[cfg(
                                                                             feature = "zlib-debug"
@@ -3660,22 +3416,22 @@ continue '__loop_69;
                                                             }
                                                             #[cfg(not(feature = "no-gzip"))]
                                                             {
-                                                                '__loop_305: loop {
+                                                                '__loop_273: loop {
                                                                     if bits < 16 {
                                                                         loop {
                                                                             if have == 0 {
-                                                                                break '__join_10;
+                                                                                break '__join_7;
                                                                             } else {
                                                                                 have = have
                                                                                     .wrapping_sub(
                                                                                         1,
                                                                                     );
-                                                                                let __v398: *mut u8 = next;
+                                                                                let __v308: *mut u8 = next;
                                                                                 next =
-                                                                                    __v398.add(1);
+                                                                                    __v308.add(1);
                                                                                 hold = hold
                                                                                     .wrapping_add(
-                                                                                    (*__v398
+                                                                                    (*__v308
                                                                                         as c_ulong)
                                                                                         << bits,
                                                                                 );
@@ -3684,7 +3440,7 @@ continue '__loop_69;
                                                                                         8,
                                                                                     );
                                                                                 if true {
-                                                                                    continue '__loop_305;
+                                                                                    continue '__loop_273;
                                                                                 }
                                                                             }
                                                                         }
@@ -3735,7 +3491,7 @@ continue '__loop_69;
                                                             #[cfg(feature = "no-gzip")]
                                                             {
                                                                 if left == 0 {
-                                                                    break '__join_10;
+                                                                    break '__join_7;
                                                                 } else {
                                                                     copy = out.wrapping_sub(left);
                                                                     if (*state).offset > copy {
@@ -3749,7 +3505,7 @@ continue '__loop_69;
                                                                                 (*strm).msg = c"invalid distance too far back".as_ptr() as *mut c_char;
                                                                                 (*state).mode =
                                                                                     16209;
-                                                                                continue '__loop_352;
+                                                                                continue '__loop_319;
                                                                             } else {
                                                                                 #[cfg(all(
                                                                                     feature = "zlib-debug",
@@ -3775,17 +3531,17 @@ continue '__loop_69;
                                                                                     left = left.wrapping_sub(copy);
                                                                                 }
                                                                                 #[cfg(feature = "inflate-allow-invalid")]
-let __v11: u32 = (*state).length;
+let __v54: u32 = (*state).length;
                                                                                 #[cfg(
                                                                                     feature = "inflate-allow-invalid"
                                                                                 )]
                                                                                 {
-                                                                                    (*state).length = __v11.wrapping_sub(copy);
+                                                                                    (*state).length = __v54.wrapping_sub(copy);
                                                                                     loop {
-                                                                                        let __v12: *mut u8 = put;
-                                                                                        put = __v12
+                                                                                        let __v21: *mut u8 = put;
+                                                                                        put = __v21
                                                                                             .add(1);
-                                                                                        *__v12 = 0;
+                                                                                        *__v21 = 0;
                                                                                         let __v49: u32 = copy.wrapping_sub(1);
                                                                                         copy =
                                                                                             __v49;
@@ -3802,9 +3558,9 @@ let __v11: u32 = (*state).length;
                                                                                         (*state)
                                                                                             .mode =
                                                                                             16200;
-                                                                                        continue '__loop_352;
+                                                                                        continue '__loop_319;
                                                                                     } else {
-                                                                                        continue '__loop_352;
+                                                                                        continue '__loop_319;
                                                                                     }
                                                                                 }
                                                                             }
@@ -3907,9 +3663,9 @@ let __v11: u32 = (*state).length;
                                                                     }
                                                                     if (*state).length == 0 {
                                                                         (*state).mode = 16200;
-                                                                        continue '__loop_352;
+                                                                        continue '__loop_319;
                                                                     } else {
-                                                                        continue '__loop_352;
+                                                                        continue '__loop_319;
                                                                     }
                                                                 }
                                                             }
@@ -3917,22 +3673,22 @@ let __v11: u32 = (*state).length;
                                                         #[cfg(not(feature = "no-gzip"))]
                                                         {
                                                             if (*state).flags & 1024 != 0 {
-                                                                '__loop_293: loop {
+                                                                '__loop_261: loop {
                                                                     if bits < 16 {
                                                                         loop {
                                                                             if have == 0 {
-                                                                                break '__join_10;
+                                                                                break '__join_7;
                                                                             } else {
                                                                                 have = have
                                                                                     .wrapping_sub(
                                                                                         1,
                                                                                     );
-                                                                                let __v389: *mut u8 = next;
+                                                                                let __v299: *mut u8 = next;
                                                                                 next =
-                                                                                    __v389.add(1);
+                                                                                    __v299.add(1);
                                                                                 hold = hold
                                                                                     .wrapping_add(
-                                                                                    (*__v389
+                                                                                    (*__v299
                                                                                         as c_ulong)
                                                                                         << bits,
                                                                                 );
@@ -3941,7 +3697,7 @@ let __v11: u32 = (*state).length;
                                                                                         8,
                                                                                     );
                                                                                 if true {
-                                                                                    continue '__loop_293;
+                                                                                    continue '__loop_261;
                                                                                 }
                                                                             }
                                                                         }
@@ -3999,18 +3755,18 @@ let __v11: u32 = (*state).length;
                                                                     }
                                                                     .is_null()
                                                                 {
-                                                                    let __v381: u32 = unsafe {
+                                                                    let __v291: u32 = unsafe {
                                                                         (*(*state).head).extra_len
                                                                     }
                                                                     .wrapping_sub((*state).length);
-                                                                    len = __v381;
-                                                                    __v382 = __v381
+                                                                    len = __v291;
+                                                                    __v292 = __v291
                                                                         < (*(*state).head)
                                                                             .extra_max;
                                                                 } else {
-                                                                    __v382 = false;
+                                                                    __v292 = false;
                                                                 }
-                                                                if __v382 {
+                                                                if __v292 {
                                                                     #[cfg(all(
                                                                         not(target_os = "macos"),
                                                                         target_pointer_width = "64",
@@ -4058,14 +3814,14 @@ let __v11: u32 = (*state).length;
                                                                     );
                                                                 }
                                                                 have = have.wrapping_sub(copy);
-                                                                let __v378: *mut u8 = next;
-                                                                next = __v378.add(copy as usize);
-                                                                let __v375: u32 = (*state).length;
+                                                                let __v288: *mut u8 = next;
+                                                                next = __v288.add(copy as usize);
+                                                                let __v285: u32 = (*state).length;
                                                                 (*state).length =
-                                                                    __v375.wrapping_sub(copy);
+                                                                    __v285.wrapping_sub(copy);
                                                             }
                                                             if (*state).length != 0 {
-                                                                break '__join_10;
+                                                                break '__join_7;
                                                             }
                                                         }
                                                         (*state).length = 0;
@@ -4082,7 +3838,7 @@ let __v11: u32 = (*state).length;
                                                                 copy = left;
                                                             }
                                                             if copy == 0 {
-                                                                break '__join_10;
+                                                                break '__join_7;
                                                             } else {
                                                                 #[cfg(all(
                                                                     not(target_os = "macos"),
@@ -4126,15 +3882,15 @@ let __v11: u32 = (*state).length;
                                                                     );
                                                                 }
                                                                 have = have.wrapping_sub(copy);
-                                                                let __v13: *mut u8 = next;
-                                                                next = __v13.add(copy as usize);
+                                                                let __v215: *mut u8 = next;
+                                                                next = __v215.add(copy as usize);
                                                                 left = left.wrapping_sub(copy);
-                                                                let __v279: *mut u8 = put;
-                                                                put = __v279.add(copy as usize);
-                                                                let __v276: u32 = (*state).length;
+                                                                let __v211: *mut u8 = put;
+                                                                put = __v211.add(copy as usize);
+                                                                let __v208: u32 = (*state).length;
                                                                 (*state).length =
-                                                                    __v276.wrapping_sub(copy);
-                                                                continue '__loop_352;
+                                                                    __v208.wrapping_sub(copy);
+                                                                continue '__loop_319;
                                                             }
                                                         } else {
                                                             #[cfg(feature = "zlib-debug")]
@@ -4147,7 +3903,7 @@ let __v11: u32 = (*state).length;
                                                                 );
                                                             }
                                                             (*state).mode = 16191;
-                                                            continue '__loop_352;
+                                                            continue '__loop_319;
                                                         }
                                                     }
                                                 }
@@ -4155,13 +3911,13 @@ let __v11: u32 = (*state).length;
                                                 {
                                                     if (*state).flags & 2048 != 0 {
                                                         if have == 0 {
-                                                            break '__join_10;
+                                                            break '__join_7;
                                                         } else {
                                                             copy = 0;
                                                             loop {
-                                                                let __v373: u32 = copy;
-                                                                copy = __v373.wrapping_add(1);
-                                                                len = *next.add(__v373 as usize)
+                                                                let __v283: u32 = copy;
+                                                                copy = __v283.wrapping_add(1);
+                                                                len = *next.add(__v283 as usize)
                                                                     as u32;
                                                                 if !unsafe { (*state).head }
                                                                     .is_null()
@@ -4172,14 +3928,14 @@ let __v11: u32 = (*state).length;
                                                                     && (*state).length
                                                                         < (*(*state).head).name_max
                                                                 {
-                                                                    let __v370: u32 =
+                                                                    let __v280: u32 =
                                                                         (*state).length;
                                                                     (*state).length =
-                                                                        __v370.wrapping_add(1);
+                                                                        __v280.wrapping_add(1);
                                                                     *unsafe {
                                                                         (*(*state).head).name
                                                                     }
-                                                                    .add(__v370 as usize) =
+                                                                    .add(__v280 as usize) =
                                                                         len as u8;
                                                                 }
                                                                 if !(len != 0 && copy < have) {
@@ -4196,10 +3952,10 @@ let __v11: u32 = (*state).length;
                                                                 );
                                                             }
                                                             have = have.wrapping_sub(copy);
-                                                            let __v366: *mut u8 = next;
-                                                            next = __v366.add(copy as usize);
+                                                            let __v276: *mut u8 = next;
+                                                            next = __v276.add(copy as usize);
                                                             if len != 0 {
-                                                                break '__join_10;
+                                                                break '__join_7;
                                                             }
                                                         }
                                                     } else {
@@ -4221,11 +3977,11 @@ let __v11: u32 = (*state).length;
                                                         return 2;
                                                     } else {
                                                         #[cfg(all(target_pointer_width = "64", unix))]
-let __v324: u64 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
+let __v236: u64 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
                                                         #[cfg(any(target_pointer_width = "32", windows))]
-let __v324: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
-                                                        (*state).check = __v324;
-                                                        (*strm).adler = __v324;
+let __v236: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
+                                                        (*state).check = __v236;
+                                                        (*strm).adler = __v236;
                                                         (*state).mode = 16191;
                                                         // fallthrough
                                                     }
@@ -4235,13 +3991,13 @@ let __v324: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
                                             {
                                                 if (*state).flags & 4096 != 0 {
                                                     if have == 0 {
-                                                        break '__join_10;
+                                                        break '__join_7;
                                                     } else {
                                                         copy = 0;
                                                         loop {
-                                                            let __v364: u32 = copy;
-                                                            copy = __v364.wrapping_add(1);
-                                                            len = *next.add(__v364 as usize) as u32;
+                                                            let __v274: u32 = copy;
+                                                            copy = __v274.wrapping_add(1);
+                                                            len = *next.add(__v274 as usize) as u32;
                                                             if !unsafe { (*state).head }.is_null()
                                                                 && !unsafe {
                                                                     (*(*state).head).comment
@@ -4250,13 +4006,13 @@ let __v324: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
                                                                 && (*state).length
                                                                     < (*(*state).head).comm_max
                                                             {
-                                                                let __v361: u32 = (*state).length;
+                                                                let __v271: u32 = (*state).length;
                                                                 (*state).length =
-                                                                    __v361.wrapping_add(1);
+                                                                    __v271.wrapping_add(1);
                                                                 *unsafe {
                                                                     (*(*state).head).comment
                                                                 }
-                                                                .add(__v361 as usize) = len as u8;
+                                                                .add(__v271 as usize) = len as u8;
                                                             }
                                                             if !(len != 0 && copy < have) {
                                                                 break;
@@ -4272,10 +4028,10 @@ let __v324: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
                                                             );
                                                         }
                                                         have = have.wrapping_sub(copy);
-                                                        let __v357: *mut u8 = next;
-                                                        next = __v357.add(copy as usize);
+                                                        let __v267: *mut u8 = next;
+                                                        next = __v267.add(copy as usize);
                                                         if len != 0 {
-                                                            break '__join_10;
+                                                            break '__join_7;
                                                         }
                                                     }
                                                 } else {
@@ -4289,28 +4045,28 @@ let __v324: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
                                             #[cfg(feature = "no-gzip")]
                                             {
                                                 if flush == 5 || flush == 6 {
-                                                    break '__join_10;
+                                                    break '__join_7;
                                                 }
                                             }
                                         }
                                         #[cfg(not(feature = "no-gzip"))]
                                         {
                                             if (*state).flags & 512 != 0 {
-                                                '__loop_244: loop {
+                                                '__loop_212: loop {
                                                     if bits < 16 {
                                                         loop {
                                                             if have == 0 {
-                                                                break '__join_10;
+                                                                break '__join_7;
                                                             } else {
                                                                 have = have.wrapping_sub(1);
-                                                                let __v353: *mut u8 = next;
-                                                                next = __v353.add(1);
+                                                                let __v263: *mut u8 = next;
+                                                                next = __v263.add(1);
                                                                 hold = hold.wrapping_add(
-                                                                    (*__v353 as c_ulong) << bits,
+                                                                    (*__v263 as c_ulong) << bits,
                                                                 );
                                                                 bits = bits.wrapping_add(8);
                                                                 if true {
-                                                                    continue '__loop_244;
+                                                                    continue '__loop_212;
                                                                 }
                                                             }
                                                         }
@@ -4326,7 +4082,7 @@ let __v324: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
                                                     (*strm).msg = c"header crc mismatch".as_ptr()
                                                         as *mut c_char;
                                                     (*state).mode = 16209;
-                                                    continue '__loop_352;
+                                                    continue '__loop_319;
                                                 } else {
                                                     INITBITS!(hold, bits);
                                                 }
@@ -4341,47 +4097,41 @@ let __v324: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
                                             unix,
                                             not(feature = "no-gzip")
                                         ))]
-                                        let __v346: u64 =
+                                        let __v256: u64 =
                                             crc32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
                                         #[cfg(all(
                                             any(target_pointer_width = "32", windows),
                                             not(feature = "no-gzip")
                                         ))]
-                                        let __v346: u32 =
+                                        let __v256: u32 =
                                             crc32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
                                         #[cfg(not(feature = "no-gzip"))]
                                         {
-                                            (*state).check = __v346;
-                                            (*strm).adler = __v346;
+                                            (*state).check = __v256;
+                                            (*strm).adler = __v256;
                                             (*state).mode = 16191;
                                         }
                                         #[cfg(feature = "no-gzip")]
                                         {
                                             if (*state).last != 0 {
-                                                loop {
-                                                    hold >>= bits & 7;
-                                                    bits = bits.wrapping_sub(bits & 7);
-                                                    if true {
-                                                        break;
-                                                    }
-                                                }
+                                                BYTEBITS!(hold, bits);
                                                 (*state).mode = 16206;
                                             } else {
-                                                '__loop_14: loop {
+                                                '__loop_181: loop {
                                                     if bits < 3 {
                                                         loop {
                                                             if have == 0 {
-                                                                break '__join_10;
+                                                                break '__join_7;
                                                             } else {
                                                                 have = have.wrapping_sub(1);
-                                                                let __v317: *mut u8 = next;
-                                                                next = __v317.add(1);
+                                                                let __v22: *mut u8 = next;
+                                                                next = __v22.add(1);
                                                                 hold = hold.wrapping_add(
-                                                                    (*__v317 as c_ulong) << bits,
+                                                                    (*__v22 as c_ulong) << bits,
                                                                 );
                                                                 bits = bits.wrapping_add(8);
                                                                 if true {
-                                                                    continue '__loop_14;
+                                                                    continue '__loop_181;
                                                                 }
                                                             }
                                                         }
@@ -4392,15 +4142,9 @@ let __v324: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
                                                     }
                                                 }
                                                 (*state).last = BITS!(1i32, hold) as i32;
-                                                loop {
-                                                    hold >>= 1i32;
-                                                    bits = bits.wrapping_sub(1);
-                                                    if true {
-                                                        break;
-                                                    }
-                                                }
-                                                let __t15: u32 = BITS!(2i32, hold);
-                                                if __t15 == 0 {
+                                                DROPBITS!(1i32, hold, bits);
+                                                let __t23: u32 = BITS!(2i32, hold);
+                                                if __t23 == 0 {
                                                     #[cfg(feature = "zlib-debug")]
                                                     {
                                                         Tracev__2!(
@@ -4417,7 +4161,7 @@ let __v324: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
                                                     }
                                                     (*state).mode = 16193;
                                                 } else {
-                                                    if __t15 == 1 {
+                                                    if __t23 == 1 {
                                                         inflate_fixed(state); // fixed block
                                                         #[cfg(feature = "zlib-debug")]
                                                         {
@@ -4426,10 +4170,10 @@ let __v324: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
                                                         (*state).mode = 16199;
                                                         // decode codes
                                                         if flush == 6 {
-                                                            break '__join_214;
+                                                            break '__join_185;
                                                         }
                                                     } else {
-                                                        if __t15 == 2 {
+                                                        if __t23 == 2 {
                                                             #[cfg(feature = "zlib-debug")]
                                                             {
                                                                 Tracev__2!(slate_support::stderr(), c"inflate:     dynamic codes block%s\n".as_ptr() as *mut c_char, if (*state).last != 0 { c" (last)".as_ptr() as *mut c_char } else { c"".as_ptr() as *mut c_char });
@@ -4443,20 +4187,14 @@ let __v324: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
                                                         }
                                                     }
                                                 }
-                                                loop {
-                                                    hold >>= 2i32;
-                                                    bits = bits.wrapping_sub(2);
-                                                    if true {
-                                                        continue '__loop_352;
-                                                    }
-                                                }
+                                                DROPBITS!(2i32, hold, bits);
                                             }
                                         }
                                     }
                                     return -2;
                                 }
                                 ret = -3;
-                                break '__join_10;
+                                break '__join_7;
                             }
                             INITBITS!(hold, bits);
                             #[cfg(all(not(feature = "no-gzip"), feature = "zlib-debug"))]
@@ -4478,15 +4216,9 @@ let __v324: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
                         // fallthrough
                     }
                     ret = 1;
-                    break '__join_10;
+                    break '__join_7;
                 }
-                loop {
-                    hold >>= 2i32;
-                    bits = bits.wrapping_sub(2);
-                    if true {
-                        break;
-                    }
-                }
+                DROPBITS!(2i32, hold, bits);
             }
             RESTORE!(strm, put, left, next, have, state, hold, bits);
             if (*state).wsize != 0
@@ -4507,41 +4239,35 @@ let __v324: u32 = adler32((0 as c_ulong), std::ptr::null::<u8>(), 0u32);
             r#in = r#in.wrapping_sub((*strm).avail_in);
             out = out.wrapping_sub((*strm).avail_out);
             #[cfg(all(target_pointer_width = "64", unix))]
-            let __v9: u64 = (*strm).total_in;
+            let __v8: u64 = (*strm).total_in;
             #[cfg(any(target_pointer_width = "32", windows))]
-            let __v9: u32 = (*strm).total_in;
-            (*strm).total_in = __v9.wrapping_add(r#in as c_ulong);
+            let __v8: u32 = (*strm).total_in;
+            (*strm).total_in = __v8.wrapping_add(r#in as c_ulong);
             #[cfg(all(target_pointer_width = "64", unix))]
-            let __v6: u64 = (*strm).total_out;
+            let __v5: u64 = (*strm).total_out;
             #[cfg(any(target_pointer_width = "32", windows))]
-            let __v6: u32 = (*strm).total_out;
-            (*strm).total_out = __v6.wrapping_add(out as c_ulong);
+            let __v5: u32 = (*strm).total_out;
+            (*strm).total_out = __v5.wrapping_add(out as c_ulong);
             #[cfg(all(target_pointer_width = "64", unix))]
-            let __v3: u64 = (*state).total;
+            let __v2: u64 = (*state).total;
             #[cfg(any(target_pointer_width = "32", windows))]
-            let __v3: u32 = (*state).total;
-            (*state).total = __v3.wrapping_add(out as c_ulong);
+            let __v2: u32 = (*state).total;
+            (*state).total = __v2.wrapping_add(out as c_ulong);
             if (*state).wrap & 4 != 0 && out != 0 {
-                #[cfg(not(feature = "no-gzip"))]
-                {
-                    if (*state).flags != 0 {
-                        __v1 = crc32(
-                            (*state).check,
-                            unsafe { (*strm).next_out }.sub(out as usize) as *const u8,
-                            out,
-                        );
-                    } else {
-                        __v1 = adler32(
-                            (*state).check,
-                            unsafe { (*strm).next_out }.sub(out as usize) as *const u8,
-                            out,
-                        );
-                    }
-                }
                 #[cfg(all(target_pointer_width = "64", unix, not(feature = "no-gzip")))]
-                let __v0: u64 = __v1 as c_ulong;
+                let __v0: u64 = UPDATE_CHECK__3!(
+                    unsafe { (*state).check },
+                    unsafe { (*strm).next_out }.sub(out as usize),
+                    out,
+                    state
+                );
                 #[cfg(all(any(target_pointer_width = "32", windows), not(feature = "no-gzip")))]
-                let __v0: u32 = __v1 as c_ulong;
+                let __v0: u32 = UPDATE_CHECK__2!(
+                    unsafe { (*state).check },
+                    unsafe { (*strm).next_out }.sub(out as usize),
+                    out,
+                    state
+                );
                 #[cfg(all(target_pointer_width = "64", unix, feature = "no-gzip"))]
                 let __v0: u64 = UPDATE_CHECK!(
                     unsafe { (*state).check },

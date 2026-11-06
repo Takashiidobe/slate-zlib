@@ -6633,30 +6633,15 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
         }) != 0
         {
             let _ = std::io::Write::flush(&mut std::io::stdout());
-            #[cfg(unix)]
-            {
-                unsafe {
-                    slate_support::fprintf(
-                        slate_support::stderr(),
-                        c" start %u, match %d, length %d\n".as_ptr(),
-                        start,
-                        r#match as i32,
-                        length,
-                    )
-                };
-            }
-            #[cfg(windows)]
-            {
-                unsafe {
-                    slate_support::fprintf(
-                        slate_support::stderr(),
-                        c" start %u, match %d, length %d\n".as_ptr(),
-                        start,
-                        r#match as i32,
-                        length,
-                    )
-                };
-            }
+            unsafe {
+                slate_support::fprintf(
+                    slate_support::stderr(),
+                    c" start %u, match %d, length %d\n".as_ptr(),
+                    start,
+                    r#match as i32,
+                    length,
+                )
+            };
             unsafe { fflush(std::ptr::null_mut()) };
             loop {
                 let __v3: *mut u8 = back;
@@ -6664,28 +6649,14 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
                 let __v4: *mut u8 = here;
                 here = unsafe { __v4.add(1) };
                 let _ = std::io::Write::flush(&mut std::io::stdout());
-                #[cfg(unix)]
-                {
-                    unsafe {
-                        slate_support::fprintf(
-                            slate_support::stderr(),
-                            c"(%02x %02x)".as_ptr(),
-                            (*__v3 as u32) as i32,
-                            (*__v4 as u32) as i32,
-                        )
-                    };
-                }
-                #[cfg(windows)]
-                {
-                    unsafe {
-                        slate_support::fprintf(
-                            slate_support::stderr(),
-                            c"(%02x %02x)".as_ptr(),
-                            (*__v3 as u32) as i32,
-                            (*__v4 as u32) as i32,
-                        )
-                    };
-                }
+                unsafe {
+                    slate_support::fprintf(
+                        slate_support::stderr(),
+                        c"(%02x %02x)".as_ptr(),
+                        (*__v3 as u32) as i32,
+                        (*__v4 as u32) as i32,
+                    )
+                };
                 unsafe { fflush(std::ptr::null_mut()) };
                 let __v5: u32 = len.wrapping_sub(1);
                 len = __v5;
@@ -6819,28 +6790,14 @@ fn check_match(s: *mut internal_state, mut start: u32, r#match: u32, mut length:
     }
     if (unsafe { z_verbose }) > 1 {
         let _ = std::io::Write::flush(&mut std::io::stdout());
-        #[cfg(unix)]
-        {
-            unsafe {
-                slate_support::fprintf(
-                    slate_support::stderr(),
-                    c"\\[%d,%d]".as_ptr(),
-                    start.wrapping_sub(r#match),
-                    length,
-                )
-            };
-        }
-        #[cfg(windows)]
-        {
-            unsafe {
-                slate_support::fprintf(
-                    slate_support::stderr(),
-                    c"\\[%d,%d]".as_ptr(),
-                    start.wrapping_sub(r#match),
-                    length,
-                )
-            };
-        }
+        unsafe {
+            slate_support::fprintf(
+                slate_support::stderr(),
+                c"\\[%d,%d]".as_ptr(),
+                start.wrapping_sub(r#match),
+                length,
+            )
+        };
         unsafe { fflush(std::ptr::null_mut()) };
         loop {
             #[cfg(not(target_os = "freebsd"))]

@@ -20,28 +20,7 @@ macro_rules! Tracecv {
     };
 }
 
-#[cfg(all(unix, feature = "zlib-debug"))]
-macro_rules! Tracecv__2 {
-    ($c:expr, $x__0:expr, $x__1:expr, $x__2:expr, $x__3:expr, $x__4:expr, $x__5:expr, $x__6:expr) => {
-        if (unsafe { z_verbose }) > 1 && $c {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe {
-                slate_support::fprintf(
-                    $x__0,
-                    ($x__1) as *const c_char,
-                    $x__2,
-                    $x__3,
-                    $x__4,
-                    (($x__5) as u32) as i32,
-                    $x__6,
-                )
-            };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
-#[cfg(all(windows, feature = "zlib-debug"))]
+#[cfg(feature = "zlib-debug")]
 macro_rules! Tracecv__2 {
     ($c:expr, $x__0:expr, $x__1:expr, $x__2:expr, $x__3:expr, $x__4:expr, $x__5:expr, $x__6:expr) => {
         if (unsafe { z_verbose }) > 1 && $c {
@@ -63,7 +42,7 @@ macro_rules! Tracecv__2 {
 }
 
 #[cfg(all(
-    any(target_os = "freebsd", target_os = "android"),
+    not(any(target_os = "linux", target_os = "macos")),
     feature = "zlib-debug"
 ))]
 macro_rules! Tracecv__3 {
@@ -77,19 +56,7 @@ macro_rules! Tracecv__3 {
     };
 }
 
-#[cfg(all(windows, feature = "zlib-debug"))]
-macro_rules! Tracecv__3 {
-    ($c:expr, $x__0:expr, $x__1:expr, $x__2:expr) => {
-        let __v: bool = (unsafe { z_verbose }) > 1 && ($c) != 0;
-        if __v {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char, $x__2) };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
-#[cfg(all(unix, feature = "zlib-debug"))]
+#[cfg(feature = "zlib-debug")]
 macro_rules! Tracev__4 {
     ($x__0:expr, $x__1:expr, $x__2:expr, $x__3:expr, $x__4:expr, $x__5:expr, $x__6:expr, $x__7:expr) => {
         if (unsafe { z_verbose }) > 0 {
@@ -111,29 +78,7 @@ macro_rules! Tracev__4 {
     };
 }
 
-#[cfg(all(windows, feature = "zlib-debug"))]
-macro_rules! Tracev__4 {
-    ($x__0:expr, $x__1:expr, $x__2:expr, $x__3:expr, $x__4:expr, $x__5:expr, $x__6:expr, $x__7:expr) => {
-        if (unsafe { z_verbose }) > 0 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe {
-                slate_support::fprintf(
-                    $x__0,
-                    ($x__1) as *const c_char,
-                    $x__2,
-                    $x__3,
-                    $x__4,
-                    $x__5,
-                    $x__6,
-                    $x__7,
-                )
-            };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
-#[cfg(all(unix, feature = "zlib-debug"))]
+#[cfg(feature = "zlib-debug")]
 macro_rules! Tracev__3 {
     ($x__0:expr, $x__1:expr, $x__2:expr, $x__3:expr) => {
         if (unsafe { z_verbose }) > 0 {
@@ -144,18 +89,7 @@ macro_rules! Tracev__3 {
     };
 }
 
-#[cfg(all(windows, feature = "zlib-debug"))]
-macro_rules! Tracev__3 {
-    ($x__0:expr, $x__1:expr, $x__2:expr, $x__3:expr) => {
-        if (unsafe { z_verbose }) > 0 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char, $x__2, $x__3) };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
-#[cfg(all(unix, feature = "zlib-debug"))]
+#[cfg(feature = "zlib-debug")]
 macro_rules! Tracev__5 {
     ($x__0:expr, $x__1:expr, $x__2:expr) => {
         if (unsafe { z_verbose }) > 0 {
@@ -168,20 +102,7 @@ macro_rules! Tracev__5 {
     };
 }
 
-#[cfg(all(windows, feature = "zlib-debug"))]
-macro_rules! Tracev__5 {
-    ($x__0:expr, $x__1:expr, $x__2:expr) => {
-        if (unsafe { z_verbose }) > 0 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe {
-                slate_support::fprintf($x__0, ($x__1) as *const c_char, (($x__2) as u32) as i32)
-            };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
-#[cfg(all(unix, feature = "zlib-debug"))]
+#[cfg(feature = "zlib-debug")]
 macro_rules! Tracev__6 {
     ($x__0:expr, $x__1:expr, $x__2:expr, $x__3:expr, $x__4:expr) => {
         if (unsafe { z_verbose }) > 0 {
@@ -200,37 +121,7 @@ macro_rules! Tracev__6 {
     };
 }
 
-#[cfg(all(windows, feature = "zlib-debug"))]
-macro_rules! Tracev__6 {
-    ($x__0:expr, $x__1:expr, $x__2:expr, $x__3:expr, $x__4:expr) => {
-        if (unsafe { z_verbose }) > 0 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe {
-                slate_support::fprintf(
-                    $x__0,
-                    ($x__1) as *const c_char,
-                    $x__2,
-                    (($x__3) as u32) as i32,
-                    $x__4,
-                )
-            };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
-#[cfg(all(unix, feature = "zlib-debug"))]
-macro_rules! Tracevv__4 {
-    ($x__0:expr, $x__1:expr, $x__2:expr, $x__3:expr) => {
-        if (unsafe { z_verbose }) > 1 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf($x__0, ($x__1) as *const c_char, $x__2, $x__3) };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-    };
-}
-
-#[cfg(all(windows, feature = "zlib-debug"))]
+#[cfg(feature = "zlib-debug")]
 macro_rules! Tracevv__4 {
     ($x__0:expr, $x__1:expr, $x__2:expr, $x__3:expr) => {
         if (unsafe { z_verbose }) > 1 {
@@ -274,7 +165,7 @@ macro_rules! put_short {
     };
 }
 
-#[cfg(all(unix, feature = "zlib-debug"))]
+#[cfg(feature = "zlib-debug")]
 macro_rules! send_code__3 {
     ($s:expr, $c:expr, $tree:expr) => {
         if (unsafe { z_verbose }) > 2 {
@@ -290,23 +181,7 @@ macro_rules! send_code__3 {
     };
 }
 
-#[cfg(all(windows, feature = "zlib-debug"))]
-macro_rules! send_code__3 {
-    ($s:expr, $c:expr, $tree:expr) => {
-        if (unsafe { z_verbose }) > 2 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf(slate_support::stderr(), c"\ncd %3d ".as_ptr(), $c) };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-        send_bits(
-            $s,
-            ((unsafe { (*$tree.offset(($c) as isize)).fc.code }) as u32) as i32,
-            ((unsafe { (*$tree.offset(($c) as isize)).dl.len }) as u32) as i32,
-        );
-    };
-}
-
-#[cfg(all(unix, feature = "zlib-debug"))]
+#[cfg(feature = "zlib-debug")]
 macro_rules! send_code {
     ($s:expr, $c:expr, $tree:expr) => {
         if (unsafe { z_verbose }) > 2 {
@@ -330,47 +205,7 @@ macro_rules! send_code {
     };
 }
 
-#[cfg(all(windows, feature = "zlib-debug"))]
-macro_rules! send_code {
-    ($s:expr, $c:expr, $tree:expr) => {
-        if (unsafe { z_verbose }) > 2 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf(slate_support::stderr(), c"\ncd %3d ".as_ptr(), $c) };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-        send_bits(
-            $s,
-            ((unsafe {
-                (*($tree.as_mut_ptr() as *mut ct_data_s).offset(($c) as isize))
-                    .fc
-                    .code
-            }) as u32) as i32,
-            ((unsafe {
-                (*($tree.as_mut_ptr() as *mut ct_data_s).offset(($c) as isize))
-                    .dl
-                    .len
-            }) as u32) as i32,
-        );
-    };
-}
-
-#[cfg(all(unix, feature = "zlib-debug"))]
-macro_rules! send_code__6 {
-    ($s:expr, $c:expr, $tree:expr) => {
-        if (unsafe { z_verbose }) > 2 {
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            unsafe { slate_support::fprintf(slate_support::stderr(), c"\ncd %3d ".as_ptr(), $c) };
-            unsafe { fflush(std::ptr::null_mut()) };
-        }
-        send_bits(
-            $s,
-            ((unsafe { $tree[($c) as usize].fc.code }) as u32) as i32,
-            ((unsafe { $tree[($c) as usize].dl.len }) as u32) as i32,
-        );
-    };
-}
-
-#[cfg(all(windows, feature = "zlib-debug"))]
+#[cfg(feature = "zlib-debug")]
 macro_rules! send_code__6 {
     ($s:expr, $c:expr, $tree:expr) => {
         if (unsafe { z_verbose }) > 2 {

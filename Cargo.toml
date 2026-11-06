@@ -8,7 +8,7 @@ autobins = false
 [lib]
 path = "src/lib.rs"
 doctest = false
-crate-type = ["staticlib"]
+crate-type = ["rlib"]
 
 [workspace]
 

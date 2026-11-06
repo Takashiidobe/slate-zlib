@@ -354,7 +354,7 @@ unit crc32: 56 items, 31 gated, 2 duplicated functions
   hoisted fn:crc32_combine: 2 variants
   spliced fn:crc_word_big: 2 variants
   spliced fn:crc32_z: 4 variants
-unit deflate: 155 items, 74 gated, 1 duplicated functions
+unit deflate: 153 items, 72 gated, 1 duplicated functions
   duplicated fn:longest_match: 12 variants
   spliced record:internal_state: 4 variants
   spliced fn:slide_hash: 2 variants
@@ -373,7 +373,7 @@ unit deflate: 155 items, 74 gated, 1 duplicated functions
   spliced fn:flush_pending: 5 variants
   spliced fn:deflate: 11 variants
   spliced fn:deflateCopy: 10 variants
-  spliced fn:check_match: 7 variants
+  spliced fn:check_match: 6 variants
   spliced fn:deflate_stored: 12 variants
   spliced fn:deflate_fast: 24 variants
   spliced fn:deflate_slow: 12 variants
@@ -428,7 +428,7 @@ unit gzwrite: 73 items, 45 gated, 0 duplicated functions
   spliced fn:gzvprintf: 9 variants
   spliced fn:gzprintf: 5 variants
   spliced fn:gzclose_w: 4 variants
-unit inflate: 87 items, 31 gated, 0 duplicated functions
+unit inflate: 86 items, 27 gated, 0 duplicated functions
   spliced record:inflate_state: 2 variants
   spliced fn:inflateResetKeep: 2 variants
   spliced fn:inflateReset2: 2 variants
@@ -443,7 +443,7 @@ unit inflate: 87 items, 31 gated, 0 duplicated functions
   spliced fn:inflateUndermine: 2 variants
   spliced fn:inflateMark: 2 variants
   spliced fn:inflateCodesUsed: 3 variants
-unit infback: 53 items, 19 gated, 0 duplicated functions
+unit infback: 51 items, 14 gated, 0 duplicated functions
   spliced record:inflate_state: 2 variants
   spliced fn:inflateBackInit_: 10 variants
   spliced fn:inflateBack: 20 variants
@@ -451,10 +451,10 @@ unit infback: 53 items, 19 gated, 0 duplicated functions
 unit inftrees: 22 items, 5 gated, 0 duplicated functions
   spliced record:inflate_state: 2 variants
   spliced fn:inflate_table: 6 variants
-unit inffast: 19 items, 9 gated, 0 duplicated functions
+unit inffast: 16 items, 6 gated, 0 duplicated functions
   spliced record:inflate_state: 2 variants
   spliced fn:inflate_fast: 24 variants
-unit trees: 114 items, 49 gated, 1 duplicated functions
+unit trees: 102 items, 37 gated, 1 duplicated functions
   duplicated fn:tr_static_init: 2 variants
   spliced record:internal_state: 4 variants
   spliced fn:bi_windup: 2 variants
@@ -473,17 +473,16 @@ unit uncompr: 17 items, 3 gated, 0 duplicated functions
   spliced fn:uncompress2_z: 3 variants
 unit zutil: 36 items, 16 gated, 0 duplicated functions
   spliced fn:zlibCompileFlags: 128 variants
-  spliced fn:z_error: 4 variants
+  spliced fn:z_error: 2 variants
   spliced fn:zcalloc: 7 variants
   spliced fn:zcfree: 4 variants
-macros: 58 function-like, 51 lifted at least once (expansions counted per distinct compile)
+macros: 58 function-like, 53 lifted at least once (expansions counted per distinct compile)
   inline control_transfer: 20544
-  inline local_in_dispatch_function: 13632
   inline empty_expansion: 10816
   inline split_argument: 640
   macro Assert: 1856 lifted, inline: empty_expansion 1792
   macro BITS: 10752 lifted, inline: 
-  macro BYTEBITS: 0 lifted, inline: local_in_dispatch_function 1152
+  macro BYTEBITS: 1152 lifted, inline: 
   macro CLEAR_HASH: 1024 lifted, inline: 
   macro CRC2: 1024 lifted, inline: 
   macro CRC4: 256 lifted, inline: 
@@ -492,7 +491,7 @@ macros: 58 function-like, 51 lifted at least once (expansions counted per distin
   macro DO2: 512 lifted, inline: 
   macro DO4: 256 lifted, inline: 
   macro DO8: 128 lifted, inline: 
-  macro DROPBITS: 0 lifted, inline: local_in_dispatch_function 11968
+  macro DROPBITS: 11968 lifted, inline: 
   macro ERR_MSG: 2304 lifted, inline: 
   macro ERR_RETURN: 1024 lifted, inline: 
   macro FLUSH_BLOCK: 2688 lifted, inline: 
@@ -518,7 +517,7 @@ macros: 58 function-like, 51 lifted at least once (expansions counted per distin
   macro Tracecv: 128 lifted, inline: empty_expansion 128
   macro Tracev: 6272 lifted, inline: empty_expansion 6272
   macro Tracevv: 2240 lifted, inline: empty_expansion 2176
-  macro UPDATE_CHECK: 512 lifted, inline: local_in_dispatch_function 512
+  macro UPDATE_CHECK: 1024 lifted, inline: 
   macro UPDATE_HASH: 1664 lifted, inline: 
   macro ZALLOC: 4672 lifted, inline: 
   macro ZFREE: 3904 lifted, inline: 
@@ -539,4 +538,5 @@ macros: 58 function-like, 51 lifted at least once (expansions counted per distin
   macro smaller: 256 lifted, inline: 
   macro zmemzero: 3072 lifted, inline: 
   macro zstrerror: 96 lifted, inline: 
+projection: 1024 checked, 0 not translatable, 0 mismatches
 signatures: 592 shared symbols, 0 mismatches

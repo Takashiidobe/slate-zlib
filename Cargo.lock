@@ -143,6 +143,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3bda4c6077b0b08da2c48b172195795498381a7c8988c9e6212a6c55c5b9bd70"
 
 [[package]]
+name = "mach2"
+version = "0.7.0"
+
+[[package]]
 name = "num-complex"
 version = "0.4.6"
 dependencies = [
@@ -305,6 +309,8 @@ name = "slate-support"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "mach2",
+ "windows-sys",
 ]
 
 [[package]]
@@ -412,3 +418,14 @@ name = "unicode-xid"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
+
+[[package]]
+name = "windows-link"
+version = "0.2.1"
+
+[[package]]
+name = "windows-sys"
+version = "0.61.2"
+dependencies = [
+ "windows-link",
+]
