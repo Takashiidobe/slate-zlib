@@ -17,7 +17,7 @@ slate-support = { path = "slate-support" }
 aligned = { path = "aligned" }
 bitint = { path = "bitint" }
 num-complex = { path = "num-complex", default-features = false }
-bitfields = { path = "/home/takashi/Projects/slate/crates/slate/vendor/bitfields" }
+bitfields = { path = "bitfields" }
 
 [profile.dev]
 overflow-checks = false
